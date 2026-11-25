@@ -118,6 +118,8 @@ const statusContainer = codex
     : undefined
 const statusSocket = '/tmp/bench-status/status.sock'
 const catalogSocket = '/tmp/bench-status/catalog.sock'
+// Claude's catalogue runs in a container with no network of its own; Codex's in its management one.
+const catalogContainer = codex ? statusContainer : subscription ? 'bench-claude-catalog' : undefined
 const statusPump = `
   // Before the socket opens, it ends by itself when the relay closes its input or in 10 s.
   const starting = setTimeout(() => process.exit(1), 10000)
@@ -146,7 +148,7 @@ function waitFor(ms, value, signal) {
 }
 
 /** Starts the pump in the management container; resolves once it reports its socket open. */
-async function openStatusPeer(socketPath) {
+async function openStatusPeer(container, socketPath) {
   const peer = spawn(
     'limactl',
     [
@@ -157,7 +159,7 @@ async function openStatusPeer(socketPath) {
       'docker',
       'exec',
       '-i',
-      statusContainer,
+      container,
       'node',
       '-e',
       statusPump,
@@ -190,8 +192,8 @@ async function openStatusPeer(socketPath) {
 }
 
 /** Carries one connection until either end closes; false when it couldn't be opened. */
-async function carryStatusOnce(socketPath) {
-  const opened = await openStatusPeer(socketPath)
+async function carryStatusOnce(container, socketPath) {
+  const opened = await openStatusPeer(container, socketPath)
   if (!opened) {
     return false
   }
@@ -226,11 +228,11 @@ async function carryStatusOnce(socketPath) {
 }
 
 /** Keeps one connection from the credential service's socket to the coordinator. */
-async function carryStatus(socketPath) {
+async function carryStatus(container, socketPath) {
   let retryMs = 500
   while (!stopping.signal.aborted) {
     // A status or catalogue failure never ends the relay: turns keep running while it retries.
-    const carried = await carryStatusOnce(socketPath).catch(() => false)
+    const carried = await carryStatusOnce(container, socketPath).catch(() => false)
     if (carried) {
       retryMs = 500
     } else {
@@ -242,8 +244,8 @@ async function carryStatus(socketPath) {
 // Each on its own connection, so a catalogue read of many seconds never holds a status read.
 const status = statusContainer
   ? Promise.all([
-      carryStatus(statusSocket).catch(() => {}),
-      carryStatus(catalogSocket).catch(() => {}),
+      carryStatus(statusContainer, statusSocket).catch(() => {}),
+      carryStatus(catalogContainer, catalogSocket).catch(() => {}),
     ])
   : undefined
 for (;;) {

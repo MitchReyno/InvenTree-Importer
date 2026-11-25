@@ -202,17 +202,45 @@ async function fetchJson(
     await response.body?.cancel()
     throw new CatalogReadError('unavailable')
   }
-  const text = await response.text().catch(() => {
-    throw new CatalogReadError(signal.aborted ? 'timeout' : 'unavailable')
-  })
-  if (Buffer.byteLength(text) > MAX_MODELS_API_BYTES) {
-    throw new CatalogReadError('malformed')
-  }
+  const text = await boundedText(response, signal)
   try {
     return JSON.parse(text) as unknown
   } catch {
     throw new CatalogReadError('malformed')
   }
+}
+
+/**
+ * Reads the body while counting its bytes, and cancels it at `MAX_MODELS_API_BYTES`, so an
+ * oversized reply is refused before it is held in memory.
+ */
+async function boundedText(response: Response, signal: AbortSignal) {
+  const reader = response.body?.getReader()
+  if (!reader) {
+    return ''
+  }
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+      size += value.byteLength
+      if (size > MAX_MODELS_API_BYTES) {
+        await reader.cancel().catch(() => undefined)
+        throw new CatalogReadError('malformed')
+      }
+      chunks.push(value)
+    }
+  } catch (error) {
+    if (error instanceof CatalogReadError) {
+      throw error
+    }
+    throw new CatalogReadError(signal.aborted ? 'timeout' : 'unavailable')
+  }
+  return Buffer.concat(chunks).toString('utf8')
 }
 
 /** A models API page is a few hundred bytes per model; anything this large is refused. */
@@ -303,10 +331,30 @@ export function hostCodexApiReader(
 }
 
 /**
- * The reader for each key under a worker's profile. Shared-VM profiles read subscriptions in the
- * guest; their API-key routes have no key in the guest (no relay passes one), so they keep the
- * built-in list. Host profiles read with the host CLI or, for API keys, the models APIs with the
- * key the worker holds. The synthetic profile reads nothing.
+ * Where a profile reads a sign-in mode's list: in the guest, on the host, or nowhere, which keeps
+ * the built-in list. Shared-VM profiles (and the synthetic profile when it has a bridge) read
+ * subscriptions in the guest; their API-key modes have no key there, since no relay passes one.
+ * Host profiles read every mode. The API answers the built-in list for a mode with no route, so
+ * a list stored under another profile is never served.
+ */
+export function catalogRoute(
+  profileId: string | undefined,
+  authentication: CatalogAuthentication,
+): 'guest' | 'host' | undefined {
+  const guestProfile =
+    profileId === 'shared-vm-agent/1' ||
+    profileId === 'shared-vm-agent/3' ||
+    profileId === 'synthetic-session/1'
+  if (guestProfile) {
+    return authentication === 'subscription' ? 'guest' : undefined
+  }
+  return profileId === 'native-agent/2' ? 'host' : undefined
+}
+
+/**
+ * The reader for each key under a worker's profile (`catalogRoute`). Host profiles read
+ * subscriptions with the host CLI and API keys with the models APIs and the worker's own keys; a
+ * guest route needs the paired bridge.
  */
 export function profileCatalogReaders(options: {
   profileId: string
@@ -323,13 +371,11 @@ export function profileCatalogReaders(options: {
 
   const key = (name: string) => () => host.env[name]
 
-  const vmProfile =
-    options.profileId === 'shared-vm-agent/1' || options.profileId === 'shared-vm-agent/3'
   const readers = new Map<string, CatalogReader>()
-  if (guest && (vmProfile || options.profileId === 'synthetic-session/1')) {
+  if (guest && catalogRoute(options.profileId, 'subscription') === 'guest') {
     readers.set('claude:subscription', guestReader(guest, 'claude'))
     readers.set('codex:subscription', guestReader(guest, 'codex'))
-  } else if (options.profileId === 'native-agent/2') {
+  } else if (catalogRoute(options.profileId, 'subscription') === 'host') {
     readers.set('claude:subscription', hostClaudeSubscriptionReader(host))
     readers.set('codex:subscription', hostCodexSubscriptionReader(host))
     readers.set('claude:api_key', hostClaudeApiReader(secret, key('ANTHROPIC_API_KEY'), fetcher))

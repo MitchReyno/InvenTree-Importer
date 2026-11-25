@@ -10,7 +10,7 @@ import {
 } from '@invimport/contracts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { readAgentSettings } from '#/agents/settings.ts'
-import type { CatalogAuthentication, CatalogProvider } from './readers.ts'
+import { catalogRoute, type CatalogAuthentication, type CatalogProvider } from './readers.ts'
 import { readCatalogRows, requestCatalogRefresh, type CatalogRow } from './store.ts'
 
 function iso(time: Date | null) {
@@ -74,10 +74,12 @@ export async function readModelCatalog(
 
   const forProvider = (provider: CatalogProvider) => {
     const authentication = settings.providers[provider].authentication
+    // A mode this profile can't read keeps the built-in list, whatever an earlier profile stored.
+    const routed = catalogRoute(config.profileId, authentication) !== undefined
     const row = rows.find(
       (candidate) => candidate.provider === provider && candidate.authentication === authentication,
     )
-    return providerCatalog(provider, authentication, row)
+    return providerCatalog(provider, authentication, routed ? row : undefined)
   }
 
   return { claude: forProvider('claude'), codex: forProvider('codex') }

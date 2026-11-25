@@ -106,3 +106,34 @@ test('a sign-in change waits for a running catalogue read to stop and reap', asy
   assert.ok(events.indexOf('shared closed') < events.indexOf('exclusive open'))
   assert.notEqual(await account.signInGeneration(), 'unrecorded')
 })
+
+test('the sign-in generation moves before the account does, so an interrupted change never keeps it', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'codex-catalog-order-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  let account: CodexAccount
+  let atLogout: string | undefined
+  const base = recordingRpc([])
+  account = new CodexAccount(root, (rootPath, home, exclusive) => {
+    const rpc = base(rootPath, home, exclusive)
+    return {
+      ...rpc,
+      async request(method: string) {
+        if (method === 'account/logout') {
+          atLogout = await account.signInGeneration()
+        }
+        return rpc.request(method)
+      },
+    }
+  })
+  await account.action('start')
+  // The promotion's rename fails, as a stop between the two steps would leave it.
+  await mkdir(join(root, 'account', 'in-the-way'), { recursive: true })
+  const before = await account.signInGeneration()
+  await assert.rejects(account.action('status', id))
+  const afterFailedPromotion = await account.signInGeneration()
+  assert.notEqual(afterFailedPromotion, before)
+
+  await account.action('disconnect')
+  assert.ok(atLogout)
+  assert.notEqual(atLogout, afterFailedPromotion)
+})

@@ -418,7 +418,10 @@ export class CodexAccount {
     }
   }
 
-  /** Written while the exclusive account lock is held, so no read under the shared lock sees half. */
+  /**
+   * Written while the exclusive account lock is held, before the account changes, so no read
+   * under the shared lock pairs a new account with the old generation.
+   */
   private async recordSignInChange() {
     const path = join(this.root, SIGN_IN_GENERATION_FILE)
     const staged = path + '.' + randomUUID()
@@ -543,8 +546,10 @@ export class CodexAccount {
           throw unavailable()
         }
         // Promote only the matching completed attempt, while its exclusive lock is held.
-        await rename(login.home, active)
+        // The generation moves first: a stop between the two leaves a spurious change, never a
+        // new account under the old generation.
         await this.recordSignInChange()
+        await rename(login.home, active)
         this.lastStatusLogin = login.device.loginId
         await this.abandon()
         return { state: 'connected' }
@@ -565,6 +570,7 @@ export class CodexAccount {
         await rpc.initialize()
         if (action === 'disconnect') {
           this.lastStatusLogin = undefined
+          await this.recordSignInChange()
           await rpc.request('account/logout', {})
           if (await rpc.connected()) {
             throw unavailable()
@@ -574,8 +580,10 @@ export class CodexAccount {
         if (connected || action === 'status') {
           return { state: connected ? 'connected' : 'disconnected' }
         }
+        if (action !== 'disconnect') {
+          await this.recordSignInChange()
+        }
         await rename(active, join(this.root, 'signed-out-' + randomUUID()))
-        await this.recordSignInChange()
       } finally {
         await rpc.close()
       }

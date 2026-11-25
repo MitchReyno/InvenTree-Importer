@@ -161,7 +161,12 @@ An attempt sealed with an effort (the agent settings save one per step and per p
 
 ### Model lists from the guest
 
-The session worker reads each signed-in provider's model list in the guest, without a turn, and serves it at `GET /api/v1/agents/models`. Each management container serves the read on a private catalogue socket beside its status socket, and the subscription relay carries a second connection for it, so a read of several seconds never holds a status read. Claude's read starts the pinned Claude CLI in the management container and sends only its `initialize` request, with the saved token and the Anthropic-only egress a turn uses: offline, the pinned 2.1.319 answers only its built-in aliases, so the full list needs that egress. The provider script therefore mounts the Claude egress directory read-only into `bench-claude-management` and gives it a 64 MiB `/tmp`, 768 MiB and 128 processes for that CLI. Codex's read runs app-server `model/list` under the shared account lock turns take. Neither read sends a user message or starts a paid turn. The guest's API-key routes have no key, so those modes keep the built-in list.
+The session worker reads each signed-in provider's model list in the guest, without a turn, and serves it at `GET /api/v1/agents/models`. The read is served on a private catalogue socket, and the subscription relay carries a connection for it beside the status one, so a read of several seconds never holds a status read.
+
+- **Claude:** a third container, `bench-claude-catalog`, starts the pinned Claude CLI and sends only its `initialize` request, with the saved token. Like a turn container it has no network, only the Anthropic-only egress socket; it mounts the token store and the egress directory read-only, with the pairing identity, and has a 64 MiB `/tmp`, 512 MiB and 128 processes for the CLI. Offline, the pinned 2.1.319 answers only its built-in aliases, which the worker refuses, so the list needs that egress.
+- **Codex:** the management container runs app-server `model/list` under the shared account lock turns take, through its Codex egress, as its account checks do.
+
+Neither read sends a user message or starts a paid turn. The guest's API-key routes have no key, so those modes keep the built-in list.
 
 Refresh the runner image and rerun both provider scripts after updating the intake server; managed `pnpm dev` does both. Until then a provider's read fails as `guest_outdated` (an older image) or `unavailable` (containers not yet restarted on the new one), and Settings shows the last stored or built-in list.
 

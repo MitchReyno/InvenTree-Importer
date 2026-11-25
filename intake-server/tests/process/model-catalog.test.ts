@@ -14,7 +14,7 @@ import { pairing } from '#/agents/shared-vm/pair.ts'
 import { credentialStore } from '#/agents/shared-vm/claude-credential.ts'
 import { claudeStatusReader, startStatusService } from '#/agents/shared-vm/credential-status.ts'
 import { claudeCatalogReader, startCatalogService } from '#/agents/shared-vm/credential-catalog.ts'
-import type { GuestCatalogReader } from '#/agents/shared-vm/model-catalog.ts'
+import { CATALOG_PROTOCOL, type GuestCatalogReader } from '#/agents/shared-vm/model-catalog.ts'
 import { claudeCliModels } from '#/agents/model-catalog/normalise.ts'
 
 const relay = resolve(import.meta.dirname, '../../../tooling/deployment/bridge/relay.mjs')
@@ -83,7 +83,7 @@ async function topology(t: TestContext, mode: 'answer' | 'hang', delayMs = 0): P
     'claude',
     claudeCatalogReader(store, claudeCli, scratch),
     guestPair,
-    join(sockets, 'bench-claude-management.catalog.sock'),
+    join(sockets, 'bench-claude-catalog.catalog.sock'),
   )
   assert.ok(status && catalog)
   t.after(() => status.close())
@@ -240,6 +240,36 @@ test(
       kind: 'failure',
       failure: 'guest_outdated',
     })
+
+    // A catalogue peer that never answers: an already-ended request sends it nothing, and a
+    // live one gives up at its deadline and closes the connection.
+    const silent = connect({
+      ...(await pairing(join(root, 'bench-guest'))),
+      port,
+      host: '127.0.0.1',
+      servername: 'bench-coordinator',
+    })
+    t.after(() => silent.destroy())
+    await once(silent, 'secureConnect')
+    await new Frames(silent).send({ ready: CATALOG_PROTOCOL, provider: 'claude' })
+    let received = 0
+    silent.on('data', () => received++)
+    await delay(200)
+    assert.deepEqual(await bridge.modelCatalog('claude', 'read', AbortSignal.abort()), {
+      kind: 'failure',
+      failure: 'timeout',
+    })
+    await delay(100)
+    assert.equal(received, 0)
+    const asked = performance.now()
+    assert.deepEqual(await bridge.modelCatalog('claude', 'generation'), {
+      kind: 'failure',
+      failure: 'timeout',
+    })
+    assert.ok(performance.now() - asked < CATALOG_TIMING.generationMs + 500)
+    await delay(100)
+    assert.ok(received > 0)
+    assert.ok(silent.destroyed || silent.readableEnded)
 
     // A guest reader whose list exceeds the frame: the guest answers malformed, never a cut list.
     const huge: GuestCatalogReader = {

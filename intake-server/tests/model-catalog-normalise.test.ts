@@ -59,13 +59,9 @@ test('Claude Code 2.1.319: aliases fold into the exact models, 4.x sit in Older'
   )
 })
 
-test('a reply with no network lists the aliases resolved to their models', () => {
-  const models = claudeCliModels(claudeOffline.models)
-  assert.deepEqual(
-    models.map((model) => model.id),
-    ['claude-sonnet-5-5', 'claude-fable-5-1', 'claude-opus-5-5', 'claude-haiku-5-5'],
-  )
-  assert.equal(models[0].default, true)
+test("the CLI's offline alias list is refused, so the last good list stays", () => {
+  // With the network refused, 2.1.319 answers only its built-in aliases, none by exact ID.
+  refusedAs(() => claudeCliModels(claudeOffline.models), 'unavailable')
 })
 
 test('IDs the model ID check refuses fold into their resolved model or are left out', () => {

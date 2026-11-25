@@ -187,7 +187,7 @@ class OperatorKey(unittest.TestCase):
 
     def test_provisioning_replaces_only_its_own_containers_and_keeps_state(self):
         for provider, own, kept in (
-            ("claude", "bench-claude-egress bench-claude-management", "claude-store"),
+            ("claude", "bench-claude-egress bench-claude-management bench-claude-catalog", "claude-store"),
             ("codex", "bench-codex-egress bench-codex-management", "codex-state"),
         ):
             with self.subTest(provider):
@@ -222,6 +222,22 @@ class OperatorKey(unittest.TestCase):
         self.assertEqual(result.returncode, 3)
         self.assertFalse(self.key_file.exists())
         self.assertFalse(self.guest_key.exists())
+
+    def test_the_claude_catalogue_has_no_network_and_reads_the_store_only(self):
+        # Its CLI holds the token, so like a turn it reaches only the Anthropic-only egress socket.
+        self.docker_log.write_text("")
+        result = self.provision("claude")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        runs = [call for call in self.docker_log.read_text().splitlines() if call.startswith("run ")]
+        catalog = [call for call in runs if "bench-claude-catalog" in call]
+        self.assertEqual(len(catalog), 1)
+        self.assertIn("--network=none", catalog[0])
+        self.assertNotIn(" -p ", catalog[0])
+        self.assertIn(f"type=bind,src={self.guest}/egress,dst=/run/egress,readonly", catalog[0])
+        self.assertIn(f"type=bind,src={self.guest}/claude-store,dst=/run/claude-store,readonly", catalog[0])
+        self.assertNotIn("/run/operator", catalog[0])
+        management = [call for call in runs if "bench-claude-management" in call]
+        self.assertNotIn("/run/egress", management[0])
 
     def test_only_the_management_containers_receive_the_pairing_identity(self):
         # The status-only endpoint authenticates as the paired guest; the egress services don't.

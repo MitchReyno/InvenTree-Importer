@@ -308,11 +308,20 @@ export async function startSessionBridge(
     const deadline = AbortSignal.timeout(budgetMs)
     const stopped = AbortSignal.any([deadline, closing.signal, ...(signal ? [signal] : [])])
     const endsAt = Date.now() + budgetMs
+    if (stopped.aborted) {
+      return { kind: 'failure', failure: 'timeout' }
+    }
     const peer = await catalogPeer(provider, stopped, endsAt)
     if (!peer) {
       return stopped.aborted ? { kind: 'failure', failure: 'timeout' } : absentCatalog(provider)
     }
     const [socket, frames] = peer
+    // A signal that ended while the peer was taken never fires its listener, so nothing is sent.
+    if (stopped.aborted) {
+      catalogPeers[provider].set(socket, frames)
+      catalogBorrowed[provider]--
+      return { kind: 'failure', failure: 'timeout' }
+    }
 
     const abandon = () => socket.destroy()
 

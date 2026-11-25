@@ -93,7 +93,7 @@
 - **Risks and decisions:** the pinned versions' reply shapes and where API keys live in the guest are confirmed at 3.1 before code. A mode with no route to its key keeps the built-in list.
 
 - [x] 3.1 Proof of fit, offline and with no paid call:
-  - [x] 3.1.1 capture the pinned Claude Code 2.1.319 `initialize` reply with a placeholder token and the network refused, and again through the guest's Anthropic-only egress in a local test VM with no token, to learn whether `models[]` needs the network; keep the reply as a test fixture with any account detail removed;
+  - [x] 3.1.1 capture the pinned Claude Code 2.1.319 `initialize` reply with a placeholder token and the network refused, and again through the guest's Anthropic-only egress in a local test VM with no token, to learn whether `models[]` needs the network; keep the reply as a test fixture with any account detail removed (the first capture answered it; the in-VM read moved to task 6, see `notes.md`);
   - [x] 3.1.2 generate Codex 0.166.0's app-server schema and confirm `model/list`'s fields and paging;
   - [x] 3.1.3 find where each shared-VM API-key route gets its key (`environment.ts` and the guest's turn environment), and record which modes keep the built-in list;
   - [x] 3.1.4 stop and ask Mitch if a pinned version lacks `models[]` effort levels or `model/list`.

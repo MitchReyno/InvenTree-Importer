@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { BUILT_IN_MODEL_CATALOG, type AgentCatalogModelDto } from '@invimport/contracts'
@@ -11,6 +12,7 @@ import { readModelCatalog, refreshModelCatalog } from '#/agents/model-catalog/ap
 import { CatalogReadError } from '#/agents/model-catalog/normalise.ts'
 import {
   apiKeyGeneration,
+  guestReader,
   hostClaudeApiReader,
   hostClaudeSubscriptionReader,
   type CatalogReader,
@@ -207,6 +209,40 @@ test('a failed read keeps the last list and records a fixed code; it is retried 
   await round(catalog)
   assert.equal(state.reads, 3)
   assert.equal((await readModelCatalog(fixture.api.pool, fixture.config)).claude.state, 'current')
+})
+
+test("the guest CLI's offline alias list fails the read and keeps the stored list", async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const recorded = (name: string) =>
+    (
+      JSON.parse(
+        readFileSync(new URL(`../fixtures/model-catalog/${name}`, import.meta.url), 'utf8'),
+      ) as { models: unknown }
+    ).models
+  let raw = recorded('claude-initialize-2.1.319.json')
+  const reader = guestReader(async (_provider, kind) => {
+    if (kind === 'generation') {
+      return { kind: 'generation', generation: 'rev-a' }
+    }
+    return { kind: 'read', read: { generation: 'rev-a', cliVersion: '2.1.319', raw } }
+  }, 'claude')
+  const time = clock()
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  assert.equal((await claudeRow(fixture))?.models?.length, 13)
+
+  // The guest's egress failed: the CLI answers its built-in aliases, none by exact ID.
+  raw = recorded('claude-initialize-offline-2.1.319.json')
+  time.advance(CATALOG_MAX_AGE_MS)
+  await round(catalog)
+  const answer = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(answer.claude.state, 'failed')
+  assert.equal(answer.claude.failure, 'unavailable')
+  assert.equal(answer.claude.models.length, 13)
+  assert.equal(answer.claude.read_at, '2026-11-25T22:12:00.000Z')
 })
 
 test('the API may only read the table and request a refresh, which can invalidate at once', async (t) => {
@@ -422,9 +458,22 @@ test('a mode with no route to its key keeps the built-in list and clears its req
     { provider: 'claude', authentication: 'api_key', enabled: true },
   ])
   t.after(() => catalog.close())
+  // A list a host profile stored for this scope before it moved to the shared VM.
+  await fixture.db.pool.query(
+    `INSERT INTO agent_model_catalog
+        (actor_id,target_id,target_context_id,provider,authentication,models,source,read_in,read_at)
+      VALUES ($1,$2,$3,'claude','api_key',$4::jsonb,'api','host',now())`,
+    [
+      fixture.config.actorId,
+      fixture.config.targetId,
+      fixture.config.targetContextId,
+      JSON.stringify([sonnet]),
+    ],
+  )
   await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
   await round(catalog)
   const answer = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.deepEqual(answer.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
   assert.equal(answer.claude.authentication, 'api_key')
   assert.equal(answer.claude.state, 'never_read')
   assert.equal(answer.claude.builtin, true)

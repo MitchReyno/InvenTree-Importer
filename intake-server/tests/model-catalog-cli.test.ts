@@ -10,6 +10,7 @@ import {
   readCodexCliModels,
 } from '#/agents/model-catalog/cli-readers.ts'
 import { CatalogReadError, claudeCliModels, codexModels } from '#/agents/model-catalog/normalise.ts'
+import { hostClaudeApiReader } from '#/agents/model-catalog/readers.ts'
 
 const fakeCli = resolve(import.meta.dirname, 'fixtures/model-catalog-cli.cjs')
 
@@ -59,4 +60,31 @@ test('a CLI that never answers is stopped and reaped when the read is abandoned'
   )
   const pid = (await frames(log)).find((frame) => 'started' in frame)?.pid as number
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
+})
+
+test('an oversized models API reply is refused while it streams, and its body cancelled', async () => {
+  let pulled = 0
+  let cancelled = false
+  const chunk = new Uint8Array(64 * 1024).fill(0x20)
+  const fetcher: typeof fetch = async () =>
+    new Response(
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulled++
+          controller.enqueue(chunk)
+        },
+        cancel() {
+          cancelled = true
+        },
+      }),
+      { status: 200 },
+    )
+  const reader = hostClaudeApiReader('secret', () => 'sk-ant-api-key', fetcher)
+  await assert.rejects(
+    reader.read(AbortSignal.timeout(10_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+  assert.ok(cancelled)
+  // About 1 MiB was read: 17 chunks of 64 KiB, not the endless stream.
+  assert.ok(pulled <= 20, `pulled ${pulled}`)
 })

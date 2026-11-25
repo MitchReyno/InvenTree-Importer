@@ -2,7 +2,7 @@
 
 ### Requirement: Model lists read without a provider turn
 
-For a shared-VM profile, the session worker SHALL read each signed-in provider's model list in the guest, from the pinned CLI with the credentials turns use, sending only the CLI's catalogue requests and no user message, or from the provider's models API with an API key, never with a subscription token. The read SHALL be bounded in time and size, and SHALL change no sign-in state.
+For a shared-VM profile, the session worker SHALL read each signed-in subscription's model list in the guest, from the pinned CLI with the credentials turns use, sending only the CLI's catalogue requests and no user message. An API-key mode SHALL keep the built-in list, since its key never reaches the guest. The read SHALL be bounded in time and size, and SHALL change no sign-in state.
 
 #### Scenario: Codex with a ChatGPT sign-in
 
@@ -20,7 +20,7 @@ For a shared-VM profile, the session worker SHALL read each signed-in provider's
 
 - **GIVEN** Claude set to an API key
 - **WHEN** the worker reads Claude's models
-- **THEN** the read calls Anthropic's models API with the key, and the subscription token is never sent there.
+- **THEN** on a host profile the read calls Anthropic's models API with the worker's key, and the subscription token is never sent there; in the shared VM, where no API key reaches the guest, no read runs and the built-in list is shown.
 
 #### Scenario: Guest without the catalogue read
 
