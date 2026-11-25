@@ -55,20 +55,13 @@ export function RecentActivity({ batchId, entries, failed = false }: Props) {
               <Body>
                 <span>
                   <strong>{headline.lead}</strong>
-                  {headline.rest && ` ${headline.rest}`}
-                  {headline.link && (
-                    <>
-                      {' '}
-                      {headline.joiner && `${headline.joiner} `}
-                      <ActivitySubject link={headline.link} item={item} batchId={batchId} />
-                    </>
-                  )}
-                  {headline.after && ` ${headline.after}`}
-                  {headline.also && (
-                    <>
-                      {' · '}
-                      <ActivitySubject link={headline.also} item={item} batchId={batchId} />
-                    </>
+                  {headline.parts.map((part, index) =>
+                    typeof part === 'string' ? (
+                      part
+                    ) : (
+                      // Parts never reorder, so their place is their identity.
+                      <ActivitySubject key={index} link={part.link} item={item} batchId={batchId} />
+                    ),
                   )}
                 </span>
                 {item.agent_note && <Note>Agent: {item.agent_note.text}</Note>}

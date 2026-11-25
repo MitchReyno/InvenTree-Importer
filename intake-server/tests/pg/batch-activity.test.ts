@@ -3,13 +3,8 @@ import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { validate, type BatchActivityDto, type SessionHistoryDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
-import {
-  leadSession,
-  lotSession,
-  nextSessionAttempt,
-  oneStepAsk,
-  seedPhoto,
-} from '../support/sessions.ts'
+import { leadSession, lotSession, oneStepAsk, seedPhoto } from '../support/sessions.ts'
+import { replaceSession } from '#/processing/session-replacement.ts'
 import { transaction } from '#/db/database.ts'
 import { issueSessionCapability } from '#/agents/tools/capability.ts'
 import { sessionTools } from '#/agents/tools/handlers.ts'
@@ -189,14 +184,34 @@ test('after a fresh attempt, the earlier attempt’s action stays with no agent 
     const before = await readActivity(fixture, capture.batch.id)
     assert.equal(before.entries[0].agent_note?.text, 'Reading the label')
 
-    // The fresh attempt has no status line yet; the first attempt's line is not carried over.
-    await nextSessionAttempt(fixture, capture, research, capture.packetA, 2, {
-      id: 'synthetic-session/1',
-    })
+    // Start fresh replaces a session that can't resume. The new attempt has no status line yet,
+    // and the first attempt's line is not carried over.
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='resume_unavailable' WHERE attempt_id=$1",
+      [research.attempt],
+    )
+    const job = await fixture.db.pool.query<{ revision: string }>(
+      'SELECT revision::text FROM processing_job WHERE id=$1',
+      [research.job],
+    )
+    const batch = (await fixture.http(`/batches/${capture.batch.id}`)).value as { revision: string }
+    const receipt = await replaceSession(
+      fixture.api.pool,
+      fixture.config,
+      capture.batch.id,
+      research.job,
+      randomUUID(),
+      {
+        expected_capture_revision: batch.revision,
+        expected_revision: job.rows[0].revision,
+        attempt_id: research.attempt,
+      },
+    )
+    assert.ok(receipt)
     const after = await readActivity(fixture, capture.batch.id)
     assert.deepEqual(
-      after.entries.map((item) => item.entry.details.kind),
-      ['question'],
+      after.entries.map((item) => item.entry.id),
+      [before.entries[0].entry.id],
     )
     assert.equal(after.entries[0].agent_note, null)
   })

@@ -153,7 +153,7 @@ describe('recent activity', () => {
 
     const [b, c] = [lot(7, 'Packet B'), lot(8, 'Packet C')]
 
-    const move = (to: string, outcome: 'applied' | 'suggested', n: number) => ({
+    const move = (to: string, outcome: 'applied' | 'suggested' | 'unchanged', n: number) => ({
       observation_id: `70000000-0000-4000-8000-00000000000${n}`,
       from_lot_id: H.lot,
       to_lot_id: to,
@@ -180,15 +180,27 @@ describe('recent activity', () => {
         ),
         { stage: 'examine', subject_id: null },
       ),
+      item(
+        regroup(
+          [move(b.lot_id, 'applied', 6), move(c.lot_id, 'applied', 7), move(H.lot, 'unchanged', 8)],
+          [lotLink, c],
+        ),
+        { stage: 'examine', subject_id: null },
+      ),
     ])
     const rows = within(list).getAllByRole('listitem')
 
-    expect(rows[0]).toHaveTextContent('Examine moved 2 observations to Packet B and 1 other lot')
+    expect(rows[0]).toHaveTextContent('Examine moved 2 observations to Packet B and Packet C')
     expect(rows[1]).toHaveTextContent(
-      'Examine moved 1 observation to Packet B and suggested moving 1 observation',
+      'Examine moved 1 observation to Packet B, and suggested moving 1 observation to Packet C',
     )
     expect(rows[2]).toHaveTextContent('Examine moved 1 observation to a lot no longer in Review')
     expect(within(rows[2]).queryByRole('link', { name: 'GE S2CN1 diodes' })).toBeNull()
+    // A retired first destination doesn't hide a live second one.
+    expect(rows[3]).toHaveTextContent(
+      'Examine moved 2 observations to a lot no longer in Review and Packet C, and left 1 observation in place in GE S2CN1 diodes',
+    )
+    expect(within(rows[3]).getByRole('link', { name: 'Packet C' })).toBeVisible()
   })
 
   it('keeps an observation’s place on the map, and leads a whole-batch answer to its question', () => {
