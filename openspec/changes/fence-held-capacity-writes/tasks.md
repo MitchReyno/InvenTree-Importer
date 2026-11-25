@@ -90,7 +90,7 @@
 - Verification: link and reference checks; the checks below.
 
 - [x] 5.1 Docs updated and checked against the code.
-- [ ] 5.2 Checks: `pnpm -s typecheck`, `pnpm -s lint:readability`, `pnpm -s lint:unused`, `pnpm format:check`, fast intake tests, PG tier, process tier, `openspec validate fence-held-capacity-writes --strict`.
+- [x] 5.2 Checks: `pnpm -s typecheck`, `pnpm -s lint:readability`, `pnpm -s lint:unused`, `pnpm format:check`, fast intake tests, PG tier, process tier, `openspec validate fence-held-capacity-writes --strict`.
 - [x] 5.3 Independent read-only review rounds on the exact head, findings fixed (round 3 fixes not re-reviewed).
 - [ ] 5.4 PR opened against `interactive-app`.
 - [ ] 5.5 Merged.
