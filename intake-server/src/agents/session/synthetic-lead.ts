@@ -75,6 +75,33 @@ async function readBatchLots(call: Call, manifest: SessionInputDto): Promise<Bat
 }
 
 /**
+ * A `/7` lot's `examine-identity/1`: each observation's marking verbatim, the marking as its one
+ * candidate, and the printed count as its estimate. It relies on the markings and identity only,
+ * so an answer about the quantity leaves it current.
+ */
+function examineIdentity(
+  lotId: string,
+  marking: string,
+  observationIds: readonly string[],
+  source: Record<string, unknown>,
+  lotSources: readonly Record<string, unknown>[],
+  estimate: { quantity?: string; basis?: string },
+) {
+  return {
+    schema_version: 'examine-identity/1',
+    subject_id: lotId,
+    summary: `Identity from the label: ${marking}.`,
+    sources: [source],
+    relies_on: { fields: ['markings', 'identity'], sources: [source, ...lotSources] },
+    markings: observationIds.map((id) => ({ observation_id: id, text: [marking] })),
+    candidates: [{ description: marking, confidence: 'low', reason: 'Read from the label.' }],
+    ...(estimate.quantity && estimate.basis
+      ? { quantity: { value: estimate.quantity, basis: estimate.basis } }
+      : {}),
+  }
+}
+
+/**
  * The deterministic Examine lead session for `synthetic-session/1`. It cannot see images, so
  * each photo's operator note (or the text after its label's colon) scripts what it holds. It
  * records one observation per listed item, groups the same marking across photos into one lot,
@@ -167,10 +194,13 @@ export async function syntheticLeadTurn(
     }
   }
 
+  // Under `/7` the estimate is the identity's, so propose_lot is given none.
+  const stageInput = manifest.schema_version === 'bench-intake-input/7'
   const formedNew: {
     lotId: string
     marking: string
     quantity?: string
+    basis?: string
     observationIds: string[]
   }[] = []
   for (const [key, group] of seen) {
@@ -183,7 +213,7 @@ export async function syntheticLeadTurn(
       base_revision: memory.revision,
       ...(existing ? { lot_id: existing } : { label: marking }),
       observation_ids: group.observationIds,
-      ...(group.quantity && !existing
+      ...(group.quantity && !existing && !stageInput
         ? { estimated_quantity: group.quantity, quantity_basis: basis }
         : {}),
     })
@@ -198,6 +228,7 @@ export async function syntheticLeadTurn(
       lotId,
       marking,
       quantity: group.quantity,
+      basis: basis || undefined,
       observationIds: group.observationIds,
     })
   }
@@ -214,7 +245,7 @@ export async function syntheticLeadTurn(
       note_id: note.id,
       text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
     }
-    for (const { lotId, marking, quantity, observationIds } of formedNew) {
+    for (const { lotId, marking, quantity, basis, observationIds } of formedNew) {
       const version = lots.find((lot) => lot.id === lotId)?.observation_set_version
       const lotSources = [
         ...(version ? [{ kind: 'observation_set', lot_id: lotId, version }] : []),
@@ -225,6 +256,15 @@ export async function syntheticLeadTurn(
           revision: observedAt.get(id) ?? memory.revision,
         })),
       ]
+      if (stageInput) {
+        await call('propose', {
+          proposal: examineIdentity(lotId, marking, observationIds, source, lotSources, {
+            quantity,
+            basis,
+          }),
+        })
+        continue
+      }
       await call('propose', {
         proposal: {
           schema_version: 'bench-intake-proposal/5',

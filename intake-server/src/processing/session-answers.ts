@@ -14,7 +14,9 @@ import {
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { appendSessionInbox } from '#/agents/tools/inbox.ts'
-import { fieldsSuperseded } from './currentness.ts'
+import { changeText, fieldsSuperseded } from './currentness.ts'
+import { answeredValues, answerValueText } from './answer-summary.ts'
+import { storedQuestionView } from './brief.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { fail, sealed } from './model.ts'
 import { retainedSessionQuestion } from './retained.ts'
@@ -156,6 +158,27 @@ async function requireInboxPayloadFits(client: PoolClient, payload: SessionAnswe
 }
 
 /**
+ * What an answer changed in each field it settles, as a `/7` session is told: the assumption the
+ * asker worked on, and the operator's answer.
+ */
+function answeredChanges(
+  ask: SessionAskArgsDto | SessionAskArgsV2Dto,
+  input: ProcessingAnswerDto,
+  subjectId: string | null,
+) {
+  const view = storedQuestionView(ask, 'assumption' in ask ? ask.assumption : null)
+  const assumed = view.steps.flatMap((step) => (step.assumption ? [step.assumption] : []))
+  const answered = answeredValues(view, input).map((value) => answerValueText(value.value))
+  return ask.fields.map((field) => ({
+    kind: 'field' as const,
+    subject_id: subjectId,
+    field,
+    from: assumed.length ? changeText(assumed.join('; ')) : null,
+    to: answered.length ? changeText(answered.join('; ')) : null,
+  }))
+}
+
+/**
  * A session question does not block its session. The answer is the same human capture edit as
  * for earlier profiles, and it reaches the running or resumable session as an inbox item.
  */
@@ -269,6 +292,8 @@ export async function answerSessionQuestion(
     message: `A question was answered: ${plan.title}`,
     key: `answer:${questionId}`,
     except: job.id,
+    changes: answeredChanges(ask, input, subjectId),
+    context: { origin: { by: 'operator' }, briefRevision: snapshot.revision },
   })
   await capture.publish()
   await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })

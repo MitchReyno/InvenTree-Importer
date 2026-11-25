@@ -5,7 +5,9 @@ import {
   LEGACY_QUESTION_STEP_ID,
   questionView,
   validate,
+  type BriefAnswerEntryDto,
   type BriefEntryDto,
+  type BriefQuestionEntryDto,
   type BriefSectionNameDto,
   type BriefStageDto,
   type CaptureEvidenceObservationDto,
@@ -16,7 +18,7 @@ import {
   type SessionAskArgsDto,
   type SessionAskArgsV2Dto,
   type SessionBriefDto,
-  type SessionProposalDto,
+  type RetainedSessionProposalDto,
 } from '@invimport/contracts'
 import type { MediaInputContextDto } from '@invimport/contracts/media'
 import { sha256 } from '#/db/authority.ts'
@@ -65,7 +67,7 @@ export interface BriefScope {
   supersedingJobId?: string
 }
 
-interface StoredQuestion {
+export interface StoredQuestion {
   id: string
   jobId: string
   subjectId: string | null
@@ -74,7 +76,7 @@ interface StoredQuestion {
   view: QuestionView
 }
 
-interface StoredAnswer {
+export interface StoredAnswer {
   questionId: string
   answerId: string
   actorId: string
@@ -93,7 +95,7 @@ interface StoredCorrection {
 
 interface StoredIdentity {
   proposalId: string
-  proposal: SessionProposalDto
+  proposal: RetainedSessionProposalDto
   stale: boolean
 }
 
@@ -119,7 +121,7 @@ export interface BriefFacts {
 }
 
 /** The view of a stored question: a runner's or a `/1` session ask reads as one step. */
-function storedQuestionView(
+export function storedQuestionView(
   question: SessionAskArgsDto | SessionAskArgsV2Dto | { prompt: string; reason: string },
   assumption: string | null,
 ): QuestionView {
@@ -145,7 +147,7 @@ function storedQuestionView(
  * The batch's questions, each in its stored version's shape, oldest first, with the state the
  * Processing read shows: an open question its job has moved past reads as superseded.
  */
-async function readQuestions(
+export async function readQuestions(
   client: PoolClient,
   config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
@@ -225,7 +227,7 @@ async function readQuestions(
 }
 
 /** Each answered question's answer, by question, with every step's prompt and value text. */
-async function readAnswers(client: PoolClient, questions: readonly StoredQuestion[]) {
+export async function readAnswers(client: PoolClient, questions: readonly StoredQuestion[]) {
   const answered = questions.filter((question) => question.state !== 'open')
   const answers = new Map<string, StoredAnswer>()
   if (!answered.length) {
@@ -357,8 +359,8 @@ async function readIdentities(client: PoolClient, proposalIds: readonly string[]
   )
   return rows.rows.map((row): StoredIdentity => {
     const value = unseal(row.value_bytes, row.value_digest)
-    validate('SessionProposal', value)
-    return { proposalId: row.id, proposal: value as SessionProposalDto, stale: row.stale }
+    validate('RetainedSessionProposal', value)
+    return { proposalId: row.id, proposal: value as RetainedSessionProposalDto, stale: row.stale }
   })
 }
 
@@ -542,28 +544,50 @@ function lotEditEntries(
     })
 }
 
+/** A question's answer as a brief, or an ask it covers, shows it. */
+export function answerEntry(question: StoredQuestion, answer: StoredAnswer): BriefAnswerEntryDto {
+  return {
+    kind: 'answer',
+    source: 'human',
+    question_id: question.id,
+    answer_id: answer.answerId,
+    subject_id: question.subjectId,
+    actor_id: answer.actorId,
+    answered_at: answer.answeredAt,
+    steps: answer.steps,
+  }
+}
+
 function answerEntries(
   questions: readonly StoredQuestion[],
   answers: ReadonlyMap<string, StoredAnswer>,
 ): BriefEntryDto[] {
   return questions.flatMap((question): BriefEntryDto[] => {
     const answer = answers.get(question.id)
-    if (!answer) {
-      return []
-    }
-    return [
-      {
-        kind: 'answer',
-        source: 'human',
-        question_id: question.id,
-        answer_id: answer.answerId,
-        subject_id: question.subjectId,
-        actor_id: answer.actorId,
-        answered_at: answer.answeredAt,
-        steps: answer.steps,
-      },
-    ]
+    return answer ? [answerEntry(question, answer)] : []
   })
+}
+
+/** A question already asked, with its state and assumptions, as a brief or an ask shows it. */
+export function questionEntry(
+  question: StoredQuestion,
+  answers: ReadonlyMap<string, StoredAnswer>,
+): BriefQuestionEntryDto {
+  return {
+    kind: 'question',
+    question_id: question.id,
+    job_id: question.jobId,
+    subject_id: question.subjectId,
+    fields: question.fields,
+    state: question.state,
+    title: question.view.title,
+    steps: question.view.steps.map((step) => ({
+      id: step.id,
+      prompt: step.prompt,
+      assumption: step.assumption,
+    })),
+    answer_id: answers.get(question.id)?.answerId ?? null,
+  }
 }
 
 /** Questions on the subject, its Part or the batch whose fields overlap the stage's. */
@@ -578,21 +602,7 @@ function askedEntries(
         question.fields.length === 0 ||
         question.fields.some((field) => STAGE_FIELDS[stage].includes(field)),
     )
-    .map((question) => ({
-      kind: 'question',
-      question_id: question.id,
-      job_id: question.jobId,
-      subject_id: question.subjectId,
-      fields: question.fields,
-      state: question.state,
-      title: question.view.title,
-      steps: question.view.steps.map((step) => ({
-        id: step.id,
-        prompt: step.prompt,
-        assumption: step.assumption,
-      })),
-      answer_id: answers.get(question.id)?.answerId ?? null,
-    }))
+    .map((question) => questionEntry(question, answers))
 }
 
 /** The versions the session may fetch, with every region an earlier stage read in each. */

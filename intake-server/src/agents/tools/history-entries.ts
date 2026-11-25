@@ -13,7 +13,7 @@ import {
   type SessionHistoryLinkDto,
   type SessionInboxItemDto,
   type SessionOutboxItemDto,
-  type SessionProposalDto,
+  type RetainedSessionProposalDto,
   type RegroupMoveDto,
 } from '@invimport/contracts'
 import { fail } from '#/processing/model.ts'
@@ -22,7 +22,7 @@ import { decodeSessionInput } from '#/processing/session-input.ts'
 import { retainedSessionProposal, retainedSessionQuestion } from '#/processing/retained.ts'
 import { proposalCurrentnessFacts } from '#/processing/read.ts'
 import { removedEvidenceIds } from '#/media/removal.ts'
-import { catalogueSources } from '#/processing/provenance.ts'
+import { proposalCitations } from '#/processing/provenance.ts'
 
 /** The session job a history page belongs to. */
 export interface HistoryJob {
@@ -164,7 +164,7 @@ interface RetainedProposal {
   id: string
   attemptId: string
   entryId: string
-  value: SessionProposalDto
+  value: RetainedSessionProposalDto
 }
 
 /**
@@ -612,7 +612,7 @@ function noteLink(resolved: Resolved, noteId: string): SessionHistoryLinkDto {
 }
 
 /** A source's identity, so one cited in several places is linked once. */
-function sourceKey(source: SessionProposalDto['sources'][number]) {
+function sourceKey(source: ReturnType<typeof proposalCitations>[number]) {
   switch (source.kind) {
     case 'media_version':
       return `media_version ${source.version_id}`
@@ -625,10 +625,10 @@ function sourceKey(source: SessionProposalDto['sources'][number]) {
   }
 }
 
-/** The proposal's top-level and catalogue sources that link somewhere, each once. */
-function citedSources(proposal: SessionProposalDto) {
+/** The proposal's top-level sources and its values' sources that link somewhere, each once. */
+function citedSources(proposal: RetainedSessionProposalDto) {
   const seen = new Set<string>()
-  return [...proposal.sources, ...catalogueSources(proposal)].filter((source) => {
+  return proposalCitations(proposal).filter((source) => {
     const key = sourceKey(source)
     if (key === null || seen.has(key)) {
       return false
@@ -638,7 +638,10 @@ function citedSources(proposal: SessionProposalDto) {
   })
 }
 
-function sourceLinks(resolved: Resolved, proposal: SessionProposalDto): SessionHistoryLinkDto[] {
+function sourceLinks(
+  resolved: Resolved,
+  proposal: RetainedSessionProposalDto,
+): SessionHistoryLinkDto[] {
   return citedSources(proposal).flatMap((source): SessionHistoryLinkDto[] => {
     if (source.kind === 'media_version') {
       return [evidenceLink(resolved, source.version_id, 1)]
@@ -670,7 +673,7 @@ function proposalEntry(resolved: Resolved, item: OutboxOf<'proposal'>): Built {
       : []
   // A Part to link only where the structured catalogue block was retained.
   const record: SessionHistoryLinkDto[] =
-    proposal.value.catalogue && lot?.part_subject_id
+    'catalogue' in proposal.value && proposal.value.catalogue && lot?.part_subject_id
       ? [partLink(resolved, lot.part_subject_id)]
       : []
   const suffix = currentness.state === 'current' ? '' : ` · ${currentness.state}`
@@ -874,6 +877,9 @@ function outboxEntry(resolved: Resolved, item: SessionOutboxItemDto): Built {
       }
     case 'photo_view':
       return photoViewEntry(resolved, item)
+    case 'photo_release':
+      // The history query leaves releases out; one here means that query changed.
+      throw new Error('photo_release_not_in_history')
   }
 }
 

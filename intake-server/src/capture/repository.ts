@@ -1329,6 +1329,56 @@ export async function lockCaptureForOperatorCommand(
 }
 
 /** Capture has no dependency on execution SQL. Consumers use retained source/lot snapshots. */
+type LotQuantity = CaptureSnapshotDto['lots'][number]['quantity']
+
+/** A lot quantity as a revision names it: its value when set, otherwise its mode. */
+function quantityText(quantity: LotQuantity | undefined) {
+  if (!quantity) {
+    return null
+  }
+  return quantity.mode === 'set' ? quantity.value : quantity.mode
+}
+
+/**
+ * The Part link and quantity a lot edit names, before and after, as a revision tells relying
+ * sessions. Naming a field is a correction of it, as it has always been for earlier sessions.
+ */
+function lotCorrections(
+  before: CaptureSnapshotDto,
+  after: CaptureSnapshotDto,
+  lotId: string,
+  change: { part_subject_id?: string | null; quantity?: unknown },
+) {
+  const was = before.lots.find((lot) => lot.id === lotId)
+  const now = after.lots.find((lot) => lot.id === lotId)
+  const changes: {
+    kind: 'field'
+    subject_id: string
+    field: 'part' | 'quantity'
+    from: string | null
+    to: string | null
+  }[] = []
+  if (change.part_subject_id !== undefined) {
+    changes.push({
+      kind: 'field',
+      subject_id: lotId,
+      field: 'part',
+      from: was?.part_subject_id ?? null,
+      to: now?.part_subject_id ?? null,
+    })
+  }
+  if (change.quantity !== undefined) {
+    changes.push({
+      kind: 'field',
+      subject_id: lotId,
+      field: 'quantity',
+      from: quantityText(was?.quantity),
+      to: quantityText(now?.quantity),
+    })
+  }
+  return changes
+}
+
 export function captureRepository(pool: Pool, config: Binding) {
   const command = (
     action: string,
@@ -1419,14 +1469,14 @@ export function captureRepository(pool: Pool, config: Binding) {
     async edit(id: string, key: string, input: CaptureEditDto) {
       return command('capture_edit', id, key, input, async (c) => {
         const locked = await lockCaptureForEdit(c, config, id, input.expected_revision)
-        await locked.apply(input)
+        const applied = await locked.apply(input)
         // An operator correction of a lot's identity or quantity reaches every relying session.
         if (input.change.kind === 'lot') {
-          const fields = [
-            ...(input.change.part_subject_id !== undefined ? (['identity'] as const) : []),
-            ...(input.change.quantity !== undefined ? (['quantity'] as const) : []),
-          ]
-          if (fields.length) {
+          const changes = lotCorrections(locked.snapshot, applied, input.change.id, input.change)
+          if (changes.length) {
+            const fields = changes.map((change) =>
+              change.field === 'part' ? 'identity' : 'quantity',
+            )
             // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
             const { fieldsSuperseded } = await import('#/processing/currentness.ts')
             await fieldsSuperseded(c, {
@@ -1436,6 +1486,8 @@ export function captureRepository(pool: Pool, config: Binding) {
               reason: 'operator_correction',
               message: `The operator corrected this lot's ${fields.join(' and ')}.`,
               key: `correction:${key}`,
+              changes,
+              context: { origin: { by: 'operator' }, briefRevision: applied.revision },
             })
           }
         }

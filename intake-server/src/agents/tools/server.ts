@@ -78,6 +78,19 @@ const STAGE_READ_BATCH = {
     'Examine lead session only. Read your brief one page at a time: the batch with its lots, Parts and observations with full readings, including operator edits and suggestions. Pass page_token to continue a sequence, revision for the brief you started from, or neither for the current brief. The returned revision is the brief’s; pass it as base_revision, and read the current brief again before writing when a page’s newer is set.',
 } as const satisfies { schema: keyof typeof schemas; description: string }
 
+/** A `/7` session publishes its stage's typed output and asks with a duplicate check. */
+const STAGE_TOOLS = {
+  propose: {
+    schema: 'SessionStageProposeArgs',
+    description:
+      'Publish your stage’s typed output for a lot, citing only delivered evidence and notes: Examine publishes examine-identity/1 for any live lot of its batch, with the quantity estimate there; Research publishes research-identity/1 and, outside identify mode, research/1, in gaps mode only the fields it names. Research may add {"kind":"web_page","url":...} to top-level sources for a page it read; a web page cannot appear in relies_on or value sources. A refused kind or field is named in the result; correct it and retry.',
+  },
+  ask: {
+    schema: 'SessionStageAskArgs',
+    description: `${ASK_GUIDANCE} Name the fields it affects, use a number step only for a lot's quantity, and keep working. When an open or answered question already covers the same lot and fields, ask returns that question and its answer instead; name new_evidence or the conflict it settles if yours is different, or replaces for the open question it replaces.`,
+  },
+} as const satisfies Record<string, { schema: keyof typeof schemas; description: string }>
+
 const LEAD_ONLY = new Set(['read_batch', 'record_observation', 'propose_lot', 'regroup'])
 /** Tools only a `/7` Research or Images session has. */
 const STAGE_LOT_ONLY = new Set(['read_lot'])
@@ -92,6 +105,24 @@ function offered(name: string, principal: SessionPrincipal) {
     return !lead && principal.manifest.schema_version === 'bench-intake-input/7'
   }
   return true
+}
+
+/** The definition a principal is offered: a `/7` session's stage versions where they differ. */
+function toolDefinition(
+  name: string,
+  tool: { schema: keyof typeof schemas; description: string },
+  principal: SessionPrincipal,
+): { schema: keyof typeof schemas; description: string } {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return tool
+  }
+  if (name === 'read_batch') {
+    return STAGE_READ_BATCH
+  }
+  if (name === 'propose' || name === 'ask') {
+    return STAGE_TOOLS[name]
+  }
+  return tool
 }
 
 /**
@@ -176,10 +207,7 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
       if (!offered(name, principal)) {
         continue
       }
-      const definition =
-        name === 'read_batch' && principal.manifest.schema_version === 'bench-intake-input/7'
-          ? STAGE_READ_BATCH
-          : tool
+      const definition = toolDefinition(name, tool, principal)
       server.registerTool(
         name,
         { description: definition.description, inputSchema: contractSchema(definition.schema) },

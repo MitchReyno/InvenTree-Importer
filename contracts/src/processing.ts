@@ -6,7 +6,7 @@ import { AgentSelection } from './agent-selection.ts'
 import { ResearchReceiptSource } from './research.ts'
 import { mappedReference } from './effects.ts'
 import { valueEvidence } from './value-evidence.ts'
-import { MediaViewGeometry, MediaViewMarks } from './media.ts'
+import { MediaLitViewRecipe, MediaViewGeometry, MediaViewMarks } from './media.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -620,6 +620,259 @@ export const ProcessingProposalV6 = object({
 })
 /** The proposal versions a session may publish. */
 export const SessionProposal = Type.Union([ProcessingProposalV5, ProcessingProposalV6])
+
+const stageText = Type.String({ minLength: 1, maxLength: 256 })
+const stageNote = Type.String({ minLength: 1, maxLength: 512 })
+/** A stage output's top-level citations; Research may add agent-reported web pages. */
+const stageSources = Type.Array(ProcessingSource, { minItems: 1, maxItems: 100, uniqueItems: true })
+const researchSources = Type.Array(Type.Union([...ProcessingSource.anyOf, WebPageSource]), {
+  minItems: 1,
+  maxItems: 100,
+  uniqueItems: true,
+})
+/** Every typed stage output names its lot, says what it found, cites and relies as `/5` does. */
+const stageBase = {
+  subject_id: Id,
+  summary: text,
+  relies_on: ProcessingReliance,
+}
+
+/** An identifier a stage read or sourced, which Match may search with. */
+export const IdentifierKind = Type.Union(
+  (
+    [
+      'mpn',
+      'manufacturer',
+      'nsn',
+      'ipn',
+      'sku',
+      'batch_code',
+      'house_number',
+      'packaging_code',
+      'distributor_code',
+      'cross_reference',
+      'alternate_marking',
+    ] as const
+  ).map((kind) => Type.Literal(kind)),
+)
+
+/**
+ * An agent's judgement about existing records, kept apart from Match's search: an alias, a
+ * relation to a record, or why something is not the same Part. A key adds to the search.
+ */
+export const MatchNote = object({
+  kind: Type.Union([Type.Literal('alias'), Type.Literal('relation'), Type.Literal('negative')]),
+  text: stageNote,
+  key: Type.Optional(object({ kind: IdentifierKind, value: stageText })),
+  sources: Type.Optional(catalogueSources),
+})
+const matchNotes = Type.Optional(Type.Array(MatchNote, { minItems: 1, maxItems: 16 }))
+
+/**
+ * Examine's finding for one lot: each observation's markings verbatim, ranked identity
+ * candidates, the maker, packaging, date code, condition, NOS signals, a visible NSN and the
+ * quantity estimate, the only route for one under `/7`.
+ */
+export const ExamineIdentityV1 = object({
+  schema_version: Type.Literal('examine-identity/1'),
+  ...stageBase,
+  sources: stageSources,
+  markings: Type.Array(
+    object({
+      observation_id: Id,
+      text: Type.Array(stageNote, { minItems: 1, maxItems: 32 }),
+    }),
+    { minItems: 1, maxItems: 100 },
+  ),
+  /** Most likely first. */
+  candidates: Type.Array(
+    object({
+      mpn: Type.Optional(stageText),
+      manufacturer: Type.Optional(stageText),
+      type: Type.Optional(stageText),
+      description: Type.Optional(stageText),
+      confidence: Type.Union([Type.Literal('high'), Type.Literal('medium'), Type.Literal('low')]),
+      reason: Type.Optional(stageNote),
+    }),
+    { maxItems: 8 },
+  ),
+  maker: Type.Optional(
+    object({
+      name: stageText,
+      /** The logo set's identifier, when a logo was matched. */
+      logo_id: Type.Optional(stageText),
+      method: Type.Union(
+        (['text', 'logo', 'logo_match', 'inferred'] as const).map((method) => Type.Literal(method)),
+      ),
+    }),
+  ),
+  packaging: Type.Optional(
+    object({
+      kind: stageText,
+      seal: Type.Union([Type.Literal('sealed'), Type.Literal('opened'), Type.Literal('unknown')]),
+    }),
+  ),
+  date_code: Type.Optional(stageText),
+  condition: Type.Optional(stageText),
+  nos_signals: Type.Optional(Type.Array(stageText, { minItems: 1, maxItems: 8 })),
+  nsn: Type.Optional(Type.String({ pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{3}-[0-9]{4}$' })),
+  /** An estimate for the operator to accept or replace, never a count. */
+  quantity: Type.Optional(object({ value: Quantity, basis: stageNote })),
+  match_notes: matchNotes,
+})
+
+/**
+ * Research's identity amendment: the canonical MPN, the manufacturer and every alias it sourced,
+ * in identify mode or any later one. An unresolved amendment says what it tried.
+ */
+export const ResearchIdentityV1 = object({
+  schema_version: Type.Literal('research-identity/1'),
+  ...stageBase,
+  sources: researchSources,
+  resolution: Type.Union([Type.Literal('resolved'), Type.Literal('unresolved')]),
+  mpn: Type.Optional(stageText),
+  manufacturer: Type.Optional(stageText),
+  aliases: Type.Optional(
+    Type.Array(object({ value: stageText, kind: IdentifierKind, sources: catalogueSources }), {
+      minItems: 1,
+      maxItems: 32,
+    }),
+  ),
+  cross_references: Type.Optional(
+    Type.Array(
+      object({
+        mpn: stageText,
+        manufacturer: Type.Optional(stageText),
+        relation: Type.Union([
+          Type.Literal('equivalent'),
+          Type.Literal('replacement'),
+          Type.Literal('similar'),
+        ]),
+        sources: catalogueSources,
+      }),
+      { minItems: 1, maxItems: 16 },
+    ),
+  ),
+  tried: Type.Optional(Type.Array(stageNote, { minItems: 1, maxItems: 16 })),
+  match_notes: matchNotes,
+})
+
+const sourcedText = object({ text: stageText, sources: catalogueSources, ...valueEvidence })
+const catalogueParameter = CatalogueProposal.properties.parameters.items
+
+/**
+ * Research's Part values, each with its sources: what a new Part needs in full mode, or only the
+ * fields gaps mode names. A web page may be a top-level source only.
+ */
+export const ResearchV1 = object({
+  schema_version: Type.Literal('research/1'),
+  ...stageBase,
+  sources: researchSources,
+  category: Type.Optional(catalogueChoice('category')),
+  name: Type.Optional(sourcedText),
+  type: Type.Optional(sourcedText),
+  manufacturer: Type.Optional(CatalogueProposal.properties.manufacturer.anyOf[0]),
+  description: Type.Optional(object({ text, sources: catalogueSources, ...valueEvidence })),
+  parameters: Type.Optional(
+    Type.Array(
+      object({
+        ...catalogueParameter.properties,
+        /** Datasheet pages the value was read on. */
+        pages: Type.Optional(
+          Type.Array(Type.Integer({ minimum: 1, maximum: 10000 }), { minItems: 1, maxItems: 16 }),
+        ),
+      }),
+      { minItems: 1, maxItems: 32 },
+    ),
+  ),
+  datasheet: Type.Optional(
+    object({
+      url: Type.Optional(WebPageSource.properties.url),
+      /** A retained PDF of the batch, when the datasheet is one. */
+      version: Type.Optional(ProcessingMediaSource),
+      pages: Type.Optional(
+        Type.Array(Type.Integer({ minimum: 1, maximum: 10000 }), { minItems: 1, maxItems: 32 }),
+      ),
+      sources: catalogueSources,
+    }),
+  ),
+  notes: Type.Optional(
+    Type.Array(
+      object({
+        record: Type.Union([Type.Literal('part'), Type.Literal('stock'), Type.Literal('lot')]),
+        text,
+      }),
+      { minItems: 1, maxItems: 16 },
+    ),
+  ),
+  conflicts: Type.Optional(
+    Type.Array(
+      object({
+        field: stageText,
+        values: Type.Array(stageText, { minItems: 2, maxItems: 4 }),
+        note: Type.Optional(stageNote),
+        sources: catalogueSources,
+      }),
+      { minItems: 1, maxItems: 16 },
+    ),
+  ),
+  /** What the target's configuration lacks for this Part, such as a missing category. */
+  config_gaps: Type.Optional(
+    Type.Array(
+      object({
+        kind: Type.Union([
+          Type.Literal('category'),
+          Type.Literal('parameter_template'),
+          Type.Literal('company'),
+        ]),
+        name: stageText,
+        reason: stageNote,
+      }),
+      { minItems: 1, maxItems: 16 },
+    ),
+  ),
+  match_notes: matchNotes,
+})
+
+/** Images' crop recipes: the Part image, stock images and extras, each over one original. */
+export const ImagesV1 = object({
+  schema_version: Type.Literal('images/1'),
+  ...stageBase,
+  sources: stageSources,
+  images: Type.Array(
+    object({
+      role: Type.Union([
+        Type.Literal('part_image'),
+        Type.Literal('stock_image'),
+        Type.Literal('extra'),
+      ]),
+      /** Recipe `/2` has no marks field, so no Images output can carry marks. */
+      recipe: MediaLitViewRecipe,
+      flags: Type.Optional(Type.Array(stageText, { minItems: 1, maxItems: 8 })),
+    }),
+    { minItems: 1, maxItems: 10 },
+  ),
+})
+
+/** The typed outputs of `/7` stage sessions. */
+export const StageProposal = Type.Union([
+  ExamineIdentityV1,
+  ResearchIdentityV1,
+  ResearchV1,
+  ImagesV1,
+])
+/** What `propose` publishes in a `/7` session; Images publishes with its own tool. */
+export const StagePublishedProposal = Type.Union([
+  ExamineIdentityV1,
+  ResearchIdentityV1,
+  ResearchV1,
+])
+/** Every proposal a session has published and its readers decode, whatever its input. */
+export const RetainedSessionProposal = Type.Union([
+  ...SessionProposal.anyOf,
+  ...StageProposal.anyOf,
+])
+/** Every retained proposal version, as Processing shows it; each producer's envelope narrows it. */
 export const ProcessingProposal = Type.Union([
   ProcessingProposalV1,
   ProcessingProposalV2,
@@ -627,6 +880,7 @@ export const ProcessingProposal = Type.Union([
   ProcessingProposalV4,
   ProcessingProposalV5,
   ProcessingProposalV6,
+  ...StageProposal.anyOf,
 ])
 
 const runnerBinding = {
@@ -986,6 +1240,14 @@ export const processingSchemas = {
   ProcessingProposalV5,
   ProcessingProposalV6,
   SessionProposal,
+  ExamineIdentityV1,
+  ResearchIdentityV1,
+  ResearchV1,
+  ImagesV1,
+  StageProposal,
+  StagePublishedProposal,
+  RetainedSessionProposal,
+  MatchNote,
   WebPageSource,
   ProcessingInputV4,
   ProcessingCommandV4,
@@ -1099,4 +1361,12 @@ export type ProcessingRelianceDto = Static<typeof ProcessingReliance>
 export type CatalogueProposalDto = Static<typeof CatalogueProposal>
 export type ProcessingProposalV5Dto = Static<typeof ProcessingProposalV5>
 export type ProcessingProposalV6Dto = Static<typeof ProcessingProposalV6>
+export type ExamineIdentityV1Dto = Static<typeof ExamineIdentityV1>
+export type ResearchIdentityV1Dto = Static<typeof ResearchIdentityV1>
+export type ResearchV1Dto = Static<typeof ResearchV1>
+export type ImagesV1Dto = Static<typeof ImagesV1>
+export type StageProposalDto = Static<typeof StageProposal>
+export type StagePublishedProposalDto = Static<typeof StagePublishedProposal>
+export type RetainedSessionProposalDto = Static<typeof RetainedSessionProposal>
+export type MatchNoteDto = Static<typeof MatchNote>
 export type SessionProposalDto = Static<typeof SessionProposal>

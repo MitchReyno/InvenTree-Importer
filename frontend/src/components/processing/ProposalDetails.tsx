@@ -93,7 +93,8 @@ export function ProposalDetails({
   context: HistoryContext
 }) {
   const { proposal, currentness } = details
-  const catalogue = proposal.catalogue
+  // A typed stage output carries no catalogue block; its summary and sources still show.
+  const catalogue = 'catalogue' in proposal ? proposal.catalogue : undefined
 
   const row = (label: string, value: string, said: SaidValue): KeyValueRow => {
     const words = evidenceWords(said)

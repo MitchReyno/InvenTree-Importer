@@ -22,13 +22,15 @@ import {
   QuestionFigures,
   STATUS_LINE_MAX_CHARACTERS,
   SessionProposal,
+  StagePublishedProposal,
+  RetainedSessionProposal,
   ProposalStaleReason,
   WebPageSource,
   StartFreshEligibility,
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
-import { SessionBriefPage } from './brief.ts'
+import { BriefAnswerEntry, BriefQuestionEntry, BriefStage, SessionBriefPage } from './brief.ts'
 import {
   EvidenceReadings,
   EvidenceRegion,
@@ -75,6 +77,24 @@ export const SessionAskArgsV2 = object({
   /** A dry run: render the figures with their marks for the agent and post nothing. */
   preview: Type.Optional(Type.Literal(true)),
 })
+/**
+ * The `ask` tool's question in a `/7` session. A publishing ask about a subject and fields an
+ * open or answered question already covers returns that question, unless it names evidence or a
+ * conflict the earlier one didn't, or the open question it replaces.
+ */
+export const SessionStageAskArgs = object({
+  ...SessionAskArgsV2.properties,
+  /** Evidence versions the question rests on that an earlier question didn't cite. */
+  new_evidence: Type.Optional(
+    Type.Array(object({ evidence_id: Id, version_id: Id }), {
+      minItems: 1,
+      maxItems: 8,
+      uniqueItems: true,
+    }),
+  ),
+  /** The conflict the question settles, such as a reading against a datasheet. */
+  conflict: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+})
 export const SessionReplyArgs = object({ inbox_item_id: Id, text: message })
 /** Passing a cursor acknowledges every inbox item up to it. */
 export const SessionReadInboxArgs = object({ after_seq: CursorSequence })
@@ -96,6 +116,8 @@ export const SessionFetchEvidenceArgs = object({
   ),
 })
 export const SessionProposeArgs = object({ proposal: SessionProposal })
+/** `propose` in a `/7` session: the stage's typed output. */
+export const SessionStageProposeArgs = object({ proposal: StagePublishedProposal })
 
 export const SessionToolError = Type.Union(
   (
@@ -202,6 +224,15 @@ export const SessionOutboxItem = Type.Union([
   object({ ...outboxBase, kind: Type.Literal('question'), payload: object({ question_id: Id }) }),
   object({ ...outboxBase, kind: Type.Literal('reply'), payload: SessionReplyArgs }),
   object({ ...outboxBase, kind: Type.Literal('photo_view'), payload: SessionPhotoView }),
+  /**
+   * The image of one of this session's photo views was handed to the provider: what makes a `/7`
+   * citation of it admissible. Recorded by the component that handed it over.
+   */
+  object({
+    ...outboxBase,
+    kind: Type.Literal('photo_release'),
+    payload: object({ view_seq: Revision }),
+  }),
 ])
 
 /** A delivered step value; a picked option also carries its label, so the agent needn't look it up. */
@@ -228,6 +259,69 @@ export const SessionAnswerPayload = Type.Union([
   }),
 ])
 const inboxBase = { id: Id, seq: Revision, created_at: timestamp }
+const revisionText = Type.String({ minLength: 1, maxLength: 512 })
+/** One change a `/7` revision names, with its previous and new value. */
+export const RevisionChange = Type.Union([
+  /** A lot or Part field the operator or an answer changed. */
+  object({
+    kind: Type.Literal('field'),
+    subject_id: Type.Union([Id, Type.Null()]),
+    field: Type.Union(
+      (['markings', 'identity', 'quantity', 'research', 'images', 'part'] as const).map((field) =>
+        Type.Literal(field),
+      ),
+    ),
+    from: Type.Union([revisionText, Type.Null()]),
+    to: Type.Union([revisionText, Type.Null()]),
+  }),
+  /** An observation's reading, before and after a correction. */
+  object({
+    kind: Type.Literal('reading'),
+    observation_id: Id,
+    reading_from: Type.Union([EvidenceReadings, Type.Null()]),
+    reading_to: EvidenceReadings,
+  }),
+  /** An observation joined or left a lot. */
+  object({
+    kind: Type.Literal('observation'),
+    observation_id: Id,
+    lot_from: Type.Union([Id, Type.Null()]),
+    lot_to: Type.Union([Id, Type.Null()]),
+  }),
+  /** Evidence the operator deleted from the batch. */
+  object({ kind: Type.Literal('evidence'), evidence_id: Id, removed: Type.Literal(true) }),
+  /** A proposal was published, or stopped being current. */
+  object({
+    kind: Type.Literal('proposal'),
+    proposal_id: Id,
+    proposal_kind: Type.String({ minLength: 1, maxLength: 64 }),
+    state: Type.Union([Type.Literal('published'), Type.Literal('stale')]),
+    reason: Type.Optional(ProposalStaleReason),
+  }),
+  /** The lot's Match outcome, by revision, before and after. */
+  object({
+    kind: Type.Literal('match'),
+    lot_id: Id,
+    from: Type.Union([Revision, Type.Null()]),
+    to: Type.Union([Revision, Type.Null()]),
+  }),
+])
+/** Who made a revision's changes: the operator, a session, or the app's Match step. */
+export const RevisionSource = Type.Union([
+  object({ kind: Type.Literal('operator'), actor_id: Id }),
+  object({ kind: Type.Literal('session'), stage: BriefStage, attempt_id: Id }),
+  object({ kind: Type.Literal('match') }),
+])
+/** What a `/7` session is told when something it relies on changes. */
+export const SessionRevisionV2 = object({
+  schema_version: Type.Literal('bench-intake-revision/2'),
+  fields: ProcessingFields,
+  reason: Type.String({ minLength: 1, maxLength: 2048 }),
+  changes: Type.Array(RevisionChange, { minItems: 1, maxItems: 100 }),
+  source: RevisionSource,
+  /** The brief revision the changes are visible at; read_lot or read_batch returns it. */
+  brief_revision: Revision,
+})
 export const SessionInboxItem = Type.Union([
   object({ ...inboxBase, kind: Type.Literal('answer'), payload: SessionAnswerPayload }),
   object({ ...inboxBase, kind: Type.Literal('chat'), payload: object({ text: message }) }),
@@ -249,10 +343,13 @@ export const SessionInboxItem = Type.Union([
   object({
     ...inboxBase,
     kind: Type.Literal('revision'),
-    payload: object({
-      fields: ProcessingFields,
-      reason: Type.String({ minLength: 1, maxLength: 2048 }),
-    }),
+    payload: Type.Union([
+      object({
+        fields: ProcessingFields,
+        reason: Type.String({ minLength: 1, maxLength: 2048 }),
+      }),
+      SessionRevisionV2,
+    ]),
   }),
 ])
 /** Every response carries the pending inbox count, so agents notice input without polling. */
@@ -326,6 +423,18 @@ export const SessionToolResult = Type.Union([
     batch: Type.Optional(LeadBatchView),
     /** read_lot, and read_batch for a `/7` session: one page of a brief. */
     brief: Type.Optional(SessionBriefPage),
+    /** fetch_evidence in a `/7` session: the photo view this image was recorded as. */
+    view_seq: Type.Optional(Revision),
+    /**
+     * ask in a `/7` session: the open or answered question that already covers this one, which
+     * was returned instead of storing a new question.
+     */
+    existing_question: Type.Optional(
+      object({
+        question: BriefQuestionEntry,
+        answer: Type.Union([BriefAnswerEntry, Type.Null()]),
+      }),
+    ),
   }),
   object({
     ok: Type.Literal(false),
@@ -356,7 +465,7 @@ const sessionBinding = {
   sequence: Revision,
 }
 export const SessionEnvelope = Type.Union([
-  object({ ...sessionBinding, kind: Type.Literal('proposal'), payload: SessionProposal }),
+  object({ ...sessionBinding, kind: Type.Literal('proposal'), payload: RetainedSessionProposal }),
   object({ ...sessionBinding, kind: Type.Literal('question'), payload: SessionAskArgs }),
   object({ ...sessionBinding, kind: Type.Literal('question'), payload: SessionAskArgsV2 }),
 ])
@@ -493,7 +602,7 @@ export const SessionHistoryDetails = Type.Union([
   object({
     kind: Type.Literal('proposal'),
     proposal_id: Id,
-    proposal: SessionProposal,
+    proposal: RetainedSessionProposal,
     currentness: Type.Union([
       object({ state: Type.Literal('current') }),
       object({ state: Type.Literal('provisional'), question_ids: Type.Array(Id, { minItems: 1 }) }),
@@ -680,6 +789,10 @@ export const sessionSchemas = {
   SessionReadInboxArgs,
   SessionFetchEvidenceArgs,
   SessionProposeArgs,
+  SessionStageProposeArgs,
+  SessionStageAskArgs,
+  SessionRevisionV2,
+  RevisionChange,
   SessionToolError,
   SessionToolResult,
   SessionOutboxItem,
@@ -709,6 +822,11 @@ export type SessionReplyArgsDto = Static<typeof SessionReplyArgs>
 export type SessionReadInboxArgsDto = Static<typeof SessionReadInboxArgs>
 export type SessionFetchEvidenceArgsDto = Static<typeof SessionFetchEvidenceArgs>
 export type SessionProposeArgsDto = Static<typeof SessionProposeArgs>
+export type SessionStageProposeArgsDto = Static<typeof SessionStageProposeArgs>
+export type SessionStageAskArgsDto = Static<typeof SessionStageAskArgs>
+export type SessionRevisionV2Dto = Static<typeof SessionRevisionV2>
+export type RevisionChangeDto = Static<typeof RevisionChange>
+export type RevisionSourceDto = Static<typeof RevisionSource>
 export type SessionToolErrorDto = Static<typeof SessionToolError>
 export type SessionToolResultDto = Static<typeof SessionToolResult>
 export type SessionOutboxItemDto = Static<typeof SessionOutboxItem>

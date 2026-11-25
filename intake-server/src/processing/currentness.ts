@@ -1,5 +1,10 @@
 import type { PoolClient } from 'pg'
-import type { ProcessingFieldDto } from '@invimport/contracts'
+import type {
+  EvidenceReadingsDto,
+  ProcessingFieldDto,
+  RevisionChangeDto,
+  RevisionSourceDto,
+} from '@invimport/contracts'
 import type { CaptureBinding } from '#/capture/model.ts'
 import { appendSessionInbox } from '#/agents/tools/inbox.ts'
 
@@ -7,35 +12,76 @@ import { appendSessionInbox } from '#/agents/tools/inbox.ts'
 export type StaleReason =
   'answer_received' | 'operator_correction' | 'evidence_removed' | 'lot_regrouped'
 
+/** Who made a change, and the brief revision a `/7` session sees it at. */
+export interface RevisionContext {
+  origin: { by: 'operator' } | { by: 'session'; attemptId: string }
+  briefRevision: string
+}
+
+/**
+ * A revision a session is told about. An earlier session gets its fields and reason; a `/7`
+ * session also gets each change, who made it and the brief revision (`revision/2`).
+ */
+export interface RevisionNotice {
+  fields: readonly ProcessingFieldDto[]
+  reason: string
+  changes: readonly RevisionChangeDto[]
+}
+
+/** A `revision/2` names at most this many changes; the reason still covers the rest. */
+const MAX_REVISION_CHANGES = 100
+
+interface LineageFacts {
+  binding: CaptureBinding
+  actorId: string
+  /** The input version of the lineage's current attempt, which decides the revision's shape. */
+  inputVersion: string | null
+}
+
+async function lineageFacts(client: PoolClient, lineageId: string): Promise<LineageFacts | null> {
+  const rows = await client.query<{
+    actor_id: string
+    target_id: string
+    target_context_id: string
+    input_version: string | null
+  }>(
+    `SELECT b.actor_id,b.target_id,b.target_context_id,
+       convert_from(i.manifest_bytes,'UTF8')::jsonb->>'schema_version' AS input_version
+     FROM public.processing_job j
+     JOIN public.capture_batch b ON b.id=j.batch_id
+     LEFT JOIN public.processing_attempt a ON a.id=j.current_attempt_id
+     LEFT JOIN public.processing_input i ON i.id=a.input_id
+     WHERE j.id=$1`,
+    [lineageId],
+  )
+  const row = rows.rows[0]
+  if (!row) {
+    return null
+  }
+  return {
+    binding: {
+      actorId: row.actor_id,
+      targetId: row.target_id,
+      targetContextId: row.target_context_id,
+    } as CaptureBinding,
+    actorId: row.actor_id,
+    inputVersion: row.input_version,
+  }
+}
+
 /** A system notice (no actor) on a session's inbox, bound to the session's own batch. */
-async function notice(
+async function append(
   client: PoolClient,
+  facts: LineageFacts,
   lineageId: string,
   idempotencyKey: string,
   kind: 'revision' | 'evidence',
   payload: Record<string, unknown>,
 ) {
-  const owner = await client.query<{
-    actor_id: string
-    target_id: string
-    target_context_id: string
-  }>(
-    `SELECT b.actor_id,b.target_id,b.target_context_id FROM public.processing_job j
-     JOIN public.capture_batch b ON b.id=j.batch_id WHERE j.id=$1`,
-    [lineageId],
-  )
-  const batch = owner.rows[0]
-  if (!batch) {
-    return
-  }
   await appendSessionInbox(
     client,
     {
-      binding: {
-        actorId: batch.actor_id,
-        targetId: batch.target_id,
-        targetContextId: batch.target_context_id,
-      } as CaptureBinding,
+      binding: facts.binding,
       lineageId,
       actorId: null,
       idempotencyKey,
@@ -44,6 +90,99 @@ async function notice(
     },
     { publish: false },
   )
+}
+
+async function evidenceNotice(
+  client: PoolClient,
+  lineageId: string,
+  idempotencyKey: string,
+  payload: { evidence_id: string; version_id: string },
+) {
+  const facts = await lineageFacts(client, lineageId)
+  if (facts) {
+    await append(client, facts, lineageId, idempotencyKey, 'evidence', payload)
+  }
+}
+
+async function revisionSource(
+  client: PoolClient,
+  facts: LineageFacts,
+  origin: RevisionContext['origin'],
+): Promise<RevisionSourceDto> {
+  if (origin.by === 'operator') {
+    return { kind: 'operator', actor_id: facts.actorId }
+  }
+  const rows = await client.query<{ stage: 'examine' | 'research' | 'images' }>(
+    `SELECT j.stage FROM public.processing_attempt a
+     JOIN public.processing_job j ON j.id=a.job_id WHERE a.id=$1`,
+    [origin.attemptId],
+  )
+  return { kind: 'session', stage: rows.rows[0].stage, attempt_id: origin.attemptId }
+}
+
+/** Tells one session about a revision, in the shape its current input reads. */
+export async function notifyRevision(
+  client: PoolClient,
+  lineageId: string,
+  idempotencyKey: string,
+  notice: RevisionNotice,
+  context: RevisionContext,
+) {
+  const facts = await lineageFacts(client, lineageId)
+  if (!facts) {
+    return
+  }
+  const reason = notice.reason.slice(0, 2048)
+  if (facts.inputVersion !== 'bench-intake-input/7') {
+    await append(client, facts, lineageId, idempotencyKey, 'revision', {
+      fields: [...notice.fields],
+      reason,
+    })
+    return
+  }
+  await append(client, facts, lineageId, idempotencyKey, 'revision', {
+    schema_version: 'bench-intake-revision/2',
+    fields: [...notice.fields],
+    reason,
+    changes: notice.changes.slice(0, MAX_REVISION_CHANGES),
+    source: await revisionSource(client, facts, context.origin),
+    brief_revision: context.briefRevision,
+  })
+}
+
+/** Each proposal's published kind; a runner proposal of `/1` names none. */
+async function proposalKinds(client: PoolClient, ids: readonly string[]) {
+  if (!ids.length) {
+    return new Map<string, string>()
+  }
+  const rows = await client.query<{ id: string; kind: string }>(
+    `SELECT p.id, COALESCE(convert_from(p.value_bytes,'UTF8')::jsonb->>'schema_version',
+       'bench-intake-proposal/1') AS kind
+     FROM public.processing_proposal p WHERE p.id = ANY($1::uuid[])`,
+    [[...ids]],
+  )
+  return new Map(rows.rows.map((row) => [row.id, row.kind]))
+}
+
+/** Changes naming each proposal that just went stale, for one session. */
+async function staleChanges(
+  client: PoolClient,
+  ids: readonly string[],
+  reason: StaleReason,
+): Promise<RevisionChangeDto[]> {
+  const kinds = await proposalKinds(client, ids)
+  return [...ids].sort().map((id) => ({
+    kind: 'proposal',
+    proposal_id: id,
+    proposal_kind: kinds.get(id) ?? 'bench-intake-proposal/1',
+    state: 'stale',
+    reason,
+  }))
+}
+
+/** Text a field change carries: at most 512 code points. */
+export function changeText(text: string) {
+  return [...text].slice(0, 512).join('')
 }
 
 /**
@@ -72,6 +211,45 @@ async function lotSessions(client: PoolClient, lotId: string) {
 }
 
 /**
+ * Sessions started from one of these proposals rely on it even before publishing anything: each
+ * live session pinned to one is added with the proposals it was pinned to.
+ */
+async function addPinned(
+  client: PoolClient,
+  batchId: string,
+  ids: readonly string[],
+  relied: Map<string, string[]>,
+) {
+  if (!ids.length) {
+    return
+  }
+  const pinned = await client.query<{ lineage: string; pinned: string[] }>(
+    `SELECT j.id AS lineage, ARRAY(
+       SELECT jsonb_array_elements_text(convert_from(i.manifest_bytes,'UTF8')::jsonb->'pinned_proposal_ids')
+     ) AS pinned
+     FROM public.processing_job j
+     JOIN public.processing_attempt a ON a.id=j.current_attempt_id
+     JOIN public.processing_input i ON i.id=a.input_id
+     WHERE j.batch_id=$1 AND a.state NOT IN ('cancelled','superseded')
+       AND (convert_from(i.manifest_bytes,'UTF8')::jsonb->'pinned_proposal_ids') ?| $2::text[]`,
+    [batchId, [...ids]],
+  )
+  for (const row of pinned.rows) {
+    const reliedOn = row.pinned.filter((id) => ids.includes(id))
+    relied.set(row.lineage, [...new Set([...(relied.get(row.lineage) ?? []), ...reliedOn])])
+  }
+}
+
+/** The proposal ids of each lineage, from rows naming a proposal and the lineage holding it. */
+function byLineage(rows: readonly { id: string; lineage: string }[]) {
+  const lineages = new Map<string, string[]>()
+  for (const row of rows) {
+    lineages.set(row.lineage, [...(lineages.get(row.lineage) ?? []), row.id])
+  }
+  return lineages
+}
+
+/**
  * A field of a subject changed (an answer or an operator correction). Every current proposal
  * for that subject relying on one of the fields, and every proposal relying on one of those, is
  * stale in this transaction. Each relying session gets a revision notice: owners of those
@@ -88,6 +266,9 @@ export async function fieldsSuperseded(
     message: string
     key: string
     except?: string
+    /** The fields' previous and new values, as a `/7` session is told them. */
+    changes: readonly RevisionChangeDto[]
+    context: RevisionContext
   },
 ) {
   if (!(await processingVisible(client))) {
@@ -121,31 +302,29 @@ export async function fieldsSuperseded(
       [ids, input.reason],
     )
     // Deeper results relying on these are stale too, and their sessions are told.
-    await cascadeAll(client, ids, input.reason)
+    await cascadeAll(client, ids, input.reason, input.context)
   }
-  // Sessions started from one of these proposals rely on it even before publishing anything.
-  const pinned = ids.length
-    ? await client.query<{ lineage: string }>(
-        `SELECT j.id AS lineage FROM public.processing_job j
-         JOIN public.processing_attempt a ON a.id=j.current_attempt_id
-         JOIN public.processing_input i ON i.id=a.input_id
-         WHERE j.batch_id=$1 AND a.state NOT IN ('cancelled','superseded')
-           AND (convert_from(i.manifest_bytes,'UTF8')::jsonb->'pinned_proposal_ids') ?| $2::text[]`,
-        [input.batchId, ids],
-      )
-    : { rows: [] }
-  const lineages = new Set([
-    ...affected.rows.map((row) => row.lineage),
-    ...pinned.rows.map((row) => row.lineage),
-  ])
-  lineages.delete(input.except ?? '')
-  for (const lineage of [...lineages].sort()) {
-    await notice(client, lineage, `${input.key}:${lineage}`, 'revision', {
-      fields: [...input.fields],
-      reason: input.message.slice(0, 2048),
-    })
+  const relied = byLineage(affected.rows)
+  await addPinned(client, input.batchId, ids, relied)
+  relied.delete(input.except ?? '')
+  const lineages = [...relied.keys()].sort()
+  for (const lineage of lineages) {
+    await notifyRevision(
+      client,
+      lineage,
+      `${input.key}:${lineage}`,
+      {
+        fields: input.fields,
+        reason: input.message,
+        changes: [
+          ...input.changes,
+          ...(await staleChanges(client, relied.get(lineage)!, input.reason)),
+        ],
+      },
+      input.context,
+    )
   }
-  return { stale: ids, notified: [...lineages].sort() }
+  return { stale: ids, notified: lineages }
 }
 
 /**
@@ -170,19 +349,27 @@ export async function observationAdded(client: PoolClient, lotId: string, observ
   // Keyed by the lot's set version, so an observation that leaves and returns is noticed again.
   const version = await setVersion(client, lotId)
   for (const lineage of lineages) {
-    await notice(client, lineage, `observation:${observationId}:${lotId}:${version}`, 'evidence', {
-      evidence_id: observation.rows[0].evidence_id,
-      version_id: observation.rows[0].version_id,
-    })
+    await evidenceNotice(
+      client,
+      lineage,
+      `observation:${observationId}:${lotId}:${version}`,
+      observation.rows[0],
+    )
   }
   return lineages
 }
 
 /**
  * An observation left a lot: proposals citing it become stale, and their sessions are told to
- * revise them.
+ * revise them. `lotTo` is the lot it moved to, if any.
  */
-export async function observationRemoved(client: PoolClient, lotId: string, observationId: string) {
+export async function observationRemoved(
+  client: PoolClient,
+  lotId: string,
+  observationId: string,
+  lotTo: string | null,
+  context: RevisionContext,
+) {
   if (!(await processingVisible(client))) {
     return [] as string[]
   }
@@ -202,23 +389,43 @@ export async function observationRemoved(client: PoolClient, lotId: string, obse
       [citing.rows.map((row) => row.id)],
     )
   }
+  const moved: RevisionChangeDto = {
+    kind: 'observation',
+    observation_id: observationId,
+    lot_from: lotId,
+    lot_to: lotTo,
+  }
   for (const row of citing.rows) {
-    await notice(client, row.lineage, `removed:${observationId}:${lotId}:${row.id}`, 'revision', {
-      fields: row.fields.length ? row.fields : ['identity'],
-      reason: 'An observation a proposal cited left the lot; revise the proposal.',
-    })
+    await notifyRevision(
+      client,
+      row.lineage,
+      `removed:${observationId}:${lotId}:${row.id}`,
+      {
+        fields: row.fields.length ? (row.fields as ProcessingFieldDto[]) : ['identity'],
+        reason: 'An observation a proposal cited left the lot; revise the proposal.',
+        changes: [moved, ...(await staleChanges(client, [row.id], 'evidence_removed'))],
+      },
+      context,
+    )
   }
   const ids = citing.rows.map((row) => row.id)
-  await cascadeAll(client, ids, 'evidence_removed')
+  await cascadeAll(client, ids, 'evidence_removed', context)
   // The lot's own sessions hear about the change too, whether or not they cited it.
   const version = await setVersion(client, lotId)
   const told = new Set(citing.rows.map((row) => row.lineage))
   for (const lineage of await lotSessions(client, lotId)) {
     if (!told.has(lineage)) {
-      await notice(client, lineage, `removed:${observationId}:${lotId}:${version}`, 'revision', {
-        fields: ['identity'],
-        reason: 'An observation left the lot; check what relied on it.',
-      })
+      await notifyRevision(
+        client,
+        lineage,
+        `removed:${observationId}:${lotId}:${version}`,
+        {
+          fields: ['identity'],
+          reason: 'An observation left the lot; check what relied on it.',
+          changes: [moved],
+        },
+        context,
+      )
     }
   }
   return ids
@@ -236,7 +443,12 @@ async function setVersion(client: PoolClient, lotId: string) {
  * Proposals relying on newly stale ones through a `proposal` source are stale for the same
  * reason, in the same transaction, and their sessions are told; Inventory then waits.
  */
-async function cascadeStale(client: PoolClient, ids: readonly string[], reason: StaleReason) {
+async function cascadeStale(
+  client: PoolClient,
+  ids: readonly string[],
+  reason: StaleReason,
+  context: RevisionContext,
+) {
   if (!ids.length) {
     return []
   }
@@ -261,21 +473,33 @@ async function cascadeStale(client: PoolClient, ids: readonly string[], reason: 
     )
   }
   for (const row of downstream.rows) {
-    await notice(client, row.lineage, `cascade:${row.id}`, 'revision', {
-      fields: row.fields.length ? row.fields : ['identity'],
-      reason: 'A proposal this one relied on is no longer current; revise it.',
-    })
+    await notifyRevision(
+      client,
+      row.lineage,
+      `cascade:${row.id}`,
+      {
+        fields: row.fields.length ? (row.fields as ProcessingFieldDto[]) : ['identity'],
+        reason: 'A proposal this one relied on is no longer current; revise it.',
+        changes: await staleChanges(client, [row.id], reason),
+      },
+      context,
+    )
   }
   return downstream.rows.map((row) => row.id)
 }
 
 /** Every proposal downstream of newly stale ones, level by level. */
-async function cascadeAll(client: PoolClient, ids: readonly string[], reason: StaleReason) {
+async function cascadeAll(
+  client: PoolClient,
+  ids: readonly string[],
+  reason: StaleReason,
+  context: RevisionContext,
+) {
   let level = ids
   // Real chains are a few levels (identity, then Research or Images, then what cites them);
   // the bound only guards against a pathological one.
   for (let depth = 0; level.length && depth < 8; depth += 1) {
-    level = await cascadeStale(client, level, reason)
+    level = await cascadeStale(client, level, reason, context)
   }
 }
 
@@ -286,13 +510,13 @@ async function cascadeAll(client: PoolClient, ids: readonly string[], reason: St
 export async function lotRegroupedNotices(
   client: PoolClient,
   staleIds: readonly string[],
-  { operator }: { operator: boolean },
+  context: RevisionContext,
 ) {
   if (!staleIds.length || !(await processingVisible(client))) {
     return
   }
-  await cascadeAll(client, staleIds, 'lot_regrouped')
-  if (!operator) {
+  await cascadeAll(client, staleIds, 'lot_regrouped', context)
+  if (context.origin.by !== 'operator') {
     return
   }
   const owners = await client.query<{ id: string; lineage: string; lead: boolean }>(
@@ -302,13 +526,20 @@ export async function lotRegroupedNotices(
     [[...staleIds]],
   )
   for (const row of owners.rows) {
-    await notice(client, row.lineage, `regrouped:${row.id}`, 'revision', {
-      fields: ['identity'],
-      // Only the lead session publishes identities; a lot session revises what it found.
-      reason: row.lead
-        ? 'The operator changed this lot’s observations; publish its identity again.'
-        : 'The operator changed this lot’s observations; revise what relied on them.',
-    })
+    await notifyRevision(
+      client,
+      row.lineage,
+      `regrouped:${row.id}`,
+      {
+        fields: ['identity'],
+        // Only the lead session publishes identities; a lot session revises what it found.
+        reason: row.lead
+          ? 'The operator changed this lot’s observations; publish its identity again.'
+          : 'The operator changed this lot’s observations; revise what relied on them.',
+        changes: await staleChanges(client, [row.id], 'lot_regrouped'),
+      },
+      context,
+    )
   }
 }
 
@@ -326,8 +557,16 @@ async function leadSession(client: PoolClient, batchId: string) {
   return rows.rows[0]?.id ?? null
 }
 
+async function captureRevision(client: PoolClient, batchId: string) {
+  const rows = await client.query<{ revision: string }>(
+    'SELECT revision::text AS revision FROM public.capture_batch WHERE id=$1',
+    [batchId],
+  )
+  return rows.rows[0].revision
+}
+
 /**
- * Evidence items were removed at `revision`. Every current proposal relying on one of them, through
+ * Evidence items were removed at media `revision`. Every current proposal relying on one of them, through
  * a cited version, an observation on one of its versions or one of its evidence notes, wherever the
  * proposal names it (its sources, its catalogue values or `relies_on`), is stale
  * with `evidence_removed`, and so is everything built on those. The Examine lead gets a batch
@@ -345,6 +584,11 @@ export async function evidenceRemoved(
 ) {
   if (!(await processingVisible(client))) {
     return { stale: [] as string[], notified: [] as string[] }
+  }
+  // `revision` is the media revision; a session's brief names the capture revision.
+  const context: RevisionContext = {
+    origin: { by: 'operator' },
+    briefRevision: await captureRevision(client, input.batchId),
   }
   const cited = await client.query<{ versions: string[]; observations: string[]; notes: string[] }>(
     `SELECT
@@ -387,28 +631,138 @@ export async function evidenceRemoved(
        SELECT unnest($1::uuid[]),'evidence_removed' ON CONFLICT DO NOTHING`,
       [ids],
     )
-    await cascadeAll(client, ids, 'evidence_removed')
+    await cascadeAll(client, ids, 'evidence_removed', context)
   }
   const lead = await leadSession(client, input.batchId)
-  const lineages = new Set(affected.rows.map((row) => row.lineage))
+  const relied = byLineage(affected.rows)
   for (const lotId of input.lotIds) {
     for (const lineage of await lotSessions(client, lotId)) {
-      lineages.add(lineage)
+      relied.set(lineage, relied.get(lineage) ?? [])
     }
   }
   if (lead) {
-    lineages.add(lead)
+    relied.set(lead, relied.get(lead) ?? [])
   }
-  for (const lineage of [...lineages].sort()) {
-    await notice(client, lineage, `evidence_removed:${input.revision}:${lineage}`, 'revision', {
-      fields: ['identity'],
-      reason:
-        lineage === lead
-          ? 'The operator deleted evidence from this batch; observations on it no longer count. Revise the lots that relied on them.'
-          : 'The operator deleted evidence this lot used; revise what relied on it.',
-    })
+  const removed: RevisionChangeDto[] = input.evidenceIds.map((evidenceId) => ({
+    kind: 'evidence',
+    evidence_id: evidenceId,
+    removed: true,
+  }))
+  const lineages = [...relied.keys()].sort()
+  for (const lineage of lineages) {
+    await notifyRevision(
+      client,
+      lineage,
+      `evidence_removed:${input.revision}:${lineage}`,
+      {
+        fields: ['identity'],
+        reason:
+          lineage === lead
+            ? 'The operator deleted evidence from this batch; observations on it no longer count. Revise the lots that relied on them.'
+            : 'The operator deleted evidence this lot used; revise what relied on it.',
+        changes: [
+          ...removed,
+          ...(await staleChanges(client, relied.get(lineage)!, 'evidence_removed')),
+        ],
+      },
+      context,
+    )
   }
-  return { stale: ids, notified: [...lineages].sort() }
+  return { stale: ids, notified: lineages }
+}
+
+/**
+ * The operator corrected an observation's reading at `revision`. For `/7` work, every current
+ * `/7` proposal relying on the observation is stale (`operator_correction`), with what relies on
+ * it, and the batch's `/7` lead, the observation's lot's sessions and those proposals' sessions
+ * are each told once, naming the reading before and after. A `/7` lead is woken by it, as by any
+ * unread item. Earlier inputs' proposals and sessions are left as they were.
+ */
+export async function observationCorrected(
+  client: PoolClient,
+  input: {
+    batchId: string
+    observationId: string
+    before: EvidenceReadingsDto
+    after: EvidenceReadingsDto
+    revision: string
+  },
+) {
+  if (!(await processingVisible(client))) {
+    return { stale: [] as string[], notified: [] as string[] }
+  }
+  const context: RevisionContext = { origin: { by: 'operator' }, briefRevision: input.revision }
+  const relying = await client.query<{ id: string; lineage: string }>(
+    `SELECT p.id, j.id AS lineage FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_input i ON i.id=a.input_id
+     JOIN public.processing_job j ON j.id=a.job_id
+     WHERE j.batch_id=$1
+       AND convert_from(i.manifest_bytes,'UTF8')::jsonb->>'schema_version'='bench-intake-input/7'
+       AND p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object(
+         'kind','evidence_observation','evidence_observation_id',$2::text))
+       AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
+     ORDER BY p.id`,
+    [input.batchId, input.observationId],
+  )
+  const ids = relying.rows.map((row) => row.id)
+  if (ids.length) {
+    await client.query(
+      `INSERT INTO public.processing_proposal_stale(proposal_id,reason)
+       SELECT unnest($1::uuid[]),'operator_correction' ON CONFLICT DO NOTHING`,
+      [ids],
+    )
+    await cascadeAll(client, ids, 'operator_correction', context)
+  }
+  const relied = byLineage(relying.rows)
+  await addPinned(client, input.batchId, ids, relied)
+  const lot = await client.query<{ lot_id: string }>(
+    `SELECT lot_id FROM public.capture_lot_evidence_observation
+     WHERE evidence_observation_id=$1 AND status='active'`,
+    [input.observationId],
+  )
+  for (const row of lot.rows) {
+    for (const lineage of await lotSessions(client, row.lot_id)) {
+      relied.set(lineage, relied.get(lineage) ?? [])
+    }
+  }
+  const lead = await leadSession(client, input.batchId)
+  if (lead) {
+    relied.set(lead, relied.get(lead) ?? [])
+  }
+  const reading: RevisionChangeDto = {
+    kind: 'reading',
+    observation_id: input.observationId,
+    reading_from: input.before,
+    reading_to: input.after,
+  }
+  const notified: string[] = []
+  for (const lineage of [...relied.keys()].sort()) {
+    // Only `/7` sessions are told of a corrected reading; earlier ones keep today's notices.
+    const facts = await lineageFacts(client, lineage)
+    if (facts?.inputVersion !== 'bench-intake-input/7') {
+      continue
+    }
+    await notifyRevision(
+      client,
+      lineage,
+      `reading:${input.observationId}:${input.revision}:${lineage}`,
+      {
+        fields: ['markings', 'identity'],
+        reason:
+          lineage === lead
+            ? 'The operator corrected an observation’s reading; look at its lot again.'
+            : 'The operator corrected a reading this lot relies on; revise what relied on it.',
+        changes: [
+          reading,
+          ...(await staleChanges(client, relied.get(lineage)!, 'operator_correction')),
+        ],
+      },
+      context,
+    )
+    notified.push(lineage)
+  }
+  return { stale: ids, notified }
 }
 
 /**
@@ -431,7 +785,7 @@ export async function evidenceRestored(
     return []
   }
   for (const version of input.versions) {
-    await notice(client, lead, `restored:${version.evidenceId}:${input.revision}`, 'evidence', {
+    await evidenceNotice(client, lead, `restored:${version.evidenceId}:${input.revision}`, {
       evidence_id: version.evidenceId,
       version_id: version.versionId,
     })

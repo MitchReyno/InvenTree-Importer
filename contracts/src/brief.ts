@@ -7,7 +7,7 @@ import {
   EvidenceReadings,
   EvidenceRegion,
 } from './evidence-observations.ts'
-import { SessionProposal } from './processing.ts'
+import { RetainedSessionProposal } from './processing.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -243,7 +243,7 @@ export const BriefIdentityEntry = object({
   kind: Type.Literal('identity'),
   proposal_id: Id,
   stale: Type.Boolean(),
-  proposal: SessionProposal,
+  proposal: RetainedSessionProposal,
 })
 
 /** Images: another lot's item seen on the same evidence, to keep out of frame. */
@@ -369,6 +369,8 @@ export const briefSchemas = {
 export type BriefStageDto = Static<typeof BriefStage>
 export type BriefSectionNameDto = Static<typeof BriefSectionName>
 export type BriefEntryDto = Static<typeof BriefEntry>
+export type BriefQuestionEntryDto = Static<typeof BriefQuestionEntry>
+export type BriefAnswerEntryDto = Static<typeof BriefAnswerEntry>
 export type SessionBriefDto = Static<typeof SessionBrief>
 export type SealedBriefDto = Static<typeof SealedBrief>
 export type BriefPageDto = Static<typeof BriefPage>

@@ -1,10 +1,10 @@
 import type { PoolClient } from 'pg'
 import { and, eq, inArray } from 'drizzle-orm'
-import type { CaptureSnapshotDto, SessionProposalDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, RetainedSessionProposalDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureLots } from '#/capture/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
-import { appendSessionInbox } from '#/agents/tools/inbox.ts'
+import { notifyRevision } from './currentness.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob } from './jobs.ts'
@@ -26,7 +26,7 @@ export { SUCCESSOR_STAGES } from './supersede.ts'
 const ENDED_STATES = ['superseded', 'cancelled', 'failed'] as const
 
 /** The observation set version an identity proposal relies on for its own lot, if any. */
-export function reliedObservationSet(proposal: SessionProposalDto): string | null {
+export function reliedObservationSet(proposal: RetainedSessionProposalDto): string | null {
   if (!proposal.relies_on.fields.includes('identity')) {
     return null
   }
@@ -67,7 +67,7 @@ export async function onLeadIdentity(
   client: PoolClient,
   config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
-  proposal: SessionProposalDto,
+  proposal: RetainedSessionProposalDto,
   proposalId: string,
 ): Promise<'queued' | 'revised' | 'waiting' | 'not_stable' | null> {
   const version = reliedObservationSet(proposal)
@@ -118,21 +118,26 @@ export async function onLeadIdentity(
     // run gets the revision as a notice instead.
     const unstarted = job?.attemptState === 'queued' && (job.turnCount ?? 0n) === 0n
     if (job && !unstarted && !(ENDED_STATES as readonly string[]).includes(job.attemptState)) {
-      await appendSessionInbox(
+      await notifyRevision(
         client,
+        job.id,
+        `identity:${proposalId}`,
         {
-          binding: config,
-          batchId: snapshot.id,
-          lineageId: job.id,
-          actorId: null,
-          idempotencyKey: `identity:${proposalId}`,
-          kind: 'revision',
-          payload: {
-            fields: ['identity'],
-            reason: `The lot's identity was revised: ${proposal.summary}`.slice(0, 2048),
-          },
+          fields: ['identity'],
+          reason: `The lot's identity was revised: ${proposal.summary}`,
+          changes: [
+            {
+              kind: 'proposal',
+              proposal_id: proposalId,
+              proposal_kind: proposal.schema_version,
+              state: 'published',
+            },
+          ],
         },
-        { publish: false },
+        {
+          origin: { by: 'session', attemptId: await proposalAttempt(client, proposalId) },
+          briefRevision: snapshot.revision,
+        },
       )
     } else {
       toQueue.push(stage)
@@ -170,6 +175,15 @@ export async function onLeadIdentity(
     })
   }
   return 'queued'
+}
+
+/** The attempt that published a proposal. */
+async function proposalAttempt(client: PoolClient, proposalId: string) {
+  const rows = await client.query<{ attempt_id: string }>(
+    'SELECT attempt_id FROM public.processing_proposal WHERE id=$1',
+    [proposalId],
+  )
+  return rows.rows[0].attempt_id
 }
 
 /** The agent settings successors seal; none for profiles that need no provider. */

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
@@ -12,16 +12,34 @@ import { singleProvider } from './agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 import { startSessionToolServer } from '#/agents/tools/server.ts'
 import { runSessionTurn, syntheticSessionDriver } from '#/agents/session/session-runner.ts'
+import sharp from 'sharp'
+import { BlobStore } from '#/media/blob-store.ts'
+import { readMediaStoreIdentity } from '#/media/store-identity.ts'
+import { transaction } from '#/db/database.ts'
 
 export type Fixture = Awaited<ReturnType<typeof processingFixture>>
+
+/** A plain 768×512 photo whose image the session can be given, published to the store. */
+async function storedPhoto(fixture: Fixture, store: BlobStore) {
+  const bytes = await sharp({
+    create: { width: 768, height: 512, channels: 3, background: { r: 40, g: 90, b: 160 } },
+  })
+    .png()
+    .toBuffer()
+  await transaction(fixture.db.pool, (client) => store.publish(client, bytes))
+  return { original: bytes, preview: bytes }
+}
 
 export async function photoWithNote(
   fixture: Fixture,
   batchId: string,
   label: string,
   note: string,
+  /** With a store, the photo has real bytes, so a fetch gives the session its image. */
+  store?: BlobStore,
 ) {
-  const photo = await seedPhoto(fixture, batchId, { width: 768, height: 512 }, label)
+  const content = store ? await storedPhoto(fixture, store) : undefined
+  const photo = await seedPhoto(fixture, batchId, { width: 768, height: 512 }, label, 0, content)
   await fixture.db.pool.query(
     'INSERT INTO media_evidence_note(id,batch_id,evidence_id,revision,text,actor_id) VALUES($1,$2,$3,1,$4,$5)',
     [randomUUID(), batchId, photo.evidence, note, fixture.identity.actor],
@@ -42,23 +60,32 @@ export interface Successor {
 /**
  * A batch whose lead session has formed lots, with the tool server and runner wired up. With
  * `stageInputs`, the test-only switch is on from the start, so the lead and its successors seal
- * `/7`.
+ * `/7`. With `images`, the photo has real bytes in a blob store the tool server reads, so a
+ * fetch gives the session its image.
  */
 export async function formedBatch(
   t: { after: (fn: () => Promise<void>) => void },
-  { stageInputs = false }: { stageInputs?: boolean } = {},
+  { stageInputs = false, images = false }: { stageInputs?: boolean; images?: boolean } = {},
 ) {
   const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
   if (stageInputs) {
     fixture.config.stageInputs = 'local'
   }
-  const stateRoot = await mkdtemp(join(tmpdir(), 'stable-identity-'))
-  const server = await startSessionToolServer({
+  const stateRoot = await realpath(await mkdtemp(join(tmpdir(), 'stable-identity-')))
+  const store = images
+    ? await BlobStore.initialize(
+        join(stateRoot, 'blobs'),
+        await readMediaStoreIdentity(fixture.db.pool),
+      )
+    : undefined
+  const serverOptions = {
     pool: fixture.runner.pool,
     writerPool: fixture.writer.pool,
     config: fixture.config,
+    store,
     statusIntervalMs: 0,
-  })
+  }
+  const server = await startSessionToolServer(serverOptions)
   t.after(async () => {
     await server.close()
     await fixture.dispose()
@@ -84,7 +111,7 @@ export async function formedBatch(
   )
   const capture = await fixture.seedCapture()
   const batchId = capture.batch.id
-  await photoWithNote(fixture, batchId, 'Tray', '16 MHz crystal; LED 0603 red ×500')
+  await photoWithNote(fixture, batchId, 'Tray', '16 MHz crystal; LED 0603 red ×500', store)
   await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
   const lead = await fixture.db.pool.query<{ id: string; current_attempt_id: string }>(
     "SELECT id,current_attempt_id FROM processing_job WHERE batch_id=$1 AND stage='examine'",
@@ -123,6 +150,9 @@ export async function formedBatch(
   return {
     fixture,
     deps,
+    server,
+    serverOptions,
+    store,
     batchId,
     leadJob: lead.rows[0].id,
     leadAttempt,

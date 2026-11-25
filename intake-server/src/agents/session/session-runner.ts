@@ -45,6 +45,7 @@ import {
   releaseInboxItems,
 } from '#/agents/tools/inbox.ts'
 import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
+import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
 import { syntheticTurn } from './synthetic-turn.ts'
 import {
   claimSessionSlot,
@@ -126,6 +127,11 @@ export interface SessionDriverContext {
    * can confirm it gone. The runner provides it; a guest-side context has none.
    */
   recordChild?: (child: TurnChild) => Promise<void>
+  /**
+   * Records that a photo view's image was handed to the provider, which a `/7` citation needs.
+   * Called by a driver that hands images over itself, after it has; the runner provides it.
+   */
+  releaseView?: (viewSeq: string) => Promise<void>
 }
 export type SessionDriver = (turn: SessionTurn, context: SessionDriverContext) => Promise<void>
 
@@ -1057,6 +1063,7 @@ export async function runSessionTurn(
       signal: turnControl.signal,
       identity: { attemptId, turn: turnNumber.toString(), lineage: current.jobId },
       recordChild,
+      releaseView: (viewSeq) => recordPhotoRelease(pool, attemptId, viewSeq),
     })
     next = 'finished'
   } catch (error) {
@@ -1236,10 +1243,18 @@ export const syntheticSessionDriver: SessionDriver = async (turn, context) => {
   const call = async (name: string, args: Record<string, unknown>) => {
     context.signal.throwIfAborted()
     const result = await client.callTool({ name, arguments: args })
-    return result.structuredContent as {
+    const structured = result.structuredContent as {
       ok: boolean
+      view_seq?: string
       items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
     }
+    // The image is in this turn now, so its view is released, which a `/7` citation needs.
+    const content = (result.content ?? []) as { type: string }[]
+    const image = content.some((item) => item.type === 'image')
+    if (name === 'fetch_evidence' && structured.ok && image && structured.view_seq) {
+      await context.releaseView?.(structured.view_seq)
+    }
+    return structured
   }
 
   try {

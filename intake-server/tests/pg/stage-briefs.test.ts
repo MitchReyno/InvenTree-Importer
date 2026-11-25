@@ -233,7 +233,8 @@ test('under the switch the lead and its successors seal briefs with their stages
   )
   // Each identity carries the proposal as Examine published it, not only its id.
   assert.equal(identities[0].proposal.summary, 'Identity from the label: led 0603 red.')
-  assert.deepEqual(identities[0].proposal.relies_on.fields, ['identity'])
+  assert.equal(identities[0].proposal.schema_version, 'examine-identity/1')
+  assert.deepEqual(identities[0].proposal.relies_on.fields, ['markings', 'identity'])
   const [note] = ofKind(entries, 'note').filter((entry) => entry.text.includes('16 MHz'))
   assert.equal(note.source, 'human')
   // An evidence note says which photo it is about.
@@ -1047,7 +1048,7 @@ test('Start pins the lot’s own identity, not another lot’s that cites its ob
     const lead = await open(batch.deps.toolUrl, await running(fixture, leadAttempt))
     const published = await call(lead, 'propose', {
       proposal: {
-        schema_version: 'bench-intake-proposal/5',
+        schema_version: 'examine-identity/1',
         subject_id: crystal.id,
         summary: 'The crystal, read beside the LED reel.',
         sources: value.rows[0].value.sources,
@@ -1058,6 +1059,8 @@ test('Start pins the lot’s own identity, not another lot’s that cites its ob
             { kind: 'observation_set', lot_id: led.id, version: led.observation_set_version },
           ],
         },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
       },
     })
     assert.equal(published.ok, true, JSON.stringify(published))

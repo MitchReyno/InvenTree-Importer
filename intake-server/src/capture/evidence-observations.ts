@@ -12,8 +12,9 @@ import type {
   RegroupArgsDto,
   RegroupMoveDto,
   LotFormingOutcomeDto,
+  EvidenceReadingsDto,
 } from '@invimport/contracts'
-import { lotItemCount } from '@invimport/contracts'
+import { lotItemCount, validate } from '@invimport/contracts'
 import { canonicalRecord } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { mediaPreviews, mediaVersions } from '#/media/schema.ts'
@@ -317,7 +318,11 @@ async function setActiveLot(
           ),
         ),
     )
-    await bumpObservationSet(client, from, revision, { removed: observationId })
+    await bumpObservationSet(client, from, revision, {
+      removed: observationId,
+      other: to,
+      origin: { by: 'session', attemptId: sessionId },
+    })
   }
   await executeDatabaseQuery(
     db
@@ -338,14 +343,27 @@ async function setActiveLot(
         set: { status: 'active', revision },
       }),
   )
-  await bumpObservationSet(client, to, revision, { added: observationId })
+  await bumpObservationSet(client, to, revision, {
+    added: observationId,
+    other: from,
+    origin: { by: 'session', attemptId: sessionId },
+  })
 }
 
+/**
+ * A lot's observation set changed at `revision`: one observation joined it or left it for
+ * `other`, moved by the operator or by the lead session.
+ */
 async function bumpObservationSet(
   client: PoolClient,
   lotId: string,
   revision: bigint,
-  change: { added?: string; removed?: string; operator?: boolean } = {},
+  change: {
+    added?: string
+    removed?: string
+    other: string | null
+    origin: { by: 'operator' } | { by: 'session'; attemptId: string }
+  },
 ) {
   await executeDatabaseQuery(
     queryDatabase(client)
@@ -359,13 +377,14 @@ async function bumpObservationSet(
   // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
   const { observationAdded, observationRemoved, lotRegroupedNotices } =
     await import('#/processing/currentness.ts')
+  const context = { origin: change.origin, briefRevision: revision.toString() }
   // Proposals citing a removed observation are stale for that reason, before the regroup.
   if (change.removed) {
-    await observationRemoved(client, lotId, change.removed)
+    await observationRemoved(client, lotId, change.removed, change.other, context)
   }
   // Successors that have not started wait for the next stable identity.
   const regrouped = await lotRegrouped(client, lotId)
-  await lotRegroupedNotices(client, regrouped.stale, { operator: change.operator === true })
+  await lotRegroupedNotices(client, regrouped.stale, context)
   // Sessions already working on the lot hear about new evidence.
   if (change.added) {
     await observationAdded(client, lotId, change.added)
@@ -510,6 +529,54 @@ async function proposedPart(
   await executeDatabaseQuery(db.insert(captureParts).values({ batchId: writer.batchId, id }))
   subjects.push({ id, kind: 'part' })
   return id
+}
+
+/**
+ * Examine's `/7` quantity estimate for a lot, from its `examine-identity/1`: the lot's estimated
+ * quantity and basis, as a capture revision attributed to the session. A lot the operator owns or
+ * edited keeps its values, and an unchanged estimate writes nothing. Returns whether it wrote.
+ */
+export async function recordLotEstimate(
+  client: PoolClient,
+  writer: LeadWriter,
+  lotId: string,
+  estimate: { value: string; basis: string },
+) {
+  const locked = await lockCaptureForAgentWrite(client, writer.config, writer.batchId)
+  const lot = (await lockLots(client, writer.batchId, [lotId])).get(lotId)
+  if (!lot || editedLot(lot)) {
+    return false
+  }
+  const current = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ value: captureLots.estimatedQuantity, basis: captureLots.quantityBasis })
+      .from(captureLots)
+      .where(eq(captureLots.id, lotId)),
+  )
+  const unchanged = current[0]?.value === estimate.value && current[0]?.basis === estimate.basis
+  if (unchanged) {
+    return false
+  }
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(captureLots)
+      .set({
+        estimatedQuantity: estimate.value,
+        quantityBasis: estimate.basis,
+        changedRevision: BigInt(locked.nextRevision),
+      })
+      .where(eq(captureLots.id, lotId)),
+  )
+  await locked.finish(
+    {
+      tool: 'propose',
+      lot_id: lotId,
+      estimated_quantity: estimate.value,
+      quantity_basis: estimate.basis,
+    },
+    writer.sessionId,
+  )
+  return true
 }
 
 /** `propose_lot`: a new draft lot, or an extension of an AI lot. Edited targets get suggestions. */
@@ -855,7 +922,11 @@ async function moveByOperator(
           ),
         ),
     )
-    await bumpObservationSet(client, from, revision, { removed: observationId, operator: true })
+    await bumpObservationSet(client, from, revision, {
+      removed: observationId,
+      other: to,
+      origin: { by: 'operator' },
+    })
     await markLotEdited(client, from, revision)
   }
   if (to) {
@@ -878,7 +949,11 @@ async function moveByOperator(
           set: { status: 'active', revision },
         }),
     )
-    await bumpObservationSet(client, to, revision, { added: observationId, operator: true })
+    await bumpObservationSet(client, to, revision, {
+      added: observationId,
+      other: from,
+      origin: { by: 'operator' },
+    })
     await markLotEdited(client, to, revision)
   }
 }
@@ -1065,6 +1140,18 @@ async function retainCorrection(
      VALUES ($1,$2,$3,$4,$5)`,
     [batchId, observationId, revision.toString(), JSON.stringify(before), JSON.stringify(after)],
   )
+  // The stored reading is jsonb; sessions are told it in its contract's shape.
+  validate('EvidenceReadings', before)
+  validate('EvidenceReadings', after)
+  // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
+  const { observationCorrected } = await import('#/processing/currentness.ts')
+  await observationCorrected(client, {
+    batchId,
+    observationId,
+    before: before as EvidenceReadingsDto,
+    after: after as EvidenceReadingsDto,
+    revision: revision.toString(),
+  })
 }
 
 /** Operator observation edits; each marks the observation and the lots it touches as edited. */

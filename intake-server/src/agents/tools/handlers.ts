@@ -15,7 +15,10 @@ import {
   type SessionProposalDto,
   type WebPageSourceDto,
   type ProcessingRelianceDto,
+  type RetainedSessionProposalDto,
   type SessionAskArgsV2Dto,
+  type SessionStageAskArgsDto,
+  type SessionStageProposeArgsDto,
   type SessionReadBriefBatchArgsDto,
   type SessionReadLotArgsDto,
   type SessionToolErrorDto,
@@ -31,11 +34,16 @@ import {
 import { onLeadIdentity } from '#/processing/stable-identity.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
-import { lockCaptureForAgentWrite, lockCaptureForInputSettlement } from '#/capture/repository.ts'
+import {
+  captureInTransaction,
+  lockCaptureForAgentWrite,
+  lockCaptureForInputSettlement,
+} from '#/capture/repository.ts'
 import { CaptureError } from '#/capture/model.ts'
 import {
   leadBatchView,
   proposeLot,
+  recordLotEstimate,
   recordObservation,
   regroup,
   type LotFormingResult,
@@ -43,7 +51,7 @@ import {
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { ProcessingError, sealed } from '#/processing/model.ts'
 import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
-import { catalogueSources, deliveredSourceCheck } from '#/processing/provenance.ts'
+import { deliveredSourceCheck, proposalCitations } from '#/processing/provenance.ts'
 import { storableText } from '#/db/storable-text.ts'
 import { lockProcessingAttempt } from '#/processing/state.ts'
 import {
@@ -57,6 +65,9 @@ import type { BlobStore } from '#/media/blob-store.ts'
 import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { refuse, ToolRefusal } from './refusal.ts'
+import { stageOutputRefusal } from './stage-outputs.ts'
+import { coveringQuestion, storeQuestionBasis, type QuestionBasis } from './question-dedupe.ts'
+import { releasedPages } from './photo-release.ts'
 import { readBriefPage, retainBriefView, stagePrincipal, type BriefRead } from './brief-read.ts'
 import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
@@ -239,6 +250,8 @@ async function fetchEvidenceImage(
         originalType?: DeliveredImage['mediaType']
         deferCitation: boolean
         examine: boolean
+        /** A `/7` session cites a view only once its release is recorded, so it learns the view. */
+        stageInput: boolean
         region?: {
           x: number
           y: number
@@ -332,6 +345,7 @@ async function fetchEvidenceImage(
         region: request.region,
         deferCitation: principal.manifest.profile_id === 'shared-vm-agent/3',
         examine: (principal.manifest.stage as string) === 'examine',
+        stageInput: principal.manifest.schema_version === 'bench-intake-input/7',
       }
       const described = await client.query<{ label: string; note: string | null }>(
         `SELECT e.label,
@@ -441,7 +455,8 @@ async function fetchEvidenceImage(
   if (!image || !view) {
     return { result: { ...authorized.result, pending_inbox: finished.pending } }
   }
-  if (!plan.deferCitation) {
+  // A `/7` citation needs the view's recorded release instead.
+  if (!plan.deferCitation && !plan.stageInput) {
     recordMediaDelivery(context.deliveredMedia, plan.jobId, plan.versionId, {
       attemptId: plan.attemptId,
       page: preview.page,
@@ -451,6 +466,7 @@ async function fetchEvidenceImage(
     result: {
       ...authorized.result,
       pending_inbox: finished.pending,
+      ...(plan.stageInput && finished.viewSeq ? { view_seq: finished.viewSeq } : {}),
       source: plan.source,
       delivered: {
         page: preview.page,
@@ -523,7 +539,7 @@ function releaseImageBudget(context: SessionToolContext, run: string, bytes: num
 }
 
 type FinalFetchOutcome =
-  | { kind: 'committed'; pending: number }
+  | { kind: 'committed'; pending: number; viewSeq: string | null }
   | { kind: 'refused'; output: SessionToolOutput }
   | { kind: 'uncertain'; pending: number }
 
@@ -543,6 +559,7 @@ async function finishEvidenceFetch(
   // outcome is unknown; a throw before it rolled back.
   let workReturned = false
   let pendingBeforeCommit = 0
+  let viewSeq: string | null = null
   try {
     const pending = await transaction(context.pool, async (client) => {
       const found =
@@ -552,7 +569,11 @@ async function finishEvidenceFetch(
       await requireRunningSession(client, token, found)
       await refuseRemovedVersions(client, target.batchId, [target.versionId])
       if (view) {
-        await appendSessionOutbox(client, found.attemptId, { kind: 'photo_view', payload: view })
+        const seq = await appendSessionOutbox(client, found.attemptId, {
+          kind: 'photo_view',
+          payload: view,
+        })
+        viewSeq = seq.toString()
         await appendEvent(client, streamId, 'session_changed', {
           batch_id: found.batchId,
         })
@@ -562,7 +583,7 @@ async function finishEvidenceFetch(
       workReturned = true
       return count
     })
-    return { kind: 'committed', pending }
+    return { kind: 'committed', pending, viewSeq }
   } catch (error) {
     // The fetch doesn't touch the inbox or its cursor, so the count read before COMMIT holds.
     if (workReturned && view) {
@@ -932,10 +953,53 @@ async function refuseRemovedSources(
 }
 
 /**
+ * A `/7` session publishes its stage's typed output, refused as correctable when its kind or a
+ * field isn't its stage's or its mode's; earlier sessions publish `/5` or `/6`.
+ */
+function publishedProposal(principal: SessionPrincipal, args: unknown): RetainedSessionProposalDto {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return validated<{ proposal: SessionProposalDto }>('SessionProposeArgs', args).proposal
+  }
+  const { proposal } = validated<SessionStageProposeArgsDto>('SessionStageProposeArgs', args)
+  const refusal = stageOutputRefusal(principal.manifest, proposal)
+  if (refusal) {
+    throw refusal
+  }
+  return proposal
+}
+
+/** The quantity estimate a `/7` lead's identity carries, which becomes the lot's estimate. */
+function leadEstimate(principal: SessionPrincipal, proposal: RetainedSessionProposalDto) {
+  if (principal.subjectId !== null || proposal.schema_version !== 'examine-identity/1') {
+    return undefined
+  }
+  return proposal.quantity
+}
+
+/** Under `/7` a lot's estimate is Examine's typed output's, so `propose_lot` takes none. */
+function refuseStageEstimate(principal: SessionPrincipal, input: ProposeLotArgsDto) {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return
+  }
+  const given = (['estimated_quantity', 'quantity_basis'] as const).filter(
+    (field) => input[field] !== undefined,
+  )
+  if (!given.length) {
+    return
+  }
+  const reason = 'Give the estimate in the lot’s examine-identity/1 quantity.'
+  throw new ToolRefusal(
+    'validation_failed',
+    `propose_lot takes no ${given.join(' or ')} in this session. Retry without it, then publish the estimate as the quantity of the lot's examine-identity/1.`,
+    given.map((field) => ({ path: `/${field}`, rule: 'not_allowed', reason })),
+  )
+}
+
+/**
  * The contract's pattern bounds a web page URL's scheme, length and authority; the URL parser
  * also has to accept it as an absolute http(s) URL with a host and no credentials.
  */
-function refuseUnacceptedWebPages(proposal: SessionProposalDto) {
+function refuseUnacceptedWebPages(proposal: Pick<RetainedSessionProposalDto, 'sources'>) {
   proposal.sources.forEach((source, index) => {
     if (source.kind === 'web_page' && !webPageUrlAccepted(source.url)) {
       throw new ToolRefusal(
@@ -954,9 +1018,27 @@ function refuseUnacceptedWebPages(proposal: SessionProposalDto) {
 }
 
 /**
- * Every citation must come from what this session was given: notes from its opening manifest,
- * media it actually fetched, inbox items of its lineage, and proposals pinned for it or its own.
+ * The pages of each version this session was given. A `/7` session's are the views whose release
+ * was recorded on its current attempt, which a worker restart keeps; an earlier session's are what
+ * this worker delivered to its job, with the pages its current attempt was shown.
  */
+async function deliveredPages(
+  client: PoolClient,
+  context: SessionToolContext,
+  principal: SessionPrincipal,
+): Promise<Map<string, Set<number>>> {
+  if (principal.manifest.schema_version === 'bench-intake-input/7') {
+    return releasedPages(client, principal.attemptId)
+  }
+  const versions = context.deliveredMedia.get(principal.jobId) ?? new Map<string, DeliveredPages>()
+  return new Map(
+    [...versions].map(([version, attempts]) => [
+      version,
+      attempts.get(principal.attemptId) ?? new Set<number>(),
+    ]),
+  )
+}
+
 /**
  * Whether a cited note or media version was delivered to this session: a version counts once the
  * session fetched it, and manifest membership decides how its evidence and digest are checked.
@@ -973,7 +1055,7 @@ export async function deliveredSourcePredicate(
     notes: manifest.notes,
     media: manifest.media,
   })
-  const fetched = new Set((context.deliveredMedia.get(principal.jobId) ?? new Map()).keys())
+  const fetched = new Set((await deliveredPages(client, context, principal)).keys())
 
   const manifestVersions = new Set(
     decodeMediaInputs(
@@ -1014,15 +1096,19 @@ export async function deliveredSourcePredicate(
   return delivered
 }
 
+/**
+ * Every citation must come from what this session was given: notes from its opening manifest,
+ * media it actually fetched, inbox items of its lineage, and proposals pinned for it or its own.
+ */
 async function requireDeliveredSources(
   client: PoolClient,
   context: SessionToolContext,
   principal: SessionPrincipal,
-  proposal: SessionProposalDto,
+  proposal: RetainedSessionProposalDto,
 ) {
   const manifest = principal.manifest
   const delivered = await deliveredSourcePredicate(client, context, principal)
-  for (const source of [...proposal.sources, ...catalogueSources(proposal)]) {
+  for (const source of proposalCitations(proposal)) {
     // An agent-reported web page is the one source the app never delivers.
     if (source.kind === 'web_page') {
       continue
@@ -1171,6 +1257,53 @@ async function requireReplaceable(
   }
 }
 
+/**
+ * The question an `ask` publishes. A `/7` session may also name evidence the question rests on
+ * and the conflict it settles, which the duplicate check compares and are kept beside it.
+ */
+function askOf(
+  principal: SessionPrincipal,
+  args: unknown,
+): { ask: SessionAskArgsV2Dto; basis: QuestionBasis | null } {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return { ask: validated<SessionAskArgsV2Dto>('SessionAskArgsV2', args), basis: null }
+  }
+  const {
+    new_evidence: newEvidence,
+    conflict,
+    ...ask
+  } = validated<SessionStageAskArgsDto>('SessionStageAskArgs', args)
+  return {
+    ask,
+    basis: { evidence: newEvidence ?? [], conflict: conflict ?? null },
+  }
+}
+
+/** Evidence an ask names as new must be evidence this session may fetch, not deleted. */
+async function requireNamedEvidence(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  basis: QuestionBasis,
+) {
+  const deliverable = await deliverableVersions(client, principal)
+  for (const [index, named] of basis.evidence.entries()) {
+    const known = deliverable.some(
+      (item) => item.evidence_id === named.evidence_id && item.version_id === named.version_id,
+    )
+    if (!known) {
+      const reason = 'Name evidence this session may fetch.'
+      throw new ToolRefusal('validation_failed', reason, [
+        { path: `/new_evidence/${index}`, rule: 'not_allowed', reason },
+      ])
+    }
+  }
+  await refuseRemovedVersions(
+    client,
+    principal.batchId,
+    basis.evidence.map((named) => named.version_id),
+  )
+}
+
 /** Closes the replaced question and records which question replaced it. */
 async function replaceQuestion(
   client: PoolClient,
@@ -1209,7 +1342,7 @@ async function sealSessionEnvelope(
   client: PoolClient,
   principal: SessionPrincipal,
   kind: 'proposal' | 'question',
-  payload: SessionProposalDto | SessionAskArgsV2Dto,
+  payload: RetainedSessionProposalDto | SessionAskArgsV2Dto,
 ): Promise<SealedSessionEnvelope> {
   // withSession holds the capture, job, attempt and session locks, so the sequence is stable.
   const attempts = await executeDatabaseQuery(
@@ -1277,10 +1410,10 @@ async function requireFigures(
   context: SessionToolContext,
 ): Promise<ResolvedFigure[]> {
   const delivered = await deliveredSourcePredicate(client, context, principal)
-  const versions = context.deliveredMedia.get(principal.jobId)
+  const pages = await deliveredPages(client, context, principal)
   const resolved = await resolveFigures(client, principal.batchId, figures, {
     delivered,
-    pages: (versionId) => versions?.get(versionId)?.get(principal.attemptId) ?? new Set(),
+    pages: (versionId) => pages.get(versionId) ?? new Set(),
   })
   if ('refusal' in resolved) {
     throw new ToolRefusal(resolved.refusal.code, resolved.refusal.message, [resolved.refusal.issue])
@@ -1668,6 +1801,7 @@ export function sessionTools(context: SessionToolContext) {
     propose_lot: (token: string, args: unknown) =>
       withLeadSession(context, token, async (client, principal) => {
         const input = validated<ProposeLotArgsDto>('ProposeLotArgs', args)
+        refuseStageEstimate(principal, input)
         // The reason is stored in the outbox's jsonb, which refuses NUL and unpaired surrogates.
         if (input.separation_reason !== undefined && !storableText(input.separation_reason)) {
           throw new ToolRefusal(
@@ -1783,11 +1917,8 @@ export function sessionTools(context: SessionToolContext) {
         context,
         token,
         { capture: true, leadWriter: true },
-        async (client, principal, capture, writer) => {
-          const { proposal } = validated<{ proposal: SessionProposalDto }>(
-            'SessionProposeArgs',
-            args,
-          )
+        async (client, principal, capture, onWriter) => {
+          const proposal = publishedProposal(principal, args)
           refuseUnacceptedWebPages(proposal)
           // The lead session proposes for any live lot of its batch; a lot session for its own lot.
           const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
@@ -1800,10 +1931,13 @@ export function sessionTools(context: SessionToolContext) {
           }
           await requireDeliveredSources(client, context, principal, proposal)
           await refuseRemovedSources(client, principal.batchId, [
-            ...proposal.sources,
-            ...catalogueSources(proposal),
+            ...proposalCitations(proposal),
             ...proposal.relies_on.sources,
           ])
+          const estimate = leadEstimate(principal, proposal)
+          if (estimate && !onWriter) {
+            refuse('tool_not_allowed', 'This worker cannot write the lot’s estimate.')
+          }
           const envelope = await sealSessionEnvelope(client, principal, 'proposal', proposal)
           await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
           const { messageId, streamId } = await retainSessionMessage(
@@ -1828,10 +1962,24 @@ export function sessionTools(context: SessionToolContext) {
             kind: 'proposal',
             payload: { proposal_id: id },
           })
+          // Examine's estimate reaches Review as the lot's estimated quantity.
+          let snapshot = capture!.snapshot
+          if (estimate) {
+            const wrote = await recordLotEstimate(
+              client,
+              writer(principal),
+              proposal.subject_id,
+              estimate,
+            )
+            if (wrote) {
+              snapshot = (await captureInTransaction(client, context.config, principal.batchId))
+                .snapshot
+            }
+          }
           // A stable identity from the lead session starts the lot's Research and Images.
-          if (writer && principal.subjectId === null) {
+          if (onWriter && principal.subjectId === null) {
             await queueSuccessors(() =>
-              onLeadIdentity(client, context.config, capture!.snapshot, proposal, id),
+              onLeadIdentity(client, context.config, snapshot, proposal, id),
             )
           }
           await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
@@ -1846,7 +1994,7 @@ export function sessionTools(context: SessionToolContext) {
         token,
         { capture: true },
         async (client, principal, capture) => {
-          const ask = validated<SessionAskArgsV2Dto>('SessionAskArgsV2', args)
+          const { ask, basis } = askOf(principal, args)
           // Only the lead session may ask about the whole batch or another subject of it.
           const liveLots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
           const subjects = [...liveLots, ...capture!.snapshot.parts.map((part) => part.id)]
@@ -1876,6 +2024,23 @@ export function sessionTools(context: SessionToolContext) {
               versions: figures.map((item) => item.recipe.source_version_id),
             }
             return ok(client, principal)
+          }
+          // A `/7` question already asked is returned, not asked again.
+          if (basis) {
+            await requireNamedEvidence(client, principal, basis)
+            const existing = await coveringQuestion(
+              client,
+              context.config,
+              capture!.snapshot,
+              ask,
+              basis,
+            )
+            if (existing) {
+              return ok(client, principal, {
+                id: existing.question.question_id,
+                existing_question: existing,
+              })
+            }
           }
           const envelope = await sealSessionEnvelope(client, principal, 'question', ask)
           await requireRoom(
@@ -1918,6 +2083,9 @@ export function sessionTools(context: SessionToolContext) {
           )
           if (ask.replaces !== undefined) {
             await replaceQuestion(client, principal.jobId, ask.replaces, id)
+          }
+          if (basis) {
+            await storeQuestionBasis(client, principal.batchId, id, basis)
           }
           await storeQuestionFigures(client, principal, id, figures)
           await appendSessionOutbox(client, principal.attemptId, {
