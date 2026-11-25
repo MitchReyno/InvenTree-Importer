@@ -317,6 +317,12 @@ export async function queueSessionResume(client: PoolClient, lineageId: string) 
   if (!session?.state || !RESUMABLE.includes(session.state)) {
     return undefined
   }
+  // The batch row orders this against an ungroup that withdraws the only pending item: with the
+  // share lock held, a session with nothing left to deliver isn't woken.
+  await client.query('SELECT 1 FROM public.capture_batch WHERE id=$1 FOR SHARE', [session.batchId])
+  if ((await pendingSessionInbox(client, lineageId)) === 0) {
+    return undefined
+  }
   if (
     (await setSessionState(client, session.attemptId, lineageId, 'queued', RESUMABLE)) !== 'queued'
   ) {

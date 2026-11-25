@@ -16,6 +16,7 @@ import { formedBatch, photoWithNote, type Fixture } from '../support/lot-pipelin
 import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import { editMedia } from '#/media/edit.ts'
+import { grantMedia } from '#/media/grants.ts'
 import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { issueSessionCapability, resolveSessionCapability } from '#/agents/tools/capability.ts'
 import { pendingSessionInbox, readSessionInbox } from '#/agents/tools/inbox.ts'
@@ -1618,8 +1619,9 @@ test('retiring the groups behind an oversized brief lets it be read and sealed a
 })
 
 /** A group holding the batch's photo, with a saved instruction, and a batch-wide instruction. */
-async function groupedInstructions(batch: Batch) {
-  const { fixture, batchId } = batch
+async function groupedInstructions(fixture: Fixture, batchId: string) {
+  // The API's own role edits media, as the media routes do, so the withdrawal runs under it.
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
   const mediaRevision = async () =>
     (
       await fixture.db.pool.query<{ revision: string }>(
@@ -1628,7 +1630,7 @@ async function groupedInstructions(batch: Batch) {
       )
     ).rows[0].revision
   const media = async (change: MediaEditDto['change']) =>
-    (await editMedia(fixture.db.pool, fixture.config, batchId, randomUUID(), {
+    (await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
       expected_revision: await mediaRevision(),
       change,
     })) as MediaSnapshotDto
@@ -1646,6 +1648,18 @@ async function groupedInstructions(batch: Batch) {
   return { group, ungroup: () => media({ kind: 'ungroup', group_id: group }) }
 }
 
+/** The instruction texts a session's history shows. */
+async function historyInstructions(fixture: Fixture, batchId: string, jobId: string) {
+  const history = (await fixture.http(`/batches/${batchId}/processing/${jobId}/history`)).value as {
+    entries: { details: { kind: string; text?: string } }[]
+  }
+  assert.ok(Array.isArray(history.entries), JSON.stringify(history))
+  return history.entries
+    .filter((entry) => entry.details.kind === 'instruction')
+    .map((entry) => entry.details.text ?? '')
+    .sort()
+}
+
 /** The instruction texts a session would be given now: pending, and not withdrawn. */
 async function pendingInstructions(fixture: Fixture, lineageId: string) {
   return transaction(fixture.runner.pool, async (client) => {
@@ -1661,7 +1675,7 @@ test('ungrouping withdraws a group’s unread instruction from /7 sessions and r
   const batch = await formedBatch(t, { stageInputs: true })
   const { fixture, batchId } = batch
   const { row } = await successorOf(batch, 'led 0603 red', 'research')
-  const { ungroup } = await groupedInstructions(batch)
+  const { ungroup } = await groupedInstructions(batch.fixture, batch.batchId)
   assert.deepEqual(await pendingInstructions(fixture, row.job_id), [
     'Count every reel',
     'Keep the shelf together',
@@ -1673,9 +1687,10 @@ test('ungrouping withdraws a group’s unread instruction from /7 sessions and r
     pendingSessionInbox(client, row.job_id),
   )
   assert.equal(pending, 1)
-  // The relay sweep doesn't give it back.
+  // The relay sweep doesn't give it back, and the history doesn't show it.
   await deliverMissingInstructions(fixture.runner.pool, fixture.config)
   assert.deepEqual(await pendingInstructions(fixture, row.job_id), ['Count every reel'])
+  assert.deepEqual(await historyInstructions(fixture, batchId, row.job_id), ['Count every reel'])
 
   // A replacement starts a new conversation without it, and its brief leaves it out too.
   await fixture.db.pool.query("UPDATE processing_attempt SET state='failed' WHERE id=$1", [
@@ -1721,7 +1736,7 @@ test('a /6 session keeps a retired group’s instruction', async (t) => {
   const batch = await formedBatch(t)
   const { fixture } = batch
   const { row } = await successorOf(batch, 'led 0603 red', 'research')
-  const { ungroup } = await groupedInstructions(batch)
+  const { ungroup } = await groupedInstructions(batch.fixture, batch.batchId)
   await ungroup()
   assert.deepEqual(await pendingInstructions(fixture, row.job_id), [
     'Count every reel',
@@ -1729,4 +1744,90 @@ test('a /6 session keeps a retired group’s instruction', async (t) => {
   ])
   const withdrawn = await fixture.db.pool.query('SELECT 1 FROM agent_session_inbox_withdrawal')
   assert.equal(withdrawn.rowCount, 0)
+})
+
+test('a /7 session keeps an instruction it read before the ungroup, and isn’t woken by a withdrawn one', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, deps, batchId } = batch
+  const { row } = await successorOf(batch, 'led 0603 red', 'research')
+  // The session runs, reading the batch's instruction, and waits on its question.
+  await fixture.db.pool.query(
+    `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+     VALUES(gen_random_uuid(),$1,NULL,1,'Count every reel',$2)`,
+    [batchId, fixture.identity.actor],
+  )
+  await deliverInstructions(fixture.api.pool, fixture.config, batchId)
+  assert.equal(
+    await runSessionTurn(deps, row.attempt_id, new AbortController().signal),
+    'waiting_input',
+  )
+  // A group instruction arrives after; then its group is ungrouped before the session reads it.
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const revision = async () =>
+    (
+      await fixture.db.pool.query<{ revision: string }>(
+        'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+        [batchId],
+      )
+    ).rows[0].revision
+  const media = async (change: MediaEditDto['change']) =>
+    (await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+      expected_revision: await revision(),
+      change,
+    })) as MediaSnapshotDto
+  const grouped = await media({ kind: 'group', label: 'Shelf' })
+  const group = grouped.groups[0].id
+  await fixture.db.pool.query(
+    `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+     VALUES(gen_random_uuid(),$1,$2,1,'Keep the shelf together',$3)`,
+    [batchId, group, fixture.identity.actor],
+  )
+  await deliverInstructions(fixture.api.pool, fixture.config, batchId)
+  await media({ kind: 'ungroup', group_id: group })
+  // Nothing left to deliver: the wake doesn't resume it.
+  const resumed = await transaction(fixture.runner.pool, (client) =>
+    queueSessionResume(client, row.job_id),
+  )
+  assert.equal(resumed, undefined)
+  // The instruction it read stays in its history; the withdrawn one isn't there.
+  assert.deepEqual(await historyInstructions(fixture, batchId, row.job_id), ['Count every reel'])
+})
+
+test('a lineage’s first /7 attempt doesn’t inherit a /6 attempt’s pending retired-group instruction', async (t) => {
+  const { processingFixture } = await import('../support/processing.ts')
+  const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const batchId = capture.batch.id
+  await photoWithNote(fixture, batchId, 'Tray', 'Packet A note')
+  const start = async () => {
+    const started = await fixture.http(`/batches/${batchId}/processing`, {
+      schema_version: 'bench-intake-processing/1',
+      expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+      subject_ids: [capture.packetA.id],
+      stages: ['research'],
+    })
+    assert.equal(started.status, 202, JSON.stringify(started.value))
+    return started.value as { job_ids: string[]; attempt_ids: string[] }
+  }
+  // A `/6` Research job, given a group instruction it hasn't read; then the group is ungrouped.
+  const first = await start()
+  const jobId = first.job_ids[0]
+  const { ungroup } = await groupedInstructions(fixture, batchId)
+  await ungroup()
+  assert.deepEqual(await pendingInstructions(fixture, jobId), [
+    'Count every reel',
+    'Keep the shelf together',
+  ])
+  // The switch goes on, and Start queues the lineage's first `/7` attempt.
+  fixture.config.stageInputs = 'local'
+  const second = await start()
+  assert.equal(
+    (await sealedInput(fixture, second.attempt_ids[0])).manifest.schema_version,
+    'bench-intake-input/7',
+  )
+  assert.deepEqual(await pendingInstructions(fixture, jobId), [
+    'Count every reel',
+    'Count every reel',
+  ])
 })

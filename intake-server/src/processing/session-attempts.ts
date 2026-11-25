@@ -16,6 +16,7 @@ import { MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
 import { fail, sealed, type Stage } from './model.ts'
 import { processingAttempts, processingInputs } from './schema.ts'
 import { assembleBrief } from './brief.ts'
+import { withdrawRetiredInstructions } from '#/agents/instructions.ts'
 import { briefPages, sealBrief, storeInputPages, type SealedBriefPage } from './brief-pages.ts'
 import { configuredInputVersion, stagePacks, type SessionInputVersion } from './stage-policy.ts'
 import {
@@ -59,6 +60,7 @@ export interface SealedSessionInput {
   bytes: Buffer
   digest: Buffer
   pages: readonly SealedBriefPage[]
+  version: SessionInputVersion
 }
 
 type SessionJob = { id: string; subject_id: string | null; stage: Stage | 'examine' }
@@ -133,7 +135,7 @@ export async function prepareSessionAttempt(
           profileId,
           superseding ? job.id : undefined,
         )
-      : { ...sealed(base), pages: [] }
+      : { ...sealed(base), pages: [], version: 'bench-intake-input/6' as const }
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)
   }
@@ -178,7 +180,7 @@ async function sealStageInput(
       stageInputManifest(base, packs[scope.stage], sealBrief(brief, pages, inline)),
     )
     if (manifest.bytes.length <= MAX_PROCESSING_SNAPSHOT_BYTES) {
-      return { ...manifest, pages: pages.slice(inline) }
+      return { ...manifest, pages: pages.slice(inline), version: 'bench-intake-input/7' }
     }
   }
   return fail('processing_input_capacity', 422)
@@ -262,5 +264,9 @@ export async function createSessionAttempt(
       .values({ attemptId, sessionState: 'queued', sessionLineageId: job.id }),
   )
   await executeDatabaseQuery(db.insert(outbox).values({ commandId }))
+  // A `/7` attempt isn't given what an earlier attempt left pending for a group since retired.
+  if (manifest.version === 'bench-intake-input/7') {
+    await withdrawRetiredInstructions(client, job.id)
+  }
   return { attemptId, inputId, commandId }
 }

@@ -205,6 +205,24 @@ async function instructionsFor(
 }
 
 /**
+ * Withdraws a lineage's unread instruction items of groups already retired, when it first queues
+ * a `/7` attempt: its earlier attempts' inbox carries over, and items an earlier input was given
+ * stay pending for the new one otherwise.
+ */
+export async function withdrawRetiredInstructions(client: PoolClient, lineageId: string) {
+  await client.query(
+    `INSERT INTO public.agent_session_inbox_withdrawal(item_id)
+     SELECT i.id FROM public.agent_session_inbox i
+     LEFT JOIN public.agent_session_cursor c ON c.session_lineage_id=i.session_lineage_id
+     WHERE i.session_lineage_id=$1 AND i.kind='instruction' AND i.payload->>'group_id' IS NOT NULL
+       AND i.seq > coalesce(c.acked_seq,0)
+       AND ${retiredGroupSql("(i.payload->>'group_id')::uuid")}
+     ON CONFLICT (item_id) DO NOTHING`,
+    [lineageId],
+  )
+}
+
+/**
  * Withdraws an ungrouped group's instruction items not yet read by `/7` sessions of the batch, in
  * the ungroup's transaction. Read items stay as they were; earlier inputs keep theirs.
  */
@@ -213,6 +231,14 @@ export async function withdrawGroupInstructions(
   batchId: string,
   groupId: string,
 ) {
+  // A deployment without Processing (media only) has no sessions to withdraw from.
+  const access = await client.query<{ processing: boolean }>(
+    `SELECT has_table_privilege('public.agent_session_inbox_withdrawal','INSERT')
+       AND has_table_privilege('public.agent_session_inbox','SELECT') AS processing`,
+  )
+  if (access.rows[0]?.processing !== true) {
+    return
+  }
   await client.query(
     `INSERT INTO public.agent_session_inbox_withdrawal(item_id)
      SELECT i.id FROM public.agent_session_inbox i

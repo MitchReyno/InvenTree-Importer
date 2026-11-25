@@ -310,7 +310,7 @@ In a session whose input is `bench-intake-input/7`, a publishing `ask` SHALL ret
 
 ### Requirement: Stage sessions get only live groups' instructions
 
-For sessions whose input is `/7`, the batch's saved instructions SHALL reach the session, in its brief and through its inbox, only for the batch and for evidence groups that are not retired. When the operator ungroups a group, any of its instructions still pending for a `/7` session SHALL be withdrawn and not delivered; instructions the session has already read SHALL stay in its history. Sessions of earlier inputs SHALL keep receiving every group's latest saved instruction.
+For sessions whose input is `/7`, the batch's saved instructions SHALL reach the session, in its brief and through its inbox, only for the batch and for evidence groups that are not retired. A sealed brief keeps what it sealed; a later ungroup reaches the session through its current view. Sessions of earlier inputs SHALL keep receiving every group's latest saved instruction.
 
 #### Scenario: Group ungrouped before a session starts
 
@@ -318,9 +318,15 @@ For sessions whose input is `/7`, the batch's saved instructions SHALL reach the
 - **WHEN** a `/7` Research session is queued or replaced for one of its lots
 - **THEN** neither its brief nor its inbox holds the group's instruction, and the batch's own instruction reaches it.
 
+#### Scenario: Earlier attempt's pending instruction
+
+- **GIVEN** a `/6` Research session with an unread instruction for a group the operator has since ungrouped
+- **WHEN** a `/7` attempt is queued on the same lineage
+- **THEN** that instruction is withdrawn and never given to the `/7` session.
+
 #### Scenario: Pending instruction withdrawn
 
 - **GIVEN** a `/7` session that has not yet read an instruction for an evidence group, and a `/6` session of another batch in the same position
 - **WHEN** the operator ungroups each group
-- **THEN** the `/7` session is never given the instruction and isn't woken for it, while the `/6` session still receives it.
+- **THEN** the `/7` session is never given the instruction, isn't woken for it and doesn't show it in its history, while instructions it already read stay there, and the `/6` session still receives it.
 
