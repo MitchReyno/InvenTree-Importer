@@ -12,7 +12,7 @@ None.
 
 ## Decisions made during implementation
 
-- **2026-11-25T15:02+11:00, planning:** step instruction edits reach only attempts sealed after the save, not running sessions. BI-022's implementing session suggested delivering an edit as an `instruction` inbox item; that kind is bound to a batch's saved `capture_instruction`, settings are global so one edit would wake finished sessions in every batch, and the approved board keeps running sessions on their text. Recorded as an open item for Mitch.
+- **2026-11-25T15:02+11:00, planning:** step instruction edits reach only work queued after the save, not running sessions. BI-022's implementing session suggested delivering an edit as an `instruction` inbox item; that kind is bound to a batch's saved `capture_instruction`, settings are global so one edit would wake finished sessions in every batch, and the approved board keeps running sessions on their text. Recorded as an open item for Mitch.
 
 ## Open items
 

@@ -82,11 +82,11 @@ Before a provider's first read lands, its picker SHALL show "Reading <provider>'
 
 - **GIVEN** Claude's list read under one token, and a new token saved in the app's dialog
 - **WHEN** a Claude picker or a Processing step page is open, or opens, before a read under the new token lands, or after that read failed
-- **THEN** it marks the earlier list as from an earlier sign-in with its time, shows no "Not offered" or "Not accepted" warning, a reply read under the old token is never stored as current, and the views update without a reload once the new list lands.
+- **THEN** it marks the earlier list as from an earlier sign-in with its time, shows no "Not offered" or "Not accepted" warning, once the dialog has confirmed the save no view shows a list read under the old token as current, and the views update without a reload once the new list lands.
 
 #### Scenario: Sign-in changed outside the app
 
-- **GIVEN** the Codex sign-in changed in the guest without the app's dialog
+- **GIVEN** the Codex sign-in changed through the guest's management service without the app's dialog
 - **WHEN** 60 seconds pass
 - **THEN** Codex's list is marked as from an earlier sign-in, and a new read is requested.
 

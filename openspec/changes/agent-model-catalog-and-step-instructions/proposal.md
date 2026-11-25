@@ -53,7 +53,7 @@ Non-goals:
 
 - **Instructions for Inventory or Match.** Inventory is being replaced by Match, which runs no agent (the board shows three steps).
 - **Changing the pinned CLI versions.** If a pinned version lacks a field this change needs, the task stops and asks Mitch; a version bump needs its own requalification.
-- **Delivering step instruction edits to running sessions.** A saved edit applies to attempts sealed after it, as the other settings do (see the design).
+- **Delivering step instruction edits to running sessions.** A saved edit applies to work queued after it, as the other settings do (see the design).
 - **Per-batch model or effort choices**, and changes to "Instructions for every new batch".
 - **The one-turn `/1` runner** (`agents/claude.ts`, `agents/codex.ts`, `native-agent/1`): its inputs never seal effort.
 
