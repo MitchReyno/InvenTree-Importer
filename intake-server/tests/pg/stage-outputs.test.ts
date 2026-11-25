@@ -23,6 +23,9 @@ import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
 import { pendingSessionInbox } from '#/agents/tools/inbox.ts'
 import { sessionTools, type SessionToolOutput } from '#/agents/tools/handlers.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
+import { lockBlob } from '#/media/blob-store.ts'
+import type { PoolClient } from 'pg'
+import { setTimeout as delay } from 'node:timers/promises'
 
 type Batch = Awaited<ReturnType<typeof formedBatch>>
 type Result = Omit<StageToolResult, 'images'>
@@ -91,6 +94,22 @@ async function revisions(fixture: Fixture, lineageId: string) {
     [lineageId],
   )
   return rows.rows.map((row) => row.payload as SessionRevisionV2Dto)
+}
+
+/** Waits until some other backend is blocked on a lock the holder's connection holds. */
+async function waitForBlocked(fixture: Fixture, holder: PoolClient) {
+  const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid
+  for (let tries = 0; tries < 200; tries += 1) {
+    const blocked = await fixture.db.pool.query(
+      'SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))',
+      [pid],
+    )
+    if (blocked.rowCount) {
+      return
+    }
+    await delay(50)
+  }
+  assert.fail('the proposal never waited on the held media lock')
 }
 
 async function snapshotOf(fixture: Fixture, batchId: string) {
@@ -315,20 +334,62 @@ test('a /7 lead forms a lot without a count, and its identity’s estimate reach
   assert.equal(formedLot.ok, true, JSON.stringify(formedLot))
   const reel = String(formedLot.id)
   const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
-  const published = await result(
-    session.propose(lead, {
-      proposal: {
-        schema_version: 'examine-identity/1',
-        subject_id: reel,
-        summary: 'A reel of 1N4148 diodes.',
-        sources: [note],
-        relies_on: { fields: ['markings'], sources: [note] },
-        markings: [{ observation_id: String(recorded.id), text: ['1N4148'] }],
-        candidates: [{ mpn: '1N4148', confidence: 'medium' }],
-        quantity: { value: '50', basis: 'Printed on the reel.' },
+  const reelLot = (await snapshotOf(fixture, batchId)).lots.find((item) => item.id === reel)!
+  const reelIdentity = (version: string, quantity: string) => ({
+    proposal: {
+      schema_version: 'examine-identity/1',
+      subject_id: reel,
+      summary: 'A reel of 1N4148 diodes.',
+      sources: [note],
+      relies_on: {
+        fields: ['markings', 'identity'],
+        sources: [note, { kind: 'observation_set', lot_id: reel, version }],
       },
-    }),
+      markings: [{ observation_id: String(recorded.id), text: ['1N4148'] }],
+      candidates: [{ mpn: '1N4148', confidence: 'medium' }],
+      quantity: { value: quantity, basis: 'Printed on the reel.' },
+    },
+  })
+  // An identity relying on another observation set than the lot's is stale at once, and its
+  // estimate isn't kept.
+  const otherSet = (BigInt(reelLot.observation_set_version!) + 5n).toString()
+  const stale = await result(session.propose(lead, reelIdentity(otherSet, '40')))
+  assert.equal(stale.ok, true, JSON.stringify(stale))
+  assert.equal(
+    (await snapshotOf(fixture, batchId)).lots.find((item) => item.id === reel)!.estimated_quantity,
+    undefined,
   )
+
+  // A stable identity queues its successors, which takes the photo's media lock, before the
+  // estimate publishes to the batch's stream: while another transaction holds that media lock,
+  // the waiting proposal holds no stream head, so a decode settling meanwhile can't deadlock it.
+  const photo = await fixture.db.pool.query<{ digest: string; stream_id: string }>(
+    `SELECT encode(v.blob_digest,'hex') AS digest, b.stream_id FROM media_version v
+     JOIN capture_batch b ON b.id=v.batch_id WHERE v.id=$1`,
+    [observation.evidence_version_id],
+  )
+  const holder = await fixture.db.pool.connect()
+  let pending: Promise<Result> | undefined
+  try {
+    await holder.query('BEGIN')
+    await lockBlob(holder, photo.rows[0].digest)
+    pending = result(session.propose(lead, reelIdentity(reelLot.observation_set_version!, '50')))
+    await waitForBlocked(fixture, holder)
+    const probe = await fixture.db.pool.connect()
+    try {
+      await probe.query('BEGIN')
+      await probe.query('SELECT 1 FROM ui_stream WHERE id=$1 FOR UPDATE NOWAIT', [
+        photo.rows[0].stream_id,
+      ])
+      await probe.query('ROLLBACK')
+    } finally {
+      probe.release()
+    }
+  } finally {
+    await holder.query('ROLLBACK')
+    holder.release()
+  }
+  const published = await pending!
   assert.equal(published.ok, true, JSON.stringify(published))
   const after = await snapshotOf(fixture, batchId)
   const lot = after.lots.find((item) => item.id === reel)!
@@ -356,18 +417,14 @@ test('an operator’s reading correction tells the /7 lead and the lot’s sessi
   const images = await stageJob(batch, '16 mhz crystal', 'images')
   const { manifest } = await inputOf(fixture, research.attemptId)
   const observationId = research.lot.evidence_observation_ids![0]
-  const { note, reliesOn } = citations(manifest)
+  const { note } = citations(manifest)
   const session = tools(batch)
+  const researcher = await running(fixture, research.attemptId)
+  // Research relies on Examine's identity, which relies on the observation; it doesn't cite the
+  // observation itself, so its proposal goes stale through the identity.
   const published = await result(
-    session.propose(await running(fixture, research.attemptId), {
+    session.propose(researcher, {
       proposal: researchOutput(research.lot.id, manifest, {
-        relies_on: {
-          ...reliesOn,
-          sources: [
-            ...reliesOn.sources,
-            { kind: 'evidence_observation', evidence_observation_id: observationId, revision: '1' },
-          ],
-        },
         description: { text: '16 MHz crystal.', sources: [note] },
       }),
     }),
@@ -428,6 +485,38 @@ test('an operator’s reading correction tells the /7 lead and the lot’s sessi
     [proposalId],
   )
   assert.equal(stale.rows[0].reason, 'operator_correction')
+
+  // Published after the correction, a proposal relying on the stale identity, or on the reading
+  // at its earlier revision, is refused as stale; one citing the current facts is accepted.
+  const onIdentity = await result(
+    session.propose(researcher, {
+      proposal: researchOutput(research.lot.id, manifest, {
+        description: { text: '16 MHz crystal.', sources: [note] },
+      }),
+    }),
+  )
+  assert.equal(onIdentity.error, 'stale')
+  const onReading = (revision: string) =>
+    result(
+      session.propose(researcher, {
+        proposal: researchOutput(research.lot.id, manifest, {
+          relies_on: {
+            fields: ['identity'],
+            sources: [
+              note,
+              {
+                kind: 'evidence_observation',
+                evidence_observation_id: observationId,
+                revision,
+              },
+            ],
+          },
+          description: { text: '16.000 MHz crystal.', sources: [note] },
+        }),
+      }),
+    )
+  assert.equal((await onReading(observation.revision)).error, 'stale')
+  assert.equal((await onReading(corrected.revision)).ok, true)
 
   // The finished lead has an unread item, which the wake sweep resumes it for; resumed, its
   // turn reads and acknowledges it.
@@ -726,6 +815,13 @@ test('a publishing /7 ask returns a question already asked unless it brings some
   const ledQuestion = syntheticQuestion(ledResearch.lot.id)
   const open = await result(session.ask(ledSession, ledQuestion))
   assert.equal((await result(session.ask(ledSession, ledQuestion))).id, open.id)
+  // Another overlapping question, which would cover the replacing ask, doesn't swallow it.
+  const ledImages = await stageJob(batch, 'led 0603 red', 'images')
+  const ledImager = await running(fixture, ledImages.attemptId)
+  const overlapping = await result(
+    session.ask(ledImager, { ...ledQuestion, new_evidence: newEvidence }),
+  )
+  assert.notEqual(overlapping.id, open.id)
   const replacing = await result(session.ask(ledSession, { ...ledQuestion, replaces: open.id }))
   assert.equal(replacing.ok, true, JSON.stringify(replacing))
   assert.notEqual(replacing.id, open.id)
@@ -735,9 +831,8 @@ test('a publishing /7 ask returns a question already asked unless it brings some
   )
   assert.equal(closed.rows[0].state, 'superseded')
 
-  // A preview beside the open question follows the preview rules: it renders, storing nothing.
-  const ledImages = await stageJob(batch, 'led 0603 red', 'images')
-  const ledImager = await running(fixture, ledImages.attemptId)
+  // A preview beside the open question follows the preview rules: it queues its renders and
+  // stores nothing, rather than returning the open question.
   const fetched = await result(
     session.fetch_evidence(ledImager, {
       evidence_id: evidence.rows[0].evidence_id,
@@ -770,7 +865,13 @@ test('a publishing /7 ask returns a question already asked unless it brings some
     }),
   )
   assert.equal(preview.existing_question, undefined)
-  assert.notEqual(preview.id, replacing.id)
+  // With no renderer in this test and no wait, the preview rules answer that it isn't ready.
+  assert.equal(preview.error, 'preview_not_ready')
+  const renders = await fixture.db.pool.query(
+    "SELECT 1 FROM processing_figure_render WHERE batch_id=$1 AND purpose='preview'",
+    [batchId],
+  )
+  assert.ok(renders.rowCount)
   assert.equal(await questionCount(), before)
   const published = await result(session.ask(ledImager, ledQuestion))
   assert.equal(published.id, replacing.id)
@@ -841,7 +942,16 @@ test('a /7 citation needs a released view on the current attempt, which a restar
   assert.ok(shown.view_seq && withheld.view_seq, JSON.stringify([shown, withheld]))
   // A view recorded for a reply that wasn't handed over can't be cited.
   assert.equal(await cites(worker, bag), 'source_not_delivered')
-  await recordPhotoRelease(fixture.runner.pool, leadAttempt, String(shown.view_seq))
+  // Two releases of one view at once both succeed and keep one record.
+  await Promise.all([
+    recordPhotoRelease(fixture.runner.pool, leadAttempt, String(shown.view_seq)),
+    recordPhotoRelease(fixture.runner.pool, leadAttempt, String(shown.view_seq)),
+  ])
+  const releases = await fixture.db.pool.query(
+    "SELECT 1 FROM agent_session_outbox WHERE session_id=$1 AND kind='photo_release' AND payload->>'view_seq'=$2",
+    [leadAttempt, String(shown.view_seq)],
+  )
+  assert.equal(releases.rowCount, 1)
   assert.equal(await cites(worker, bag), 'accepted')
   assert.equal(await cites(worker, box), 'source_not_delivered')
 

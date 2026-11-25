@@ -37835,6 +37835,12 @@ export interface components {
                 };
             } | {
                 /** @constant */
+                kind: "reading_in_brief";
+                observation_id: string;
+                /** Format: int64 */
+                revision: string;
+            } | {
+                /** @constant */
                 kind: "observation";
                 observation_id: string;
                 lot_from: string | null;
@@ -37902,6 +37908,12 @@ export interface components {
                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                 agreement?: "read" | "likely" | "disagree";
             };
+        } | {
+            /** @constant */
+            kind: "reading_in_brief";
+            observation_id: string;
+            /** Format: int64 */
+            revision: string;
         } | {
             /** @constant */
             kind: "observation";
@@ -38064,6 +38076,12 @@ export interface components {
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
                         };
+                    } | {
+                        /** @constant */
+                        kind: "reading_in_brief";
+                        observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
                     } | {
                         /** @constant */
                         kind: "observation";
@@ -40233,6 +40251,12 @@ export interface components {
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
                     };
+                } | {
+                    /** @constant */
+                    kind: "reading_in_brief";
+                    observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
                 } | {
                     /** @constant */
                     kind: "observation";

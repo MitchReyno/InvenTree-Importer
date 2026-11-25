@@ -9,17 +9,19 @@ import { appendSessionOutbox } from './outbox.ts'
  */
 export async function recordPhotoRelease(pool: Pool, attemptId: string, viewSeq: string) {
   await transaction(pool, async (client) => {
-    // Locks the session row first, as every outbox append does, so the check below is current.
+    // The session row's lock first, as every outbox append takes it: a release committed by a
+    // racing call is then visible to the check below, which runs after the lock is held.
+    await client.query('SELECT 1 FROM public.agent_session WHERE attempt_id=$1 FOR UPDATE', [
+      attemptId,
+    ])
     const views = await client.query<{ released: boolean }>(
       `SELECT EXISTS (
            SELECT 1 FROM public.agent_session_outbox r
            WHERE r.session_id=o.session_id AND r.kind='photo_release'
              AND r.payload->>'view_seq'=o.seq::text
          ) AS released
-       FROM public.agent_session s
-       JOIN public.agent_session_outbox o ON o.session_id=s.attempt_id
-       WHERE s.attempt_id=$1 AND o.seq=$2 AND o.kind='photo_view'
-       FOR UPDATE OF s`,
+       FROM public.agent_session_outbox o
+       WHERE o.session_id=$1 AND o.seq=$2 AND o.kind='photo_view'`,
       [attemptId, viewSeq],
     )
     const view = views.rows[0]

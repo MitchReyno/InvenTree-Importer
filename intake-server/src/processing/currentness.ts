@@ -140,14 +140,50 @@ export async function notifyRevision(
     })
     return
   }
-  await append(client, facts, lineageId, idempotencyKey, 'revision', {
+  const payload = {
     schema_version: 'bench-intake-revision/2',
     fields: [...notice.fields],
     reason,
     changes: notice.changes.slice(0, MAX_REVISION_CHANGES),
     source: await revisionSource(client, facts, context.origin),
     brief_revision: context.briefRevision,
+  }
+  await append(
+    client,
+    facts,
+    lineageId,
+    idempotencyKey,
+    'revision',
+    withinInboxLimit(payload, context.briefRevision),
+  )
+}
+
+/** The inbox keeps a revision of at most 32 KiB (migration `0030`), with room for its framing. */
+const MAX_REVISION_PAYLOAD_BYTES = 30_000
+
+/**
+ * Readings can be long enough that a revision naming them would pass the inbox's bound; such a
+ * revision names each correction by its revision instead, and the brief holds the readings.
+ */
+function withinInboxLimit<T extends { changes: readonly RevisionChangeDto[] }>(
+  payload: T,
+  /** A correction is visible from its own revision, the one the revision names. */
+  correctedAt: string,
+): T {
+  if (Buffer.byteLength(JSON.stringify(payload), 'utf8') <= MAX_REVISION_PAYLOAD_BYTES) {
+    return payload
+  }
+  const changes = payload.changes.map((change): RevisionChangeDto => {
+    if (change.kind !== 'reading') {
+      return change
+    }
+    return {
+      kind: 'reading_in_brief',
+      observation_id: change.observation_id,
+      revision: correctedAt,
+    }
   })
+  return { ...payload, changes }
 }
 
 /** Each proposal's published kind; a runner proposal of `/1` names none. */
@@ -448,6 +484,8 @@ async function cascadeStale(
   ids: readonly string[],
   reason: StaleReason,
   context: RevisionContext,
+  /** When given, each newly stale proposal is added to its lineage here instead of told. */
+  collect?: Map<string, string[]>,
 ) {
   if (!ids.length) {
     return []
@@ -473,6 +511,10 @@ async function cascadeStale(
     )
   }
   for (const row of downstream.rows) {
+    if (collect) {
+      collect.set(row.lineage, [...(collect.get(row.lineage) ?? []), row.id])
+      continue
+    }
     await notifyRevision(
       client,
       row.lineage,
@@ -494,13 +536,17 @@ async function cascadeAll(
   ids: readonly string[],
   reason: StaleReason,
   context: RevisionContext,
+  collect?: Map<string, string[]>,
 ) {
   let level = ids
+  const all: string[] = []
   // Real chains are a few levels (identity, then Research or Images, then what cites them);
   // the bound only guards against a pathological one.
   for (let depth = 0; level.length && depth < 8; depth += 1) {
-    level = await cascadeStale(client, level, reason, context)
+    level = await cascadeStale(client, level, reason, context, collect)
+    all.push(...level)
   }
+  return all
 }
 
 /**
@@ -712,10 +758,13 @@ export async function observationCorrected(
        SELECT unnest($1::uuid[]),'operator_correction' ON CONFLICT DO NOTHING`,
       [ids],
     )
-    await cascadeAll(client, ids, 'operator_correction', context)
   }
+  // Everything built on them is stale too; each session is told once, below, with all of it.
   const relied = byLineage(relying.rows)
-  await addPinned(client, input.batchId, ids, relied)
+  const cascaded = ids.length
+    ? await cascadeAll(client, ids, 'operator_correction', context, relied)
+    : []
+  await addPinned(client, input.batchId, [...ids, ...cascaded], relied)
   const lot = await client.query<{ lot_id: string }>(
     `SELECT lot_id FROM public.capture_lot_evidence_observation
      WHERE evidence_observation_id=$1 AND status='active'`,

@@ -281,6 +281,15 @@ export const RevisionChange = Type.Union([
     reading_from: Type.Union([EvidenceReadings, Type.Null()]),
     reading_to: EvidenceReadings,
   }),
+  /**
+   * A correction whose readings are too long to carry here: the brief's correction entry at this
+   * revision holds the reading before and after.
+   */
+  object({
+    kind: Type.Literal('reading_in_brief'),
+    observation_id: Id,
+    revision: Revision,
+  }),
   /** An observation joined or left a lot. */
   object({
     kind: Type.Literal('observation'),

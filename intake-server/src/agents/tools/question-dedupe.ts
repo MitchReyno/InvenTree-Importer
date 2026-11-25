@@ -74,7 +74,7 @@ function overlaps(question: StoredQuestion, ask: SessionAskArgsV2Dto) {
 /**
  * The question a publishing `/7` ask would repeat: the newest open or answered question of the
  * batch about the same subject and an overlapping field that the ask names no new evidence or
- * conflict against, other than the open question it replaces. Null when the ask is new.
+ * conflict against. Null when the ask is new; an ask naming the question it replaces isn't checked.
  */
 export async function coveringQuestion(
   client: PoolClient,

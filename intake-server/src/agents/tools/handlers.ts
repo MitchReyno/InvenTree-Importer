@@ -34,11 +34,7 @@ import {
 import { onLeadIdentity } from '#/processing/stable-identity.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
-import {
-  captureInTransaction,
-  lockCaptureForAgentWrite,
-  lockCaptureForInputSettlement,
-} from '#/capture/repository.ts'
+import { lockCaptureForAgentWrite, lockCaptureForInputSettlement } from '#/capture/repository.ts'
 import { CaptureError } from '#/capture/model.ts'
 import {
   leadBatchView,
@@ -968,6 +964,14 @@ function publishedProposal(principal: SessionPrincipal, args: unknown): Retained
   return proposal
 }
 
+async function proposalStale(client: PoolClient, proposalId: string) {
+  const rows = await client.query(
+    'SELECT 1 FROM public.processing_proposal_stale WHERE proposal_id=$1',
+    [proposalId],
+  )
+  return Boolean(rows.rowCount)
+}
+
 /** The quantity estimate a `/7` lead's identity carries, which becomes the lot's estimate. */
 function leadEstimate(principal: SessionPrincipal, proposal: RetainedSessionProposalDto) {
   if (principal.subjectId !== null || proposal.schema_version !== 'examine-identity/1') {
@@ -1165,6 +1169,50 @@ async function requireDeliveredSources(
         refuse('source_not_delivered', 'A relied-on observation was not delivered to this session.')
       }
     }
+  }
+}
+
+/**
+ * A `/7` proposal relies only on what is still current: no proposal already stale, and no
+ * observation changed since the revision it cites, such as a reading the operator corrected
+ * after the session read it. It is refused as stale, so the session reads its brief again and
+ * cites the current facts. Earlier inputs keep accepting such a proposal, as before.
+ */
+async function requireCurrentReliance(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  proposal: RetainedSessionProposalDto,
+) {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return
+  }
+  const proposals: string[] = []
+  const observations: { id: string; revision: string }[] = []
+  for (const source of proposal.relies_on.sources) {
+    if (source.kind === 'proposal') {
+      proposals.push(source.proposal_id)
+    } else if (source.kind === 'evidence_observation') {
+      observations.push({ id: source.evidence_observation_id, revision: source.revision })
+    }
+  }
+  const stale = await client.query(
+    'SELECT 1 FROM public.processing_proposal_stale WHERE proposal_id = ANY($1::uuid[]) LIMIT 1',
+    [proposals],
+  )
+  if (stale.rowCount) {
+    refuse('stale', 'A relied-on proposal is no longer current; read your brief again and revise.')
+  }
+  const changed = await client.query(
+    `SELECT 1 FROM public.capture_evidence_observation o
+     JOIN unnest($1::uuid[], $2::bigint[]) AS cited(id, revision) ON cited.id=o.id
+     WHERE o.revision > cited.revision LIMIT 1`,
+    [observations.map((item) => item.id), observations.map((item) => item.revision)],
+  )
+  if (changed.rowCount) {
+    refuse(
+      'stale',
+      'A relied-on observation changed after the revision cited; read your brief again and cite its current revision.',
+    )
   }
 }
 
@@ -1930,6 +1978,7 @@ export function sessionTools(context: SessionToolContext) {
             refuse('validation_failed', 'A proposal must be for this session’s lot.')
           }
           await requireDeliveredSources(client, context, principal, proposal)
+          await requireCurrentReliance(client, principal, proposal)
           await refuseRemovedSources(client, principal.batchId, [
             ...proposalCitations(proposal),
             ...proposal.relies_on.sources,
@@ -1962,25 +2011,17 @@ export function sessionTools(context: SessionToolContext) {
             kind: 'proposal',
             payload: { proposal_id: id },
           })
-          // Examine's estimate reaches Review as the lot's estimated quantity.
-          let snapshot = capture!.snapshot
-          if (estimate) {
-            const wrote = await recordLotEstimate(
-              client,
-              writer(principal),
-              proposal.subject_id,
-              estimate,
-            )
-            if (wrote) {
-              snapshot = (await captureInTransaction(client, context.config, principal.batchId))
-                .snapshot
-            }
-          }
-          // A stable identity from the lead session starts the lot's Research and Images.
+          // A stable identity from the lead session starts the lot's Research and Images. It
+          // takes the media and job locks, so it runs before the estimate publishes to the stream.
           if (onWriter && principal.subjectId === null) {
             await queueSuccessors(() =>
-              onLeadIdentity(client, context.config, snapshot, proposal, id),
+              onLeadIdentity(client, context.config, capture!.snapshot, proposal, id),
             )
+          }
+          // Examine's estimate reaches Review as the lot's estimated quantity, unless the
+          // identity it came with is already stale (it relied on an older observation set).
+          if (estimate && !(await proposalStale(client, id))) {
+            await recordLotEstimate(client, writer(principal), proposal.subject_id, estimate)
           }
           await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
           return ok(client, principal, { id })
@@ -2025,9 +2066,12 @@ export function sessionTools(context: SessionToolContext) {
             }
             return ok(client, principal)
           }
-          // A `/7` question already asked is returned, not asked again.
+          // A `/7` question already asked is returned, not asked again; one that names the open
+          // question it replaces is a new question by definition.
           if (basis) {
             await requireNamedEvidence(client, principal, basis)
+          }
+          if (basis && ask.replaces === undefined) {
             const existing = await coveringQuestion(
               client,
               context.config,
