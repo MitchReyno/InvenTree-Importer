@@ -163,6 +163,16 @@ A worker that lost its supervisor lock could still commit a slot claim, a turn c
 - Prerequisites: [BI-024](#bi-024--recover-stale-agent-slots) (merged in #281).
 - OpenSpec: [fence-held-capacity-writes](../openspec/changes/fence-held-capacity-writes/)
 
+#### BI-026 — Run several VM turns per provider at once
+
+With Sessions at once above 1, VM sessions for the same provider failed at startup as "configuration not accepted": each provider's relay carried one turn at a time, so a second turn found no connection within its 45 s wait. Each relay now carries several turns at once, up to the session limit, and a turn that still finds no free connection goes back to the queue instead of failing. A turn whose relay is not connected at all fails with a diagnostic that says so.
+
+- Change: `concurrent-vm-relay-turns`
+- Status: In progress
+- Size: M — relay lanes with a claimed marker from the guest, per-provider turn allowance in the coordinator, a requeue outcome in the session runner and a new failure code.
+- Prerequisites: [BI-024](#bi-024--recover-stale-agent-slots) and [BI-025](#bi-025--fence-held-capacity-writes-against-supervisor-lock-loss) (merged in #281 and #286).
+- OpenSpec: [concurrent-vm-relay-turns](../openspec/changes/concurrent-vm-relay-turns/)
+
 #### BI-018 — Bound agent evidence images and record provider errors
 
 Agent sessions could be sent evidence images a provider refuses: lot sessions got the original upload unchanged and Examine region crops were unscaled, so a 6144 × 8160 photo broke Claude's pixel limits. A failed turn kept only `agent_turn_failed`, so the operator couldn't tell why. Every `fetch_evidence` image is now bounded to 2,576 px from the decoded preview (the older single-result native prompt still sends originals). A failed turn records the provider's own error kind when the provider gives one, and a VM turn the specific code behind its failure, whenever the guest's final frame reaches the host.
