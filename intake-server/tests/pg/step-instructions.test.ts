@@ -346,7 +346,12 @@ test('a /7 lead and its lots seal their step’s text in the input and the brief
     )
     const opening = JSON.parse(openingText(manifest, 0, false, row.attempt_id)) as {
       instructions: string
+      brief: { entries: BriefEntryDto[] }
     }
+    // The rendered opening's brief carries the entry, not only the sealed input.
+    assert.deepEqual(guidanceOf(opening.brief.entries), [
+      { kind: 'step_guidance', source: 'human', stage, text: expected[stage] },
+    ])
     assert.match(
       opening.instructions,
       /Operator guidance for this step: the step_guidance entry in your brief’s human section holds the operator’s saved instructions for this step\. Follow them after the rules above and your stage instructions; where they conflict, those win\.$/,

@@ -144,7 +144,7 @@
 - **Verification:**
   - contracts tests; intake unit, PG and process tiers (the `/7` sealing and opening at the PG tier through `shared-vm-agent/4` and BI-022's test-only switch; host Claude and Codex openings and a guest turn at the process tier, see `notes.md`);
   - frontend checks;
-  - a demo video of adding Research instructions, the paste cut and a new session's opening holding the text, using fixtures.
+  - a demo video of adding Research instructions, the paste cut and a new session's brief holding the text on its session page, using fixtures (the openings themselves are covered by the PG and process tests; see `notes.md`).
 - **Risks and decisions:** don't edit BI-022's change artifacts; if #275 changes the brief's shape before merging, follow the merged shape and note it in `notes.md`. If #275 is abandoned, ship the `/6` path alone and record the `/7` entry as an open item.
 
 - [x] 5.1 Read the guidelines, BI-022's merged brief code and design, and the board. Confirm #275 has merged.
