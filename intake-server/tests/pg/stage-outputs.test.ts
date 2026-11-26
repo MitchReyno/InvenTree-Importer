@@ -2898,3 +2898,33 @@ test('removing a member’s photo stales an identity citing that lot’s set fro
     'cancelled',
   )
 })
+
+test('a successor queued on an identity of a lot split in Review doesn’t start', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const led = await batch.lot('led 0603 red')
+  const research = await stageJob(batch, 'led 0603 red', 'research')
+  const [identityId] = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
+  // Split without moving its observations: nothing the identity kept changes but the lot's life.
+  const current = await snapshotOf(fixture, batchId)
+  await operatorRepository(fixture.db.pool, fixture.config).restructure(batchId, randomUUID(), {
+    expected_revision: current.revision,
+    preview: false,
+    change: {
+      kind: 'split_lot',
+      lot_id: led.id,
+      children: [
+        { label: 'LED half A', quantity: '250' },
+        { label: 'LED half B', quantity: '250' },
+      ],
+    },
+  })
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [identityId]),
+  )
+  assert.notEqual(facts.get(identityId)?.stale, null)
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+})

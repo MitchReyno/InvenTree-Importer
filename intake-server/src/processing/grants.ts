@@ -76,7 +76,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     // Reading the owning capture projection and publishing its stream grants no selection write.
     await pool.query(`GRANT SELECT ON operator,target,target_context,command,outbox,ui_stream,ui_event,
       capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision,
-      capture_evidence_observation,capture_lot_evidence_observation TO ${role};
+      capture_evidence_observation,capture_lot_evidence_observation,capture_lot_retirement TO ${role};
       GRANT INSERT ON ui_event TO ${role}; GRANT UPDATE(head) ON ui_stream TO ${role};
       GRANT UPDATE(delivery_attempts,acked_at,conflict_code) ON outbox TO ${role};
       GRANT UPDATE(revision) ON capture_batch TO ${role};`)

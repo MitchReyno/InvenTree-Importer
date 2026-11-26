@@ -1323,10 +1323,10 @@ export async function lockCaptureForOperatorCommand(
           .set({ revision: BigInt(nextRevision), updatedAt: sql`now()` })
           .where(eq(captureBatches.id, batchId)),
       )
+      // Notices take job locks, so they come before the revision takes the stream head.
+      await tellChangedLots(client, batchId, initial, await snapshot(client, config, batchId))
       await retainRevision(client, retained, command)
-      const after = await snapshot(client, config, batchId)
-      await tellChangedLots(client, batchId, initial, after)
-      return after
+      return snapshot(client, config, batchId)
     },
   }
 }

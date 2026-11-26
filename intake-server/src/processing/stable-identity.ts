@@ -409,8 +409,9 @@ export async function stableIdentityOf(client: PoolClient, batchId: string, lotI
 }
 
 /**
- * Whether the identities a successor is pinned to are still current: none of them, nor anything
- * they rest on, is stale or on a broken basis. A read only, for preflights and replacement.
+ * Whether the identities a successor is pinned to are still current: none of them has a stale
+ * row (what they rest on is staled by its own cascade), and none of them, nor anything they rest
+ * on, has a broken basis. A read only, for preflights and replacement.
  */
 export async function pinnedIdentityCurrent(client: PoolClient, pinned: readonly string[]) {
   if (!pinned.length) {
@@ -452,8 +453,16 @@ export async function claimPinnedIdentity(
   if (!fresh.length) {
     return { current: false, repaired: false }
   }
-  const owners = await client.query<{ id: string; lineage: string; revision: string }>(
-    `SELECT p.id, a.job_id AS lineage, b.revision::text AS revision
+  const owners = await client.query<{
+    id: string
+    lineage: string
+    revision: string
+    retired: boolean
+  }>(
+    `SELECT p.id, a.job_id AS lineage, b.revision::text AS revision,
+       EXISTS (SELECT 1 FROM public.processing_identity_basis ib
+               JOIN public.capture_lot_retirement r ON r.lot_id=ib.lot_id
+               WHERE ib.proposal_id=p.id) AS retired
      FROM public.processing_proposal p JOIN public.processing_attempt a ON a.id=p.attempt_id
      JOIN public.processing_job j ON j.id=a.job_id JOIN public.capture_batch b ON b.id=j.batch_id
      WHERE p.id = ANY($1::uuid[]) ORDER BY p.id`,
@@ -462,6 +471,10 @@ export async function claimPinnedIdentity(
   for (const owner of owners.rows) {
     const context: RevisionContext = { origin: { by: 'app' }, briefRevision: owner.revision }
     await cascadeAll(client, [owner.id], 'source_superseded', context)
+    // A retired lot gets no new identity, so Examine isn't asked for one.
+    if (owner.retired) {
+      continue
+    }
     await notifyRevision(
       client,
       owner.lineage,

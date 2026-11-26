@@ -68,7 +68,9 @@ async function failing(client: PoolClient, scope: Scope, withStale: boolean) {
      WHERE ($3::boolean AND r.id=r.root
             AND EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=r.id))
         OR (b.proposal_id IS NOT NULL AND (
-          EXISTS (SELECT 1 FROM jsonb_each(b.members) kept(lot, members)
+          -- A retired lot has no identity to start from, whatever it kept.
+          EXISTS (SELECT 1 FROM public.capture_lot_retirement rt WHERE rt.lot_id=b.lot_id)
+          OR EXISTS (SELECT 1 FROM jsonb_each(b.members) kept(lot, members)
                   WHERE kept.members IS DISTINCT FROM ${membersOf('kept.lot::uuid')})
           OR EXISTS (
             SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
