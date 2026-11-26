@@ -2928,3 +2928,56 @@ test('a successor queued on an identity of a lot split in Review doesn’t start
     'cancelled',
   )
 })
+
+test('an identity citing the set of a lot split in Review isn’t current, and can’t be published again', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const led = await batch.lot('led 0603 red')
+  const crystal = await batch.lot('16 mhz crystal')
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const beside = {
+    proposal: {
+      schema_version: 'examine-identity/1',
+      subject_id: crystal.id,
+      summary: 'A crystal, beside the LEDs.',
+      sources: [note],
+      relies_on: {
+        fields: ['markings', 'identity'],
+        sources: [
+          note,
+          { kind: 'observation_set', lot_id: crystal.id, version: crystal.observation_set_version },
+          { kind: 'observation_set', lot_id: led.id, version: led.observation_set_version },
+        ],
+      },
+      markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+      candidates: [],
+    },
+  }
+  const published = await result(session.propose(await running(fixture, leadAttempt), beside))
+  assert.equal(published.ok, true, JSON.stringify(published))
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const current = await snapshotOf(fixture, batchId)
+  await operatorRepository(fixture.db.pool, fixture.config).restructure(batchId, randomUUID(), {
+    expected_revision: current.revision,
+    preview: false,
+    change: {
+      kind: 'split_lot',
+      lot_id: led.id,
+      children: [
+        { label: 'LED half A', quantity: '250' },
+        { label: 'LED half B', quantity: '250' },
+      ],
+    },
+  })
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(published.id)]),
+  )
+  assert.notEqual(facts.get(String(published.id))?.stale, null)
+  const again = await result(session.propose(await running(fixture, leadAttempt), beside))
+  assert.equal(again.error, 'stale', JSON.stringify(again))
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+})

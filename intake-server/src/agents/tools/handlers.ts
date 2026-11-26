@@ -1299,6 +1299,13 @@ async function requireCurrentReliance(
      WHERE l.observation_set_version <> cited.version LIMIT 1`,
     [sets.map((item) => item.lot), sets.map((item) => item.version)],
   )
+  const retired = await client.query(
+    'SELECT 1 FROM public.capture_lot_retirement WHERE lot_id = ANY($1::uuid[]) LIMIT 1',
+    [sets.map((item) => item.lot)],
+  )
+  if (retired.rowCount) {
+    refuse('stale', 'A relied-on lot was retired; read your brief again and cite current lots.')
+  }
   if (moved.rowCount) {
     refuse(
       'stale',

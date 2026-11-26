@@ -853,7 +853,12 @@ export async function observationCorrected(
                  'kind','evidence_observation','evidence_observation_id',altered.id))
             -- Examine's markings of the observation, verbatim, rest on its reading too.
             OR jsonb_path_exists(convert_from(p.value_bytes,'UTF8')::jsonb,
-              '$.markings[*] ? (@.observation_id == $id)', jsonb_build_object('id', altered.id)))
+              '$.markings[*] ? (@.observation_id == $id)', jsonb_build_object('id', altered.id))
+            -- An identity whose kept lots hold it rests on it too, cited or not.
+            OR EXISTS (SELECT 1 FROM public.processing_identity_basis b
+                       CROSS JOIN LATERAL jsonb_each(b.members) kept
+                       CROSS JOIN LATERAL jsonb_array_elements(kept.value) member
+                       WHERE b.proposal_id=p.id AND member->>'id' = altered.id))
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
      ORDER BY p.id`,
     [input.batchId, [input.observationId, ...(input.alsoAlters ?? [])]],

@@ -68,8 +68,9 @@ async function failing(client: PoolClient, scope: Scope, withStale: boolean) {
      WHERE ($3::boolean AND r.id=r.root
             AND EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=r.id))
         OR (b.proposal_id IS NOT NULL AND (
-          -- A retired lot has no identity to start from, whatever it kept.
-          EXISTS (SELECT 1 FROM public.capture_lot_retirement rt WHERE rt.lot_id=b.lot_id)
+          -- A retired lot, its own or one it rests on, has no identity to start from.
+          EXISTS (SELECT 1 FROM jsonb_object_keys(b.members) kept(lot)
+                  JOIN public.capture_lot_retirement rt ON rt.lot_id=kept.lot::uuid)
           OR EXISTS (SELECT 1 FROM jsonb_each(b.members) kept(lot, members)
                   WHERE kept.members IS DISTINCT FROM ${membersOf('kept.lot::uuid')})
           OR EXISTS (
@@ -99,7 +100,8 @@ export async function onBrokenBasis(client: PoolClient, scope: Scope) {
 }
 
 /**
- * The pinned proposals, or what they rest on, that are not current: stale, or on a broken basis.
+ * The named proposals that are not current: with a stale row of their own (a stale row further
+ * down reaches them through its write's cascade), or resting at any depth on a broken basis.
  * A read only, so a read-only transaction may ask it.
  */
 export async function notCurrent(client: PoolClient, proposalIds: readonly string[]) {
