@@ -3,7 +3,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import type { CaptureSnapshotDto, SessionProposalDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureLots } from '#/capture/schema.ts'
-import { agentSessions } from '#/agents/schema.ts'
+import { agentSessions, agentSlots } from '#/agents/schema.ts'
 import { appendSessionInbox } from '#/agents/tools/inbox.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
@@ -98,8 +98,10 @@ export async function onLeadIdentity(
       queryDatabase(client)
         .select({
           id: processingJobs.id,
+          attemptId: processingAttempts.id,
           attemptState: processingAttempts.state,
           turnCount: agentSessions.turnCount,
+          providerSessionId: agentSessions.nativeSessionId,
         })
         .from(processingJobs)
         .innerJoin(processingAttempts, eq(processingAttempts.id, processingJobs.currentAttemptId))
@@ -116,7 +118,9 @@ export async function onLeadIdentity(
     const job = jobs[0]
     // A successor that has not started yet is replaced, pinned to this identity; one that has
     // run gets the revision as a notice instead.
-    const unstarted = job?.attemptState === 'queued' && (job.turnCount ?? 0n) === 0n
+    const unstarted =
+      (job?.attemptState === 'queued' && (job.turnCount ?? 0n) === 0n) ||
+      (job !== undefined && (await firstTurnStartedNothing(client, job)))
     if (job && !unstarted && !(ENDED_STATES as readonly string[]).includes(job.attemptState)) {
       await appendSessionInbox(
         client,
@@ -170,6 +174,34 @@ export async function onLeadIdentity(
     })
   }
   return 'queued'
+}
+
+/**
+ * Whether a running first turn has started nothing yet, as while it waits for a runner
+ * connection (no child recorded and no provider session reported): it may go back to the queue with no turn counted, so it is replaced like a queued
+ * one. Read after the job lock in its own statement, so a child recorded before that lock is seen;
+ * one recorded after it finds its attempt superseded and refuses.
+ */
+async function firstTurnStartedNothing(
+  client: PoolClient,
+  job: {
+    attemptId: string
+    attemptState: string
+    turnCount: bigint | null
+    providerSessionId: string | null
+  },
+) {
+  // A provider that reported its session has started, whatever was recorded.
+  if (job.attemptState !== 'running' || job.turnCount !== 1n || job.providerSessionId !== null) {
+    return false
+  }
+  const slots = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ turnChild: agentSlots.turnChild })
+      .from(agentSlots)
+      .where(eq(agentSlots.attemptId, job.attemptId)),
+  )
+  return slots[0]?.turnChild === 'none'
 }
 
 /** The agent settings successors seal; none for profiles that need no provider. */

@@ -394,6 +394,10 @@ async function connectLane() {
  * It covers the guest's own cleanup, including the paired supervisor's 12 s removal-receipt wait.
  */
 const GUEST_EXIT_MS = 60_000
+/** The same bound while the relay stops, inside `pnpm dev`'s 45 s stop grace. */
+const GUEST_EXIT_STOPPING_MS = 20_000
+/** How long the overdue removal command may take before it is killed. */
+const GUEST_REMOVE_MS = 10_000
 
 /**
  * Stops a launcher that outlived its connection: removes the turn's containers by name, then the
@@ -410,13 +414,22 @@ async function abandonGuest(child, exited, runId) {
     ['shell', '--workdir=/', vm, 'sudo', 'docker', 'rm', '-f', ...names],
     {
       stdio: 'ignore',
-      timeout: 10000,
     },
   )
-  await new Promise((resolve) => {
+  const removed = new Promise((resolve) => {
     remove.once('close', resolve)
     remove.once('error', resolve)
   })
+  // The removal is bounded too, and the launcher is stopped whether or not it succeeded.
+  const settled = new AbortController()
+  const finished = await Promise.race([
+    removed.then(() => true),
+    waitFor(GUEST_REMOVE_MS, false, settled.signal),
+  ])
+  settled.abort()
+  if (!finished) {
+    await stopChild(remove, removed)
+  }
   await stopChild(child, exited)
 }
 
@@ -459,7 +472,8 @@ async function carryTurn(socket, onClaimed) {
     stopGuest()
     // A launcher that outlives its connection by this much is stopped, so the lane comes back.
     if (!guestExited) {
-      exitTimer = setTimeout(() => void abandonGuest(child, exited, runId), GUEST_EXIT_MS)
+      const bound = stopping.signal.aborted ? GUEST_EXIT_STOPPING_MS : GUEST_EXIT_MS
+      exitTimer = setTimeout(() => void abandonGuest(child, exited, runId), bound)
     }
   })
   socket.once('end', () => socket.destroy())

@@ -1189,11 +1189,7 @@ export async function runSessionTurn(
       // the next one; that turn's state, capability and slot are not this settlement's to change.
       const sessionNow = await executeDatabaseQuery(
         queryDatabase(client)
-          .select({
-            turnCount: agentSessions.turnCount,
-            state: agentSessions.sessionState,
-            queuedSince: agentSessions.queuedSince,
-          })
+          .select({ turnCount: agentSessions.turnCount, state: agentSessions.sessionState })
           .from(agentSessions)
           .where(eq(agentSessions.attemptId, attemptId))
           .for('update'),
@@ -1214,9 +1210,7 @@ export async function runSessionTurn(
         locked.attempt.state === 'running' && locked.job.current_attempt_id === locked.attempt.id
       // An attempt cancelled since the driver gave up settles as a cancellation instead.
       if (unstarted && live) {
-        // Read under the session row's lock; the claim to running left it as it was.
-        const queuedSince = sessionNow[0].queuedSince
-        return requeueUnstartedTurn(client, { ...current, queuedSince }, attemptId)
+        return requeueUnstartedTurn(client, current, attemptId)
       }
       // A wake's earlier state no longer applies once a turn has run.
       await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
@@ -1255,20 +1249,21 @@ export async function runSessionTurn(
 }
 
 /**
- * Puts back a claimed turn that sent nothing: queued with the turn count and queue place it had
- * before the claim, its capability revoked and its slot released. What only a turn that ran
- * changes (the wake's earlier state, acknowledgements, progress) is left as it was.
+ * Puts back a claimed turn that sent nothing: queued with the turn count it had before the claim,
+ * its capability revoked and its slot released. It joins the back of the queue, so a route whose
+ * connections are all busy doesn't hold a free slot back from sessions of other routes. What only
+ * a turn that ran changes (the wake's earlier state, acknowledgements, progress) is left as it was.
  */
 async function requeueUnstartedTurn(
   client: PoolClient,
-  current: { jobId: string; batchId: string; turnCount: bigint; queuedSince: Date },
+  current: { jobId: string; batchId: string; turnCount: bigint },
   attemptId: string,
 ) {
   const settled = (await setSessionState(client, attemptId, current.jobId, 'queued')) || 'queued'
   await executeDatabaseQuery(
     queryDatabase(client)
       .update(agentSessions)
-      .set({ turnCount: current.turnCount, queuedSince: current.queuedSince })
+      .set({ turnCount: current.turnCount })
       .where(eq(agentSessions.attemptId, attemptId)),
   )
   await revokeSessionCapability(client, attemptId)

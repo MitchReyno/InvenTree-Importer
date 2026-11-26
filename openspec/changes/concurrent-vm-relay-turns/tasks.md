@@ -27,7 +27,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - PR delivery: PR-A.
 - Outcome: a VM turn whose route is busy goes back to the queue unchanged; a tool turn whose relay is absent fails with `agent_vm_unavailable`.
-- Scope and approach: `session/session-adapters.ts` (`SessionCapacityUnavailable`), `session/session-runner.ts` (requeue settlement restoring turn count and `queued_since`), `shared-vm/coordinator.ts` (admitted-connection tracking, busy/absent decision), `failure-model.ts` and `contracts/src/session-failures.ts`, `session-failure-text.ts`, regenerated contracts (design D4, D5).
+- Scope and approach: `session/session-adapters.ts` (`SessionCapacityUnavailable`), `session/session-runner.ts` (requeue settlement restoring the turn count), `shared-vm/coordinator.ts` (admitted-connection tracking, busy/absent decision), `failure-model.ts` and `contracts/src/session-failures.ts`, `session-failure-text.ts`, regenerated contracts (design D4, D5).
 - Prerequisites: None.
 - Acceptance: processing-agent-sessions "A turn without a free VM connection goes back to the queue".
 - TDD approach: RED: a coordinator test where a busy route's turn waits out and expects the requeue error (today `agent_process_unavailable`), a runner test expecting `queued` with turn count, slot, child and diagnostics unchanged (today `failed` with a diagnostic), and an absent-route test expecting `agent_vm_unavailable`.
@@ -37,7 +37,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - [x] 1.1 RED: coordinator and runner regressions for the busy, absent and fenced cases fail for the expected reasons.
 - [x] 1.2 GREEN: add `agent_vm_unavailable` to the contracts with its sentence and description, and regenerate the contracts.
 - [x] 1.3 GREEN: the coordinator tells busy from absent and throws `SessionCapacityUnavailable` or `agent_vm_unavailable`.
-- [x] 1.4 GREEN: the runner settles `SessionCapacityUnavailable` as a requeue: no diagnostic, turn count and `queued_since` restored, slot and capability released, resume row and progress untouched, under the settlement fence.
+- [x] 1.4 GREEN: the runner settles `SessionCapacityUnavailable` as a requeue: no diagnostic, turn count restored and the session at the back of the queue, slot and capability released, resume row and progress untouched, under the settlement fence.
 - [x] 1.5 Verify the existing held-capacity, fence and stale-slot tests still pass.
 
 ## 2. Relay lanes and the guest's claim report

@@ -6,7 +6,10 @@ import { join } from 'node:path'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { runSessionTurn, type SessionDriver } from '#/agents/session/session-runner.ts'
-import { TurnAttemptNotRunning } from '#/agents/session/slots.ts'
+import { claimSessionSlot, TurnAttemptNotRunning } from '#/agents/session/slots.ts'
+import { transaction } from '#/db/database.ts'
+import { saveAgentSettings } from '#/agents/settings.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { SessionCapacityUnavailable } from '#/agents/session/session-adapters.ts'
 import { wakePendingSessions } from '#/agents/session/session-execution.ts'
 
@@ -33,7 +36,7 @@ async function sessionRow(fixture: Fixture, attemptId: string) {
   return rows.rows[0]
 }
 
-test('a turn that finds no free connection goes back to the queue as if it never ran', async (t) => {
+test('a turn that finds no free connection goes to the back of the queue as if it never ran', async (t) => {
   const fixture = await processingFixture()
   t.after(() => fixture.dispose())
   const capture = await fixture.seedCapture()
@@ -75,7 +78,12 @@ test('a turn that finds no free connection goes back to the queue as if it never
   assert.equal(state, 'queued')
   assert.equal(recorded, 1)
   const after = await sessionRow(fixture, attempt)
-  assert.deepEqual(after, { ...before, capability: false })
+  // Back of the queue, so a busy route doesn't hold a free slot back from other routes.
+  assert.ok(after.queued_since > before.queued_since)
+  assert.deepEqual(
+    { ...after, queued_since: undefined },
+    { ...before, queued_since: undefined, capability: false },
+  )
   assert.equal(after.attempt_state, 'queued')
   const slots = await fixture.db.pool.query('SELECT 1 FROM agent_slot WHERE attempt_id=$1', [
     attempt,
@@ -187,4 +195,33 @@ test('a turn out of capacity whose attempt was cancelled meanwhile settles as ca
     attempt,
   ])
   assert.equal(slots.rowCount, 0)
+})
+
+test('a requeued session goes behind younger queued ones, so it holds no free slot back', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: '0',
+      selection: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+      session_concurrency: 1,
+    }),
+  )
+  const capture = await fixture.seedCapture()
+  const older = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+  const younger = await lotSession(fixture, capture, capture.packetB, { state: 'queued' })
+
+  assert.equal(
+    await runWith(fixture, older.attempt, async () => {
+      throw new SessionCapacityUnavailable()
+    }),
+    'queued',
+  )
+  // The younger session, of another route in production, now comes first for the free slot.
+  const claimed = await transaction(fixture.runner.pool, (client) =>
+    claimSessionSlot(client, fixture.config, younger.attempt),
+  )
+  assert.equal(claimed, true)
 })
