@@ -131,7 +131,7 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - [x] 2.1 Map every revision sender and every proposal reader.
 - [x] 2.2 RED: write the tests listed above. (Written after the implementation, with negative controls instead of a failing first run; see notes.md.)
 - [x] 2.3 GREEN: implement them. Keep `/5` and `/6` readers working, including a retained `/6` proposal with agent-reported web sources from BI-019 PR-D1.
-- [ ] 2.4 Run the tiers.
+- [x] 2.4 Run the tiers.
 
 ## 3. Match: search, verdicts, questions, modes and queueing
 
