@@ -45,11 +45,6 @@ const FORMS = Object.fromEntries(
   }
 >
 
-/** Whether focus fell to the page, as it does when the focused control is removed. */
-function focusLost() {
-  return document.activeElement === null || document.activeElement === document.body
-}
-
 function characters(text: string) {
   return [...text].length
 }
@@ -86,8 +81,10 @@ export function StepInstructions({
   const [cutIn, setCutIn] = useState<0 | 1 | null>(null)
   const box = useRef<HTMLTextAreaElement | null>(null)
   const button = useRef<HTMLButtonElement | null>(null)
-  // Set by Save until the save is confirmed or the edit dropped: Save's button goes then.
-  const focusAfterSave = useRef(false)
+  const editor = useRef<HTMLDivElement | null>(null)
+  // Set by Save until the save is confirmed, the edit dropped, or the operator acts outside the
+  // editor: only then does Save's button going take the operator's place with it.
+  const [focusAfterSave, setFocusAfterSave] = useState(false)
   const id = useId()
   const label = `Instructions for ${STAGE_LABEL[stage]}`
   const value = form.watch('text')
@@ -102,22 +99,40 @@ export function StepInstructions({
     onChange: () => markEdited('text'),
   })
 
-  // Syncs DOM focus with a confirmed save, once: Save's button is gone, so focus that fell to the
-  // page goes back into the box, or to the step's button when the save removed the box. Focus
-  // the operator moved elsewhere meanwhile stays where it is.
+  // Follows the document while a save is pending: pressing or focusing anything outside the
+  // editor means the operator has moved on, so the settled save leaves focus alone.
   useEffect(() => {
-    if (!focusAfterSave.current || text.dirty) {
+    if (!focusAfterSave) {
+      return
+    }
+
+    const leftEditor = (event: Event) => {
+      if (!(event.target instanceof Node) || !editor.current?.contains(event.target)) {
+        setFocusAfterSave(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', leftEditor, true)
+    document.addEventListener('focusin', leftEditor, true)
+    return () => {
+      document.removeEventListener('pointerdown', leftEditor, true)
+      document.removeEventListener('focusin', leftEditor, true)
+    }
+  }, [focusAfterSave])
+
+  // Syncs DOM focus with a confirmed save, once: Save's button is gone with the operator's focus,
+  // which goes back into the box, or to the step's button when the save removed the box.
+  useEffect(() => {
+    if (!focusAfterSave || text.dirty) {
       return
     }
     // A cleared box waits for the read that removes it, so focus lands on the step's button.
     if (shown && form.getValues('text') === '') {
       return
     }
-    focusAfterSave.current = false
-    if (focusLost()) {
-      ;(box.current ?? button.current)?.focus()
-    }
-  }, [text.dirty, shown, form])
+    setFocusAfterSave(false)
+    ;(box.current ?? button.current)?.focus()
+  }, [focusAfterSave, text.dirty, shown, form])
 
   function openBox() {
     flushSync(() => setOpen(true))
@@ -169,7 +184,7 @@ export function StepInstructions({
   const near = count >= NEAR_LIMIT
 
   return (
-    <Box>
+    <Box ref={editor}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Text
         id={id}
@@ -207,13 +222,13 @@ export function StepInstructions({
           if (form.getValues('text') === '') {
             setOpen(false)
           }
-          focusAfterSave.current = true
+          setFocusAfterSave(true)
           text.save()
         }}
         onRetry={text.retry}
         onReload={text.reload}
         onDiscard={() => {
-          focusAfterSave.current = false
+          setFocusAfterSave(false)
           flushSync(() => {
             setOpen(false)
             setCutIn(null)

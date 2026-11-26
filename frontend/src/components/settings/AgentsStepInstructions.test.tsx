@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type {
@@ -63,17 +63,23 @@ function client(saved = settings()) {
 
 type Api = ReturnType<typeof client>
 
-async function renderAgents(api: Api) {
-  render(
+function page(api: Api) {
+  return (
     <Settings
       section="agents"
       returnTo={undefined}
       agents={api as unknown as ReturnType<typeof agentsClient>}
       onDirtyChange={vi.fn()}
       replaceSubsection={vi.fn()}
-    />,
+    />
   )
+}
+
+/** The Agents page over `api`; its `rerender` renders the whole page again. */
+async function renderAgents(api: Api) {
+  const rendered = render(page(api))
   await screen.findByRole('group', { name: 'Research' })
+  return { rerender: () => rendered.rerender(page(api)) }
 }
 
 const step = (name: string) => screen.getByRole('group', { name })
@@ -295,7 +301,7 @@ test('a second cut paste in a row is announced in the other live region', async 
 test('after a save focus goes back into the box, unless the operator moved it', async () => {
   const user = userEvent.setup()
   const api = client()
-  await renderAgents(api)
+  const rendered = await renderAgents(api)
   const box = await openBox(user, 'Research')
   await user.type(box, RESEARCH)
   await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
@@ -317,10 +323,29 @@ test('after a save focus goes back into the box, unless the operator moved it', 
     name: 'Instructions for Research',
   })
   expect(examine).toHaveFocus()
-  // Nothing left armed: a later render doesn't take focus either.
-  examine.blur()
-  await user.click(within(step('Images')).getByRole('button', { name: 'Instructions for Images' }))
+  // Nothing left armed: a later render, with focus on the page, doesn't take it either.
+  act(() => examine.blur())
+  expect(document.body).toHaveFocus()
+  rendered.rerender()
   expect(button).not.toHaveFocus()
+  expect(document.body).toHaveFocus()
+})
+
+test('a resend confirmed after the operator clicked elsewhere leaves focus where it is', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  api.saveSettings.mockRejectedValueOnce(new Error('offline'))
+  await renderAgents(api)
+  const box = await openBox(user, 'Research')
+  await user.type(box, RESEARCH)
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  // A click on the page itself, which takes focus to no control.
+  await user.click(document.body)
+  await within(step('Research')).findByText(/^Saved\. New Research sessions/, undefined, {
+    timeout: 4000,
+  })
+  expect(box).not.toHaveFocus()
+  expect(document.body).toHaveFocus()
 })
 
 test('a save confirmed on its automatic resend still returns focus into the box', async () => {
