@@ -74,6 +74,7 @@ export const SESSION_FAILURE_CODES = [
   'agent_login_required',
   'agent_credentials_unavailable',
   'agent_process_unavailable',
+  'agent_vm_unavailable',
   'agent_version_unqualified',
   'agent_version_unavailable',
   'agent_admission_unavailable',

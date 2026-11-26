@@ -56,6 +56,7 @@ import {
 import {
   runClaudeSession,
   runCodexSession,
+  SessionCapacityUnavailable,
   SessionResumeUnavailable,
   type SessionTurn,
 } from './session-adapters.ts'
@@ -757,6 +758,7 @@ export async function runSessionTurn(
             state: agentSessions.sessionState,
             attemptState: processingAttempts.state,
             turnCount: agentSessions.turnCount,
+            queuedSince: agentSessions.queuedSince,
             lineageId: agentSessions.sessionLineageId,
             providerSessionId: agentSessions.nativeSessionId,
             jobId: processingAttempts.jobId,
@@ -1082,6 +1084,8 @@ export async function runSessionTurn(
   }
   const watching = watchAttempt(pool, attemptId, turnControl)
   let next: SessionStateDto
+  // The driver found no free runner connection and sent nothing.
+  let unstarted = false
   try {
     const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
     const turnNumber = current.turnCount + 1n
@@ -1122,16 +1126,22 @@ export async function runSessionTurn(
       // The child was not confirmed gone, so the session keeps its slot and stays visible.
       throw error
     }
-    diagnostic = captureFailure(
-      expired && !signal.aborted
-        ? new NativeSessionError('agent_timeout')
-        : signal.aborted
-          ? new NativeSessionError('agent_worker_interrupted')
-          : turnControl.signal.aborted
-            ? new NativeSessionError('agent_cancelled')
-            : error,
-    )
-    if (error instanceof SessionResumeUnavailable) {
+    // Nothing was sent, so there is no failure to record: the session goes back to the queue.
+    unstarted = error instanceof SessionCapacityUnavailable && !turnControl.signal.aborted
+    if (!unstarted) {
+      diagnostic = captureFailure(
+        expired && !signal.aborted
+          ? new NativeSessionError('agent_timeout')
+          : signal.aborted
+            ? new NativeSessionError('agent_worker_interrupted')
+            : turnControl.signal.aborted
+              ? new NativeSessionError('agent_cancelled')
+              : error,
+      )
+    }
+    if (unstarted) {
+      next = 'queued'
+    } else if (error instanceof SessionResumeUnavailable) {
       next = 'resume_unavailable'
     } else if (expired && !signal.aborted) {
       // The child was reaped (an unconfirmed reap throws above), so the slot can be released.
@@ -1186,6 +1196,9 @@ export async function runSessionTurn(
       if (sessionNow[0]?.turnCount !== settledTurn || !ownSlot.length) {
         return sessionNow[0]?.state ?? next
       }
+      if (unstarted) {
+        return requeueUnstartedTurn(client, current, attemptId)
+      }
       // A wake's earlier state no longer applies once a turn has run.
       await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
       // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
@@ -1223,6 +1236,29 @@ export async function runSessionTurn(
     attemptId,
     deps.settlementFenceRetryMs ?? SETTLEMENT_FENCE_RETRY_MS,
   )
+}
+
+/**
+ * Puts back a claimed turn that sent nothing: queued with the turn count and queue place it had
+ * before the claim, its capability revoked and its slot released. What only a turn that ran
+ * changes (the wake's earlier state, acknowledgements, progress) is left as it was.
+ */
+async function requeueUnstartedTurn(
+  client: PoolClient,
+  current: { jobId: string; batchId: string; turnCount: bigint; queuedSince: Date },
+  attemptId: string,
+) {
+  const settled = (await setSessionState(client, attemptId, current.jobId, 'queued')) || 'queued'
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(agentSessions)
+      .set({ turnCount: current.turnCount, queuedSince: current.queuedSince })
+      .where(eq(agentSessions.attemptId, attemptId)),
+  )
+  await revokeSessionCapability(client, attemptId)
+  await releaseSessionSlot(client, attemptId)
+  await publish(client, current.batchId)
+  return settled
 }
 
 /** The host's own provider driver; it starts host processes, so it records that first. */

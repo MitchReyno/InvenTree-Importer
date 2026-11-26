@@ -219,7 +219,7 @@ A held slot records its turn and what the turn started outside the worker: `none
 
 Claims, child records, the `/1` lane claim and settlement each check, in their own transaction, that their worker still holds the actor's supervisor lock (settlement: that no other worker does), and a new worker waits for such writes already in flight before it checks held capacity, so a worker that lost its lock commits none of them after a replacement's check (`intake-server/src/agents/supervisor-fence.ts`).
 
-A full lane leaves a claimed session `queued` (`session-runner.ts:543-545`); the runner doesn't set `waiting_for_capacity` for it. A new inbox item resumes `waiting_input`, `finished` and `interrupted` sessions (`session-runner.ts:83`; `intake-server/src/agents/session/session-execution.ts:112-145`). A running session receives it in its turn.
+A full lane leaves a claimed session `queued` (`session-runner.ts:543-545`); the runner doesn't set `waiting_for_capacity` for it. A VM turn that finds every connection of its route busy also goes back to `queued`, as if it hadn't run: same turn count and queue place, no diagnostic and no slot (`SessionCapacityUnavailable` in `intake-server/src/agents/shared-vm/coordinator.ts`). A tool turn whose relay isn't connected fails with `agent_vm_unavailable`. A new inbox item resumes `waiting_input`, `finished` and `interrupted` sessions (`session-runner.ts:83`; `intake-server/src/agents/session/session-execution.ts:112-145`). A running session receives it in its turn.
 
 ## 1.7 Event mapping
 

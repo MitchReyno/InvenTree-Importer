@@ -34,11 +34,11 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - Verification: `pnpm --filter @invimport/contracts test`, the touched PG/process tests, typecheck.
 - Risks and decisions: none beyond design.
 
-- [ ] 1.1 RED: coordinator and runner regressions for the busy, absent and fenced cases fail for the expected reasons.
-- [ ] 1.2 GREEN: add `agent_vm_unavailable` to the contracts with its sentence and description, and regenerate the contracts.
-- [ ] 1.3 GREEN: the coordinator tells busy from absent and throws `SessionCapacityUnavailable` or `agent_vm_unavailable`.
-- [ ] 1.4 GREEN: the runner settles `SessionCapacityUnavailable` as a requeue: no diagnostic, turn count and `queued_since` restored, slot and capability released, resume row and progress untouched, under the settlement fence.
-- [ ] 1.5 Verify the existing held-capacity, fence and stale-slot tests still pass.
+- [x] 1.1 RED: coordinator and runner regressions for the busy, absent and fenced cases fail for the expected reasons.
+- [x] 1.2 GREEN: add `agent_vm_unavailable` to the contracts with its sentence and description, and regenerate the contracts.
+- [x] 1.3 GREEN: the coordinator tells busy from absent and throws `SessionCapacityUnavailable` or `agent_vm_unavailable`.
+- [x] 1.4 GREEN: the runner settles `SessionCapacityUnavailable` as a requeue: no diagnostic, turn count and `queued_since` restored, slot and capability released, resume row and progress untouched, under the settlement fence.
+- [x] 1.5 Verify the existing held-capacity, fence and stale-slot tests still pass.
 
 ## 2. Relay lanes and the guest's claim report
 
@@ -51,11 +51,11 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - Verification: `node --test tooling/tests/relay-turns.test.cjs`, intake unit tests, `pnpm lint:tooling`.
 - Risks and decisions: requires a runner image refresh (managed `pnpm dev` does it).
 
-- [ ] 2.1 RED: relay lane tests and the guest `onClaimed` test fail for the expected reasons.
-- [ ] 2.2 GREEN: guest claim report through `onClaimed` and the shared marker constant.
-- [ ] 2.3 GREEN: relay lanes with capacity, one ready lane, marker parsing, stderr forwarding, refused-lane delay and SIGTERM for every lane.
-- [ ] 2.4 GREEN: coordinator turn allowance from `MAX_SESSION_SLOTS` and matching `maxConnections`.
-- [ ] 2.5 Verify `provider-status.test.ts`, `model-catalog.test.ts` and `tooling/tests/dev-vm*.test.cjs` still pass.
+- [x] 2.1 RED: relay lane tests and the guest `onClaimed` test fail for the expected reasons.
+- [x] 2.2 GREEN: guest claim report through `onClaimed` and the shared marker constant.
+- [x] 2.3 GREEN: relay lanes with capacity, one ready lane, marker parsing, stderr forwarding, refused-lane delay and SIGTERM for every lane.
+- [x] 2.4 GREEN: coordinator turn allowance from `MAX_SESSION_SLOTS` and matching `maxConnections`.
+- [x] 2.5 Verify `provider-status.test.ts`, `model-catalog.test.ts` and `tooling/tests/dev-vm*.test.cjs` still pass.
 
 ## 3. End-to-end process proof
 
@@ -68,8 +68,8 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - Verification: the new process test alone, then the process tier.
 - Risks and decisions: none.
 
-- [ ] 3.1 RED: the process test fails on trunk code with the second turn `failed` / `agent_process_unavailable`.
-- [ ] 3.2 GREEN: both turns run concurrently; with capacity 1 the second is requeued (`queued`, turn count 0, no slot, child `none`, no diagnostic) and runs on the next attempt.
+- [x] 3.1 RED: the process test fails on trunk code with the second turn `failed` / `agent_process_unavailable`.
+- [x] 3.2 GREEN: both turns run concurrently; with capacity 1 the second is requeued (`queued`, turn count 0, no slot, child `none`, no diagnostic) and runs on the next attempt.
 
 ## 4. Documentation
 
@@ -82,7 +82,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - Verification: `pnpm lint:markdown` (or the repository's Markdown check), link check by reading.
 - Risks and decisions: none.
 
-- [ ] 4.1 Update the four documents and check each claim against the code.
+- [x] 4.1 Update the four documents and check each claim against the code.
 
 ## Delivery evidence and lifecycle follow-up
 

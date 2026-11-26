@@ -7,6 +7,7 @@ import { serveGuestTurn } from './guest-turn.ts'
 import { pairing } from './pair.ts'
 import { providerProxy } from './provider-proxy.ts'
 import { TURN_POLICY_PATH } from './turn-policy.ts'
+import { TURN_CLAIMED_MARKER } from './turn-claimed.ts'
 
 async function main() {
   const socket = connect({
@@ -31,6 +32,8 @@ async function main() {
       sessionsRoot: '/home/node/sessions',
       reapPath: '/run/reap/turn',
       policyPath: TURN_POLICY_PATH,
+      // The relay reads this line to open its next connection while this one is busy.
+      onClaimed: () => process.stderr.write(TURN_CLAIMED_MARKER + '\n'),
     })
   } catch (error) {
     socket.destroy()

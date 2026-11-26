@@ -5,7 +5,7 @@ import { isAbsolute } from 'node:path'
 import { Duplex } from 'node:stream'
 import { connect } from 'node:net'
 import { spawn } from 'node:child_process'
-import { once } from 'node:events'
+import { once, setMaxListeners } from 'node:events'
 import { setTimeout as delay } from 'node:timers/promises'
 const codex = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1'
 const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
@@ -106,6 +106,11 @@ if (delivery !== 'inline' && delivery !== 'file') throw new Error('invalid_evide
 const tools = process.env.INTAKE_VM_BUILTIN_TOOLS === '1'
 if (tools && !(codex || subscription)) throw new Error('tool_worker_requires_selected_provider')
 const toolScript = tools ? readFileSync(new URL('./tool-turn.sh', import.meta.url), 'utf8') : ''
+/** The most slots a session limit can set (MAX_SESSION_SLOTS in agents/session/slots.ts). */
+const DEFAULT_RELAY_TURNS = 8
+const relayTurnsSetting = process.env.INTAKE_VM_RELAY_TURNS ?? String(DEFAULT_RELAY_TURNS)
+if (!/^[1-8]$/.test(relayTurnsSetting)) throw new Error('invalid_relay_turns')
+const relayTurns = Number(relayTurnsSetting)
 
 // A subscription relay also carries its provider's status connection and its model catalogue
 // connection. The credential service is the TLS client on each (see
@@ -141,6 +146,8 @@ const STATUS_RETRY_MAX_MS = 30000
 /** How long the pump and the coordinator connection may take to come up. */
 const STATUS_START_MS = 15000
 const stopping = new AbortController()
+// Every lane and status carrier listens for the stop.
+setMaxListeners(64, stopping.signal)
 
 /** Resolves `value` after `ms`, or as soon as `signal` aborts, leaving no timer behind. */
 function waitFor(ms, value, signal) {
@@ -250,83 +257,124 @@ const status = statusContainer
       carryStatus(catalogContainer, catalogSocket).catch(() => {}),
     ])
   : undefined
-for (;;) {
-  let socket
-  try {
-    socket = await connectCoordinator()
-  } catch {
-    await delay(500)
-    continue
+/** The guest's claim report: TURN_CLAIMED_MARKER in intake-server/src/agents/shared-vm/turn-claimed.ts. */
+const TURN_CLAIMED_MARKER = 'bench-turn-claimed'
+/** How long a lane that ended unclaimed waits, so a refusing coordinator can't make it spin. */
+const UNCLAIMED_RETRY_MS = 500
+
+/** The guest command for one turn connection: the tool launcher, or one bounded container. */
+function guestArgs(runId) {
+  if (tools) {
+    return [
+      'shell',
+      '--workdir=/',
+      vm,
+      'sudo',
+      'sh',
+      '-c',
+      toolScript,
+      'tool-turn',
+      directory,
+      image,
+      codex ? 'codex' : 'claude',
+      runId,
+      delivery,
+    ]
   }
-  const runId = randomUUID()
-  const child = spawn(
-    'limactl',
-    tools
+  return [
+    'shell',
+    '--workdir=/',
+    vm,
+    'sudo',
+    'docker',
+    'run',
+    '--rm',
+    '-i',
+    '--network=none',
+    '--read-only',
+    '--cap-drop=ALL',
+    '--security-opt=no-new-privileges',
+    '--pids-limit=64',
+    '--memory=384m',
+    '--tmpfs=/tmp:rw,nosuid,nodev,size=32m',
+    '--mount',
+    'type=bind,src=' + directory + '/guest,dst=/run/bench-pair,readonly',
+    '--mount',
+    'type=bind,src=' + directory + '/sessions,dst=/home/node/sessions',
+    ...(codex
       ? [
-          'shell',
-          '--workdir=/',
-          vm,
-          'sudo',
-          'sh',
-          '-c',
-          toolScript,
-          'tool-turn',
-          directory,
-          image,
-          codex ? 'codex' : 'claude',
-          runId,
-          delivery,
+          '-e',
+          'INTAKE_VM_CODEX_SUBSCRIPTION=1',
+          '--mount',
+          'type=bind,src=' + directory + '/codex-state,dst=/run/codex-state',
+          '--mount',
+          'type=bind,src=' + directory + '/codex-egress,dst=/run/egress,readonly',
         ]
-      : [
-          'shell',
-          '--workdir=/',
-          vm,
-          'sudo',
-          'docker',
-          'run',
-          '--rm',
-          '-i',
-          '--network=none',
-          '--read-only',
-          '--cap-drop=ALL',
-          '--security-opt=no-new-privileges',
-          '--pids-limit=64',
-          '--memory=384m',
-          '--tmpfs=/tmp:rw,nosuid,nodev,size=32m',
+      : []),
+    ...(subscription
+      ? [
+          '-e',
+          'INTAKE_VM_CLAUDE_SUBSCRIPTION=1',
           '--mount',
-          'type=bind,src=' + directory + '/guest,dst=/run/bench-pair,readonly',
+          'type=bind,src=' + directory + '/claude-store,dst=/run/claude-store,readonly',
           '--mount',
-          'type=bind,src=' + directory + '/sessions,dst=/home/node/sessions',
-          ...(codex
-            ? [
-                '-e',
-                'INTAKE_VM_CODEX_SUBSCRIPTION=1',
-                '--mount',
-                'type=bind,src=' + directory + '/codex-state,dst=/run/codex-state',
-                '--mount',
-                'type=bind,src=' + directory + '/codex-egress,dst=/run/egress,readonly',
-              ]
-            : []),
-          ...(subscription
-            ? [
-                '-e',
-                'INTAKE_VM_CLAUDE_SUBSCRIPTION=1',
-                '--mount',
-                'type=bind,src=' + directory + '/claude-store,dst=/run/claude-store,readonly',
-                '--mount',
-                'type=bind,src=' + directory + '/egress,dst=/run/egress,readonly',
-                '--tmpfs=/home/node/.claude:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=32m',
-                '--tmpfs=/home/node/.config:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=4m',
-              ]
-            : []),
-          image,
-          'node',
-          '--import',
-          'tsx',
-          'src/agents/shared-vm/guest-main.ts',
-        ],
-    { stdio: ['pipe', 'pipe', 'inherit'] },
-  )
+          'type=bind,src=' + directory + '/egress,dst=/run/egress,readonly',
+          '--tmpfs=/home/node/.claude:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=32m',
+          '--tmpfs=/home/node/.config:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=4m',
+        ]
+      : []),
+    image,
+    'node',
+    '--import',
+    'tsx',
+    'src/agents/shared-vm/guest-main.ts',
+  ]
+}
+
+/** Forwards the guest's standard error by line, except its claim report, which calls `onClaimed`. */
+function watchGuestErrors(stream, onClaimed) {
+  let partial = ''
+  stream.on('data', (bytes) => {
+    const lines = (partial + bytes).split('\n')
+    partial = lines.pop()
+    for (const line of lines) {
+      if (line === TURN_CLAIMED_MARKER) {
+        onClaimed()
+      } else {
+        process.stderr.write(line + '\n')
+      }
+    }
+  })
+  stream.on('end', () => {
+    if (partial) {
+      process.stderr.write(partial + '\n')
+    }
+  })
+}
+
+/** Connects to the coordinator, retrying until it answers; undefined once the relay stops. */
+async function connectLane() {
+  while (!stopping.signal.aborted) {
+    try {
+      return await connectCoordinator(stopping.signal)
+    } catch {
+      await waitFor(500, undefined, stopping.signal)
+    }
+  }
+  return undefined
+}
+
+/** Carries one turn connection until its guest exits; resolves whether the guest was claimed. */
+async function carryTurn(socket, onClaimed) {
+  const runId = randomUUID()
+  let claimed = false
+  const child = spawn('limactl', guestArgs(runId), { stdio: ['pipe', 'pipe', 'pipe'] })
+  watchGuestErrors(child.stderr, () => {
+    if (!claimed) {
+      claimed = true
+      onClaimed()
+    }
+  })
   child.stdin.on('error', () => socket.destroy())
   socket.on('error', () => socket.destroy())
   const stopGuest = () => {
@@ -344,18 +392,67 @@ for (;;) {
   }
   socket.once('close', stopGuest)
   socket.once('end', () => socket.destroy())
-  let terminating = false
-  const terminate = () => {
-    terminating = true
-    socket.destroy()
-  }
-  process.once('SIGTERM', terminate)
+  const terminate = () => socket.destroy()
+  stopping.signal.addEventListener('abort', terminate, { once: true })
   socket.pipe(child.stdin)
   child.stdout.pipe(socket)
   await once(child, 'close')
-  process.off('SIGTERM', terminate)
+  stopping.signal.removeEventListener('abort', terminate)
   socket.destroy()
-  if (terminating) break
+  return claimed
 }
-stopping.abort()
+
+// Each lane carries one turn connection at a time. One lane is kept ready (not yet claimed), and
+// a claim opens the next, so an idle relay holds one guest turn rather than its capacity.
+let lanes = 0
+let readyLanes = 0
+const laneRuns = new Set()
+
+function fillLanes() {
+  while (!stopping.signal.aborted && readyLanes === 0 && lanes < relayTurns) {
+    startLane()
+  }
+}
+
+function startLane() {
+  lanes++
+  readyLanes++
+  let ready = true
+
+  const leaveReady = () => {
+    if (ready) {
+      ready = false
+      readyLanes--
+    }
+  }
+
+  const run = (async () => {
+    const socket = await connectLane()
+    if (!socket) {
+      return
+    }
+    const claimed = await carryTurn(socket, () => {
+      leaveReady()
+      fillLanes()
+    })
+    if (!claimed) {
+      await waitFor(UNCLAIMED_RETRY_MS, undefined, stopping.signal)
+    }
+  })()
+    .catch(() => {})
+    .finally(() => {
+      laneRuns.delete(run)
+      leaveReady()
+      lanes--
+      fillLanes()
+    })
+  laneRuns.add(run)
+}
+
+process.once('SIGTERM', () => stopping.abort())
+fillLanes()
+await once(stopping.signal, 'abort')
+while (laneRuns.size) {
+  await Promise.all([...laneRuns])
+}
 await status

@@ -16,6 +16,7 @@ import { Frames, protocol } from '#/agents/shared-vm/frames.ts'
 import { startSessionBridge, type BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
 import { CodexAccount } from '#/agents/shared-vm/codex-login.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
+import { MAX_SESSION_SLOTS } from '#/agents/session/slots.ts'
 import { credentialPath, managementServer } from '#/agents/shared-vm/credential-http.ts'
 import {
   credentialStore,
@@ -1222,11 +1223,12 @@ async function selfSigned(root: string) {
   return pairing(join(other, 'bench-coordinator'))
 }
 
-test('status connections leave all eight turn connections free', async (t) => {
+test('status connections leave every turn connection free', async (t) => {
   const root = await scratch(t, 'status-capacity-')
   const { bridge, port } = await coordinator(t, root)
   const turns: TLSSocket[] = []
-  for (let i = 0; i < 8; i++) {
+  // Twice the most slots: each relay's ready connection beside the slots' turns.
+  for (let i = 0; i < 2 * MAX_SESSION_SLOTS; i++) {
     turns.push(await turnPeer(t, root, port, { codexSubscription: true, providerStatus: true }))
   }
   for (const provider of ['claude', 'codex'] as const) {
@@ -1240,7 +1242,7 @@ test('status connections leave all eight turn connections free', async (t) => {
   const status = await bridge.providerStatus()
   assert.equal(status.claude.state, 'not_saved')
   assert.equal(status.codex.state, 'signed_out')
-  // A ninth turn connection is still refused.
+  // One more turn connection is still refused.
   const ninth = await turnPeer(t, root, port, { codexSubscription: true, providerStatus: true })
   await once(ninth, 'close')
   assert.ok(turns.every((socket) => !socket.destroyed))
