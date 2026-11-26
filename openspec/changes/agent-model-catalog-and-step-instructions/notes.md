@@ -31,6 +31,8 @@ The plan for exact provider models, an effort choice and instructions for each s
 - **2026-11-26, PR-D:** the brief's `step_guidance` entry is the first of the `human` section, so it is in the opening whenever any of that section is. `briefScope` takes it from the sealed input, so the current view a `read_lot` or `read_batch` returns keeps the text the attempt was queued with, not the settings now. The session page shows it under "Operator guidance for this step" (`BriefStepGuidance`), apart from "Your facts".
 - **2026-11-26, PR-D:** the app-settings scenario's count was 67 for a 66-character sentence; the spec now says 66.
 - **2026-11-26, PR-D:** typing past 1,000 characters is undone where it was made rather than blocked by `maxLength`, which counts UTF-16 units and would stop at 500 characters outside the Basic Multilingual Plane. Discard on a box opened from the button closes it again.
+- **2026-11-26, PR-D, review:** the editor's focus handling went beyond the board. After a confirmed save, Save's button goes, so focus returns into the box, or to the step's button when the save removed the instructions, but only while the operator's last press or focus during the save was in the editor; Discard returns it the same way at once. A paste cut is announced in whichever of two live regions was empty, so the same message in a row is announced again. A paste into a box held by a save in flight is ignored, and a pasted CRLF counts as one character.
+- **2026-11-26, PR-D:** the deployment README says an attempt sealed with step instructions needs a runner image from a build with migration `0045`, as PR-A's did for effort; an older guest refuses the manifest before the CLI starts.
 
 ## Unexpected challenges
 

@@ -154,7 +154,7 @@
   - [x] 5.2.3 the opening renders the guidance after the app's rules, and the `/7` brief renders it under "Operator guidance for this step" in the `human` section; a retained input without it renders as before;
   - [x] 5.2.4 the editor: the quiet button, focus on open, the count and amber from 900, typing stopping at 1,000, the paste cut with its announced message, Save and Discard per step, clearing removes.
 - [x] 5.3 GREEN: the setting, sealing, rendering and editor.
-- [ ] 5.4 Update `agents/ARCHITECTURE.md`, `frontend/ARCHITECTURE.md` and `docs/agent-sessions.md` (what every session receives). Run the contracts tests, the intake tiers and the frontend checks, and record the demo video.
+- [x] 5.4 Update `agents/ARCHITECTURE.md`, `frontend/ARCHITECTURE.md` and `docs/agent-sessions.md` (what every session receives). Run the contracts tests, the intake tiers and the frontend checks, and record the demo video.
 
 ## 6. Live catalogue and effort check
 
