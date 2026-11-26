@@ -8,6 +8,7 @@ import type {
   ProviderStatusDto,
 } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
+import { deferred } from '#/test/deferred'
 import { fixtureScope, render } from '#/test/render'
 import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
@@ -335,24 +336,19 @@ test('after a save focus goes back into the box, unless the operator moved it', 
 test('a finished save leaves nothing armed: a later read that changes the step takes no focus', async () => {
   const user = userEvent.setup()
   const api = client(settings({ stage_instructions: { research: RESEARCH } }))
-  const rendered = await renderAgents(api)
+  const { readSettingsAgain } = await renderAgents(api)
   const box = within(step('Research')).getByRole('textbox', { name: 'Instructions for Research' })
-  await user.clear(box)
+  await user.type(box, ' Mine.')
   await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
-  const button = await within(step('Research')).findByRole('button', {
-    name: 'Instructions for Research',
-  })
-  await waitFor(() => expect(button).toHaveFocus())
-  act(() => button.blur())
-  // Saved again elsewhere: the read brings Research's box back.
-  api.settings.mockResolvedValue({
-    ...settings({ stage_instructions: { research: IMAGES } }),
-    revision: '9',
-  })
-  await act(() => rendered.readSettingsAgain())
+  await within(step('Research')).findByText(/^Saved\. New Research sessions/)
+  await waitFor(() => expect(box).toHaveFocus())
+  act(() => box.blur())
+  // Removed elsewhere: the read takes Research's box away, and its button comes back.
+  api.settings.mockResolvedValue({ ...settings(), revision: '9' })
+  await act(() => readSettingsAgain())
   expect(
-    await within(step('Research')).findByRole('textbox', { name: 'Instructions for Research' }),
-  ).toHaveValue(IMAGES)
+    await within(step('Research')).findByRole('button', { name: 'Instructions for Research' }),
+  ).not.toHaveFocus()
   expect(document.body).toHaveFocus()
 })
 
@@ -373,20 +369,60 @@ test('a resend confirmed after the operator clicked elsewhere leaves focus where
   expect(document.body).toHaveFocus()
 })
 
-test('an operator who leaves during a resend and comes back to Save gets focus back', async () => {
+test('an operator who tabs away during a resend keeps their place when it is confirmed', async () => {
   const user = userEvent.setup()
   const api = client()
-  api.saveSettings.mockRejectedValueOnce(new Error('offline'))
+  const resend = deferred<AgentSettingsDto>()
+  api.saveSettings
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockImplementationOnce(() => resend.promise)
   await renderAgents(api)
   const box = await openBox(user, 'Research')
   await user.type(box, RESEARCH)
   const save = within(step('Research')).getByRole('button', { name: 'Save' })
   await user.click(save)
-  await user.click(document.body)
-  await user.click(save)
-  await within(step('Research')).findByText(/^Saved\. New Research sessions/, undefined, {
-    timeout: 4000,
+  await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(2), { timeout: 3000 })
+  await user.tab()
+  const elsewhere = document.activeElement
+  expect(save).not.toHaveFocus()
+  expect(elsewhere).not.toBe(document.body)
+  await act(async () => {
+    resend.resolve({
+      ...settings({ stage_instructions: { research: RESEARCH } }),
+      revision: '8',
+    })
+    await resend.promise
   })
+  await within(step('Research')).findByText(/^Saved\. New Research sessions/)
+  expect(box).not.toHaveFocus()
+  expect(document.activeElement).toBe(elsewhere)
+})
+
+test('an operator who tabs away during a resend and back to Save gets focus back', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const resend = deferred<AgentSettingsDto>()
+  api.saveSettings
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockImplementationOnce(() => resend.promise)
+  await renderAgents(api)
+  const box = await openBox(user, 'Research')
+  await user.type(box, RESEARCH)
+  const save = within(step('Research')).getByRole('button', { name: 'Save' })
+  await user.click(save)
+  await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(2), { timeout: 3000 })
+  await user.tab()
+  expect(save).not.toHaveFocus()
+  await user.tab({ shift: true })
+  expect(save).toHaveFocus()
+  await act(async () => {
+    resend.resolve({
+      ...settings({ stage_instructions: { research: RESEARCH } }),
+      revision: '8',
+    })
+    await resend.promise
+  })
+  await within(step('Research')).findByText(/^Saved\. New Research sessions/)
   await waitFor(() => expect(box).toHaveFocus())
 })
 
