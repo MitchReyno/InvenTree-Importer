@@ -5,6 +5,7 @@ import { BriefFacts } from './BriefFacts'
 import { BriefIdentities } from './BriefIdentities'
 import { BriefObservations } from './BriefObservations'
 import { BriefStageLists } from './BriefStageLists'
+import { BriefStepGuidance } from './BriefStepGuidance'
 import { BriefHeading, BriefMuted, BriefRow, BriefRows, BriefSection } from './brief-styles'
 
 type Evidence = Extract<BriefEntryDto, { kind: 'evidence' }>
@@ -20,8 +21,9 @@ function evidenceText(entry: Evidence) {
 }
 
 /**
- * What an opened brief shows: what Examine found, the operator's facts with their corrections
- * marked as theirs, the questions already asked and the evidence the session may read.
+ * What an opened brief shows: the operator's guidance for the step, what Examine found, the
+ * operator's facts with their corrections marked as theirs, the questions already asked and the
+ * evidence the session may read.
  */
 export function BriefContent({ item }: { item: SessionHistoryBriefDto }) {
   const { brief } = item
@@ -40,6 +42,7 @@ export function BriefContent({ item }: { item: SessionHistoryBriefDto }) {
           </BriefMuted>
         </BriefSection>
       )}
+      <BriefStepGuidance guidance={view.stepGuidance} />
       <BriefIdentities view={view} />
       <BriefObservations
         rows={view.observations}

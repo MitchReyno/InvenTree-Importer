@@ -26,6 +26,22 @@ describe('withFields', () => {
     expect(confirmed.web.public_pages).toBe(true)
   })
 
+  test('copies one step’s instructions, or removes them, leaving the other steps’', () => {
+    const confirmed = fields('3', {
+      stage_instructions: { research: 'Datasheet first.', images: 'Keep the bag.' },
+    })
+    const draft = fields('3', { stage_instructions: { examine: 'Count reels.' } })
+    const sent = withFields(confirmed, draft, [
+      'stage_instructions.examine',
+      'stage_instructions.research',
+    ])
+    expect(sent.stage_instructions).toEqual({ examine: 'Count reels.', images: 'Keep the bag.' })
+    expect('research' in sent.stage_instructions).toBe(false)
+    expect(fieldValue(sent, 'stage_instructions.images')).toBe('Keep the bag.')
+    expect(sameField(sent, confirmed, 'stage_instructions.images')).toBe(true)
+    expect(confirmed.stage_instructions.research).toBe('Datasheet first.')
+  })
+
   test('copies one provider field and one step, including a step back on Default', () => {
     const confirmed = fields('3', {
       stage_selections: { research: { provider: 'claude', model: 'opus' } },

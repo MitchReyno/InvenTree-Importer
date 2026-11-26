@@ -22,6 +22,7 @@ import type {
 export type TurnChildKind = 'none' | 'host' | 'vm'
 
 type AgentStageSelectionsDto = AgentSettingsDto['stage_selections']
+type AgentStageInstructionsDto = AgentSettingsDto['stage_instructions']
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 
@@ -39,6 +40,10 @@ export const agentSettings = pgTable(
     defaultProvider: text('default_provider').$type<AgentSelectionDto['provider']>(),
     stageSelections: jsonb('stage_selections')
       .$type<AgentStageSelectionsDto>()
+      .notNull()
+      .default({}),
+    stageInstructions: jsonb('stage_instructions')
+      .$type<AgentStageInstructionsDto>()
       .notNull()
       .default({}),
     newBatchInstructions: text('new_batch_instructions').notNull().default(''),

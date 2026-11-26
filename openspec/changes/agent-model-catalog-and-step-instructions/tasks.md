@@ -142,19 +142,19 @@
 - **Acceptance:** app-settings "Instructions for each step"; processing-agent-sessions "Step instructions sealed into each attempt", all scenarios except "Lots queued on either side of an edit", which is task 7's.
 - **TDD approach:** contract tests for the limits, PG tests sealing a step's text and keeping it across an edit, an opening and brief rendering test, and editor tests fail first.
 - **Verification:**
-  - contracts tests; intake unit, PG and process tiers (a `/7` synthetic session through BI-022's test-only switch);
+  - contracts tests; intake unit, PG and process tiers (the `/7` sealing and opening at the PG tier through `shared-vm-agent/4` and BI-022's test-only switch; host Claude and Codex openings and a guest turn at the process tier, see `notes.md`);
   - frontend checks;
-  - a demo video of adding Research instructions, the paste cut and a new session's opening holding the text, using fixtures.
+  - a demo video of adding Research instructions, the paste cut and a new session's brief holding the text on its session page, using fixtures (the openings themselves are covered by the PG and process tests; see `notes.md`).
 - **Risks and decisions:** don't edit BI-022's change artifacts; if #275 changes the brief's shape before merging, follow the merged shape and note it in `notes.md`. If #275 is abandoned, ship the `/6` path alone and record the `/7` entry as an open item.
 
-- [ ] 5.1 Read the guidelines, BI-022's merged brief code and design, and the board. Confirm #275 has merged.
-- [ ] 5.2 RED:
-  - [ ] 5.2.1 contracts: settings with 1,000 and 1,001 code points, an Inventory key refused, empty removed; a `/6` manifest with and without the field; the brief's `step_guidance` entry;
-  - [ ] 5.2.2 PG: a Research attempt seals Research's text only; Examine and Images seal none; an edit after sealing leaves the attempt, its resume and its inbox unchanged; the next attempt seals the new text; a `/7` synthetic lead and single-lot attempt seal the text saved before they were queued, and one queued with A keeps A after B is saved; profile and stage pack digests unchanged;
-  - [ ] 5.2.3 the opening renders the guidance after the app's rules, and the `/7` brief renders it under "Operator guidance for this step" in the `human` section; a retained input without it renders as before;
-  - [ ] 5.2.4 the editor: the quiet button, focus on open, the count and amber from 900, typing stopping at 1,000, the paste cut with its announced message, Save and Discard per step, clearing removes.
-- [ ] 5.3 GREEN: the setting, sealing, rendering and editor.
-- [ ] 5.4 Update `agents/ARCHITECTURE.md`, `frontend/ARCHITECTURE.md` and `docs/agent-sessions.md` (what every session receives). Run the contracts tests, the intake tiers and the frontend checks, and record the demo video.
+- [x] 5.1 Read the guidelines, BI-022's merged brief code and design, and the board. Confirm #275 has merged.
+- [x] 5.2 RED:
+  - [x] 5.2.1 contracts: settings with 1,000 and 1,001 code points, an Inventory key refused, empty removed; a `/6` manifest with and without the field; the brief's `step_guidance` entry;
+  - [x] 5.2.2 PG: a Research attempt seals Research's text only; Examine and Images seal none; an edit after sealing leaves the attempt, its resume and its inbox unchanged; the next attempt seals the new text; a `/7` lead and single-lot attempt seal the text saved before they were queued (through `shared-vm-agent/4`, which reads the settings; `synthetic-session/1` reads none and seals none, see `notes.md`), and one queued with A keeps A after B is saved; profile and stage pack digests unchanged;
+  - [x] 5.2.3 the opening renders the guidance after the app's rules, and the `/7` brief renders it under "Operator guidance for this step" in the `human` section; a retained input without it renders as before;
+  - [x] 5.2.4 the editor: the quiet button, focus on open, the count and amber from 900, typing stopping at 1,000, the paste cut with its announced message, Save and Discard per step, clearing removes.
+- [x] 5.3 GREEN: the setting, sealing, rendering and editor.
+- [x] 5.4 Update `agents/ARCHITECTURE.md`, `frontend/ARCHITECTURE.md` and `docs/agent-sessions.md` (what every session receives). Run the contracts tests, the intake tiers and the frontend checks, and record the demo video.
 
 ## 6. Live catalogue and effort check
 
@@ -193,7 +193,7 @@
 - [x] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`), fix, publish, CI green, merge. Merged as #278 at `2dd1206d`.
 - [x] PR-A: implement tasks 1 and 2, review the exact head, publish with the pinned-version proof, CI green, merge. Merged as #291 at `fe29f952`.
 - [x] PR-B: implement task 3, review the exact head, publish, CI green, merge. Merged as #293 at `ed698945`.
-- [ ] PR-C: implement task 4, review the exact head, publish with the captures and the demo, CI green, merge.
+- [x] PR-C: implement task 4, review the exact head, publish with the captures and the demo, CI green, merge. Merged as #295 at `daf96d40`.
 - [ ] PR-D: implement task 5, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-F: implement task 7 once BI-022's PR-I has merged, review the exact head, publish, CI green, merge.
 - [ ] PR-E: run task 6 with Mitch's go-ahead, publish the evidence, CI green, merge.

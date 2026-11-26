@@ -12,6 +12,7 @@ const fields: Omit<AgentSettingsDto, 'revision'> = {
   },
   default_provider: 'claude',
   stage_selections: {},
+  stage_instructions: {},
   session_concurrency: 3,
   new_batch_instructions: '',
   part_description_style: '',

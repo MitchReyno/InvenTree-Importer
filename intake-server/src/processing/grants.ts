@@ -23,7 +23,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       GRANT INSERT ON agent_session_inbox_withdrawal TO ${role};
       GRANT INSERT, DELETE ON agent_batch_pause TO ${role};
       GRANT UPDATE(revision,provider,authentication,model,session_concurrency,default_provider,
-        stage_selections,new_batch_instructions,part_description_style,auto_tags_default,
+        stage_selections,stage_instructions,new_batch_instructions,part_description_style,auto_tags_default,
         web_public_pages,web_prefer_datasheets,receipts_pruned_through) ON agent_settings TO ${role};
       GRANT UPDATE(enabled,authentication,default_model,default_effort) ON agent_provider_settings TO ${role};
       -- Save receipts: written with each save, pruned by later saves, never rewritten.

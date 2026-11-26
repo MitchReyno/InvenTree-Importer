@@ -1,5 +1,6 @@
 import {
   AGENT_SETTINGS_STAGES,
+  type AgentInstructionStage,
   type AgentProviderId,
   type AgentSettingsDto,
   type AgentSettingsStage,
@@ -19,6 +20,7 @@ export type FieldKey =
   | `providers.${AgentProviderId}.default_effort`
   | 'default_provider'
   | `stage_selections.${AgentSettingsStage}`
+  | `stage_instructions.${AgentInstructionStage}`
   | 'session_concurrency'
   | 'new_batch_instructions'
   | 'part_description_style'
@@ -43,7 +45,12 @@ function stageKey(key: FieldKey): AgentSettingsStage | undefined {
   return group === 'stage_selections' ? (stage as AgentSettingsStage) : undefined
 }
 
-/** One field's value; a step on Default reads as `undefined`. */
+function instructionKey(key: FieldKey): AgentInstructionStage | undefined {
+  const [group, stage] = key.split('.')
+  return group === 'stage_instructions' ? (stage as AgentInstructionStage) : undefined
+}
+
+/** One field's value; a step on Default, or without instructions, reads as `undefined`. */
 export function fieldValue(settings: SettingsFields, key: FieldKey): unknown {
   const provider = providerKey(key)
   if (provider) {
@@ -52,6 +59,10 @@ export function fieldValue(settings: SettingsFields, key: FieldKey): unknown {
   const stage = stageKey(key)
   if (stage) {
     return settings.stage_selections[stage]
+  }
+  const instructed = instructionKey(key)
+  if (instructed) {
+    return settings.stage_instructions[instructed]
   }
   if (key === 'web.public_pages') {
     return settings.web.public_pages
@@ -76,11 +87,13 @@ export function withFields(
     ...target,
     providers: { claude: { ...target.providers.claude }, codex: { ...target.providers.codex } },
     stage_selections: { ...target.stage_selections },
+    stage_instructions: { ...target.stage_instructions },
     web: { ...target.web },
   }
   for (const key of keys) {
     const provider = providerKey(key)
     const stage = stageKey(key)
+    const instructed = instructionKey(key)
     if (provider) {
       const [id, field] = provider
       const copied = { ...next.providers[id], [field]: source.providers[id][field] }
@@ -95,6 +108,14 @@ export function withFields(
         next.stage_selections[stage] = { ...choice }
       } else {
         delete next.stage_selections[stage]
+      }
+    } else if (instructed) {
+      // A step without instructions has no key, as the contract has it.
+      const text = source.stage_instructions[instructed]
+      if (text === undefined) {
+        delete next.stage_instructions[instructed]
+      } else {
+        next.stage_instructions[instructed] = text
       }
     } else if (key === 'web.public_pages') {
       next.web.public_pages = source.web.public_pages

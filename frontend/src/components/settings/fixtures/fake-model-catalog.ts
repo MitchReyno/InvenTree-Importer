@@ -133,6 +133,10 @@ export function fixtureSettings(state: FixtureListState): AgentSettingsDto {
     },
     default_provider: 'claude',
     stage_selections: stageSelections,
+    // Research and Examine start empty; Images shows saved instructions.
+    stage_instructions: {
+      images: 'Keep the anti-static bag in the stock photo when its label shows the date code.',
+    },
     session_concurrency: 3,
     new_batch_instructions: '',
     part_description_style: '',
