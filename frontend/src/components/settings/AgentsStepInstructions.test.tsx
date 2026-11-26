@@ -8,7 +8,9 @@ import type {
   ProviderStatusDto,
 } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
 import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
 import { modelCatalog } from '#/test/model-catalog'
 import { Settings } from './Settings'
@@ -75,11 +77,15 @@ function page(api: Api) {
   )
 }
 
-/** The Agents page over `api`; its `rerender` renders the whole page again. */
+/** The Agents page over `api`, with its settings read again on request. */
 async function renderAgents(api: Api) {
-  const rendered = render(page(api))
+  const cache = createServerQueryClient()
+  render(page(api), { cache })
   await screen.findByRole('group', { name: 'Research' })
-  return { rerender: () => rendered.rerender(page(api)) }
+  return {
+    readSettingsAgain: () =>
+      cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'agent-settings') }),
+  }
 }
 
 const step = (name: string) => screen.getByRole('group', { name })
@@ -301,7 +307,7 @@ test('a second cut paste in a row is announced in the other live region', async 
 test('after a save focus goes back into the box, unless the operator moved it', async () => {
   const user = userEvent.setup()
   const api = client()
-  const rendered = await renderAgents(api)
+  await renderAgents(api)
   const box = await openBox(user, 'Research')
   await user.type(box, RESEARCH)
   await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
@@ -323,11 +329,30 @@ test('after a save focus goes back into the box, unless the operator moved it', 
     name: 'Instructions for Research',
   })
   expect(examine).toHaveFocus()
-  // Nothing left armed: a later render, with focus on the page, doesn't take it either.
-  act(() => examine.blur())
-  expect(document.body).toHaveFocus()
-  rendered.rerender()
   expect(button).not.toHaveFocus()
+})
+
+test('a finished save leaves nothing armed: a later read that changes the step takes no focus', async () => {
+  const user = userEvent.setup()
+  const api = client(settings({ stage_instructions: { research: RESEARCH } }))
+  const rendered = await renderAgents(api)
+  const box = within(step('Research')).getByRole('textbox', { name: 'Instructions for Research' })
+  await user.clear(box)
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  const button = await within(step('Research')).findByRole('button', {
+    name: 'Instructions for Research',
+  })
+  await waitFor(() => expect(button).toHaveFocus())
+  act(() => button.blur())
+  // Saved again elsewhere: the read brings Research's box back.
+  api.settings.mockResolvedValue({
+    ...settings({ stage_instructions: { research: IMAGES } }),
+    revision: '9',
+  })
+  await act(() => rendered.readSettingsAgain())
+  expect(
+    await within(step('Research')).findByRole('textbox', { name: 'Instructions for Research' }),
+  ).toHaveValue(IMAGES)
   expect(document.body).toHaveFocus()
 })
 
@@ -346,6 +371,23 @@ test('a resend confirmed after the operator clicked elsewhere leaves focus where
   })
   expect(box).not.toHaveFocus()
   expect(document.body).toHaveFocus()
+})
+
+test('an operator who leaves during a resend and comes back to Save gets focus back', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  api.saveSettings.mockRejectedValueOnce(new Error('offline'))
+  await renderAgents(api)
+  const box = await openBox(user, 'Research')
+  await user.type(box, RESEARCH)
+  const save = within(step('Research')).getByRole('button', { name: 'Save' })
+  await user.click(save)
+  await user.click(document.body)
+  await user.click(save)
+  await within(step('Research')).findByText(/^Saved\. New Research sessions/, undefined, {
+    timeout: 4000,
+  })
+  await waitFor(() => expect(box).toHaveFocus())
 })
 
 test('a save confirmed on its automatic resend still returns focus into the box', async () => {
