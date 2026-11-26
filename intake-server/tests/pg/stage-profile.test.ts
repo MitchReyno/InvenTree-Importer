@@ -664,6 +664,18 @@ test('vocabulary tokens hold any search and only the offsets they were issued wi
     const rest = await call(researcher, 'read_vocabulary', { search, page_token: next })
     assert.equal(rest.ok, true)
     assert.equal(rest.vocabulary!.entries.length, 1)
+    // Another spelling of the same cursor, with its keys reordered, is not a token the tool issued.
+    const cursor = JSON.parse(Buffer.from(next, 'base64url').toString('utf8')) as Record<
+      string,
+      unknown
+    >
+    const reordered = Buffer.from(
+      JSON.stringify({ offset: cursor.offset, list: cursor.list, filter: cursor.filter }),
+      'utf8',
+    ).toString('base64url')
+    const respelled = await call(researcher, 'read_vocabulary', { search, page_token: reordered })
+    assert.equal(respelled.ok, false)
+    assert.equal(respelled.error, 'validation_failed')
     // An offset the tool didn't issue, inside the list or past it, is refused, not served.
     for (const offset of [1, 100]) {
       const forged = await call(researcher, 'read_vocabulary', {

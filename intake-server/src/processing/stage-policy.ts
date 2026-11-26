@@ -27,8 +27,9 @@ export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, 
 }
 
 /**
- * Each stage guide's digest by profile, as migration `0044` stores it: the SHA-256 of the
- * canonical ordered list of its sections' names, titles and text digests. `read_guide` serves a
+ * Each stage guide's digest by profile: the SHA-256 of the canonical ordered list of its sections'
+ * names, titles and text digests. The guide table (migration `0044`) holds only each
+ * section's own digest; this is what pins the whole guide. `read_guide` serves a
  * guide only while its stored sections still give this digest, so a section added, removed or
  * reordered after the profile was sealed is refused, not served.
  */
