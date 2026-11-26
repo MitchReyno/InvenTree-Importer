@@ -491,6 +491,14 @@ export async function claimPinnedIdentity(
   return { current: false, repaired: true }
 }
 
+/** Whether Review retired the lot, so no session works on it again. */
+export async function lotRetired(client: PoolClient, lotId: string) {
+  const rows = await client.query('SELECT 1 FROM public.capture_lot_retirement WHERE lot_id=$1', [
+    lotId,
+  ])
+  return Boolean(rows.rowCount)
+}
+
 /** Inventory's gate: the lot's Research and Images each have a current (not stale) proposal. */
 export async function successorsCurrent(client: PoolClient, batchId: string, lotId: string) {
   const rows = await client.query<{ stage: string }>(

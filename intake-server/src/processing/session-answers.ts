@@ -328,7 +328,9 @@ export async function answerSessionQuestion(
   })
   // Under `/7` an answer about a Part is about the lots linked to it, so what relied on their
   // fields is stale and told as well.
-  if ((await batchInputVersion(client, config, batchId)) === 'bench-intake-input/7') {
+  const aboutPart =
+    subjectId !== null && before.snapshot.parts.some((part) => part.id === subjectId)
+  if (aboutPart && (await batchInputVersion(client, config, batchId)) === 'bench-intake-input/7') {
     for (const lot of before.snapshot.lots.filter((item) => item.part_subject_id === subjectId)) {
       await fieldsSuperseded(client, {
         batchId,

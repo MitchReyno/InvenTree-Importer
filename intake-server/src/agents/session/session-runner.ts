@@ -1,7 +1,7 @@
 import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
 import { retainSessionFailure } from '#/agents/failures.ts'
 import type { AgentSelectionDto, SessionFailureDto } from '@invimport/contracts'
-import { claimPinnedIdentity, successorsCurrent } from '#/processing/stable-identity.ts'
+import { claimPinnedIdentity, lotRetired, successorsCurrent } from '#/processing/stable-identity.ts'
 import { supersedeJobAttempts } from '#/processing/jobs.ts'
 import { join } from 'node:path'
 import { and, eq, inArray, notExists, or, sql } from 'drizzle-orm'
@@ -879,9 +879,14 @@ export async function runSessionTurn(
       // A successor starts only while the identity it was pinned to is still current. Once it has
       // run, an earlier input's successor gets a revised identity as an inbox item and always
       // resumes; a `/7` one is checked again below.
+      // A `/7` lot session never starts or resumes for a lot Review retired.
+      const retiredLot =
+        manifest.schema_version === 'bench-intake-input/7' &&
+        manifest.subject_id !== null &&
+        (await lotRetired(client, manifest.subject_id))
       if (
         row.turnCount === 0n &&
-        !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids)).current
+        (retiredLot || !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids)).current)
       ) {
         await supersedeJobAttempts(client, row.jobId)
         await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])
@@ -895,6 +900,9 @@ export async function runSessionTurn(
         manifest.schema_version === 'bench-intake-input/7' &&
         (manifest.stage === 'research' || manifest.stage === 'images')
       ) {
+        if (retiredLot) {
+          return 'waiting' as const
+        }
         const pin = await claimPinnedIdentity(client, manifest.pinned_proposal_ids)
         if (!pin.current) {
           // The repair staled the identity and told the lead; views hear of it once.

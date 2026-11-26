@@ -33,10 +33,11 @@ import {
   queryDatabase,
   transaction,
 } from '#/db/database.ts'
-import { notCurrent, recordIdentityBasis } from '#/processing/identity-basis.ts'
+import { notCurrent, recordIdentityBasis, replacedNoteSql } from '#/processing/identity-basis.ts'
 import {
   builtOn,
   earlierIdentities,
+  lotRetired,
   onLeadIdentity,
   reliedObservationSet,
 } from '#/processing/stable-identity.ts'
@@ -1306,11 +1307,7 @@ async function requireCurrentReliance(
     source.kind === 'note' ? [source.note_id] : [],
   )
   const replaced = await client.query(
-    `SELECT 1 FROM public.media_evidence_note n
-     WHERE n.id = ANY($1::uuid[]) AND EXISTS (
-       SELECT 1 FROM public.media_evidence_note later
-       WHERE later.batch_id=n.batch_id AND later.evidence_id=n.evidence_id AND later.revision>n.revision)
-     LIMIT 1`,
+    `SELECT 1 FROM unnest($1::uuid[]) AS cited(id) WHERE ${replacedNoteSql('cited.id')} LIMIT 1`,
     [notes],
   )
   if (replaced.rowCount) {
@@ -2235,6 +2232,17 @@ export function sessionTools(context: SessionToolContext) {
             refuse('validation_failed', 'A proposal must be for this session’s lot.')
           }
           await requireDeliveredSources(client, context, principal, proposal)
+          // A `/7` lot session publishes nothing for a lot Review retired.
+          if (
+            principal.manifest.schema_version === 'bench-intake-input/7' &&
+            principal.subjectId !== null &&
+            (await lotRetired(client, principal.subjectId))
+          ) {
+            refuse(
+              'stale',
+              'Your lot was retired in Review; there is nothing more to publish for it.',
+            )
+          }
           await requireCurrentReliance(client, principal, proposal)
           await requireOwnMarkings(client, principal.batchId, proposal)
           requireOwnObservationSet(principal, proposal)

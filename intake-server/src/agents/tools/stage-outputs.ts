@@ -156,6 +156,10 @@ export function stageOutputRefusal(
   if (!STAGE_KINDS[stage].includes(proposal.schema_version)) {
     return wrongKind(stage, proposal)
   }
+  // A mode sealed for another stage grants this one nothing.
+  if ('match' in manifest && manifest.match && manifest.match.mode.stage !== stage) {
+    return new ToolRefusal('tool_not_allowed', 'This session’s sealed mode is for another stage.')
+  }
   // A lot input sealed before Match state was sealed works in full mode.
   if (stage === 'research' && 'match' in manifest && manifest.match) {
     return researchModeRefusal(manifest.match.mode, proposal)

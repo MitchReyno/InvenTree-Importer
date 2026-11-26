@@ -3098,3 +3098,127 @@ test('replacing a photo’s note an identity relies on stales it', async (t) => 
     'cancelled',
   )
 })
+
+test('replacing a group note an identity relies on stales it', async (t) => {
+  let instructionId = ''
+  let groupId = ''
+  const batch = await formedBatch(t, {
+    stageInputs: true,
+    // The tray photo sits in a group with a note before the lead seals its brief.
+    beforeExamine: async (fixture, batchId) => {
+      await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+      const revisionOf = async () =>
+        (
+          await fixture.db.pool.query<{ revision: string }>(
+            'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+            [batchId],
+          )
+        ).rows[0].revision
+      const grouped = await editMedia(fixture.db.pool, fixture.config, batchId, randomUUID(), {
+        expected_revision: await revisionOf(),
+        change: { kind: 'group', label: 'Tray' },
+      })
+      groupId = (grouped as { groups: { id: string }[] }).groups[0].id
+      const evidence = await fixture.db.pool.query<{ id: string }>(
+        'SELECT id FROM media_evidence WHERE batch_id=$1',
+        [batchId],
+      )
+      await editMedia(fixture.db.pool, fixture.config, batchId, randomUUID(), {
+        expected_revision: await revisionOf(),
+        change: {
+          kind: 'move_many',
+          evidence_ids: evidence.rows.map((row) => row.id),
+          group_id: groupId,
+        },
+      })
+      instructionId = randomUUID()
+      await fixture.db.pool.query(
+        'INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id) VALUES($1,$2,$3,1,$4,$5)',
+        [instructionId, batchId, groupId, 'Crystals are 16 MHz', fixture.identity.actor],
+      )
+    },
+  })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const crystal = await batch.lot('16 mhz crystal')
+  const groupNote = {
+    kind: 'note',
+    note_id: instructionId,
+    text_sha256: sha256(Buffer.from('Crystals are 16 MHz', 'utf8')).toString('hex'),
+  }
+  const published = await result(
+    session.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A 16 MHz crystal, per the group note.',
+        sources: [groupNote],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            groupNote,
+            {
+              kind: 'observation_set',
+              lot_id: crystal.id,
+              version: crystal.observation_set_version,
+            },
+          ],
+        },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(published.ok, true, JSON.stringify(published))
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  await fixture.db.pool.query(
+    'INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id) VALUES($1,$2,$3,2,$4,$5)',
+    [randomUUID(), batchId, groupId, 'Crystals are 18 MHz', fixture.identity.actor],
+  )
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(published.id)]),
+  )
+  assert.notEqual(facts.get(String(published.id))?.stale, null)
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+})
+
+test('a /7 lot session neither starts nor publishes for a lot retired in Review', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const session = tools(batch)
+  const led = await batch.lot('led 0603 red')
+  const crystal = await batch.lot('16 mhz crystal')
+  const ledResearch = await stageJob(batch, 'led 0603 red', 'research')
+  const crystalResearch = await stageJob(batch, '16 mhz crystal', 'research')
+  // A turn already running for the crystal when its lot is split.
+  const running7 = await running(fixture, crystalResearch.attemptId)
+  const split = async (lotId: string) => {
+    const current = await snapshotOf(fixture, batchId)
+    await operatorRepository(fixture.db.pool, fixture.config).restructure(batchId, randomUUID(), {
+      expected_revision: current.revision,
+      preview: false,
+      change: {
+        kind: 'split_lot',
+        lot_id: lotId,
+        children: [
+          { label: `${lotId} A`, quantity: '1' },
+          { label: `${lotId} B`, quantity: '1' },
+        ],
+      },
+    })
+  }
+  await split(led.id)
+  await split(crystal.id)
+  assert.equal(
+    await runSessionTurn(batch.deps, ledResearch.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+  const manifest = (await inputOf(fixture, crystalResearch.attemptId)).manifest
+  const refused = await result(
+    session.propose(running7, { proposal: researchOutput(crystal.id, manifest) }),
+  )
+  assert.equal(refused.error, 'stale', JSON.stringify(refused))
+})
