@@ -79,11 +79,13 @@ async function connectCoordinator(signal) {
     () => false,
   )
   peer.on('error', () => {})
+  let abandon
   const abandoned = new Promise((resolve) => {
+    abandon = () => resolve(false)
     if (signal?.aborted) {
       resolve(false)
     }
-    signal?.addEventListener('abort', () => resolve(false), { once: true })
+    signal?.addEventListener('abort', abandon, { once: true })
   })
   const ready = await Promise.race([
     once(peer.stderr, 'data').then(
@@ -93,6 +95,8 @@ async function connectCoordinator(signal) {
     closed,
     abandoned,
   ])
+  // Each turn connection passes the relay's lifetime signal, so its listener can't stay behind.
+  signal?.removeEventListener('abort', abandon)
   if (!ready) {
     await stopChild(peer, closed)
     throw new Error('coordinator_unavailable')
@@ -291,6 +295,8 @@ function guestArgs(runId) {
     'run',
     '--rm',
     '-i',
+    '--name',
+    'bench-turn-' + runId,
     '--network=none',
     '--read-only',
     '--cap-drop=ALL',
@@ -339,6 +345,8 @@ const MAX_HELD_LINE_CHARS = 4096
 function watchGuestErrors(stream, onClaimed) {
   const decoder = new StringDecoder('utf8')
   let partial = ''
+  // After an overlong fragment was forwarded, the rest of its line is never a claim report.
+  let midLine = false
 
   const forward = (text) => {
     process.stderr.write(text)
@@ -348,15 +356,17 @@ function watchGuestErrors(stream, onClaimed) {
     const lines = (partial + decoder.write(bytes)).split('\n')
     partial = lines.pop()
     for (const line of lines) {
-      if (line === TURN_CLAIMED_MARKER) {
+      if (line === TURN_CLAIMED_MARKER && !midLine) {
         onClaimed()
       } else {
         forward(line + '\n')
       }
+      midLine = false
     }
     if (partial.length > MAX_HELD_LINE_CHARS) {
       forward(partial)
       partial = ''
+      midLine = true
     }
   })
   stream.on('end', () => {
@@ -384,6 +394,31 @@ async function connectLane() {
  * It covers the guest's own cleanup, including the paired supervisor's 12 s removal-receipt wait.
  */
 const GUEST_EXIT_MS = 60_000
+
+/**
+ * Stops a launcher that outlived its connection: removes the turn's containers by name, then the
+ * local launcher. Nothing here confirms the provider stopped; the coordinator's slot stays held
+ * until the guest's removal receipt does.
+ */
+async function abandonGuest(child, exited, runId) {
+  process.stderr.write(JSON.stringify({ event: 'guest_teardown_overdue', run_id: runId }) + '\n')
+  const names = tools
+    ? ['bench-tool-' + runId, 'bench-tool-' + runId + '-peer', 'bench-tool-' + runId + '-egress']
+    : ['bench-turn-' + runId]
+  const remove = spawn(
+    'limactl',
+    ['shell', '--workdir=/', vm, 'sudo', 'docker', 'rm', '-f', ...names],
+    {
+      stdio: 'ignore',
+      timeout: 10000,
+    },
+  )
+  await new Promise((resolve) => {
+    remove.once('close', resolve)
+    remove.once('error', resolve)
+  })
+  await stopChild(child, exited)
+}
 
 /** Carries one turn connection until its guest exits; resolves whether the guest was claimed. */
 async function carryTurn(socket, onClaimed) {
@@ -424,7 +459,7 @@ async function carryTurn(socket, onClaimed) {
     stopGuest()
     // A launcher that outlives its connection by this much is stopped, so the lane comes back.
     if (!guestExited) {
-      exitTimer = setTimeout(() => void stopChild(child, exited), GUEST_EXIT_MS)
+      exitTimer = setTimeout(() => void abandonGuest(child, exited, runId), GUEST_EXIT_MS)
     }
   })
   socket.once('end', () => socket.destroy())

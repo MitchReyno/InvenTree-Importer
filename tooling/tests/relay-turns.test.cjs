@@ -35,6 +35,12 @@ process.stdin.on('data', (bytes) => {
     claimed = true
     if (!process.env.FAKE_NO_MARKER) process.stderr.write('${MARKER}\\n')
   }
+  if (text.includes('long\\n') && !claimed) {
+    claimed = true
+    // An overlong unfinished line, then the marker text finishing that same line.
+    process.stderr.write('x'.repeat(5000))
+    setTimeout(() => process.stderr.write('${MARKER}\\n'), 200)
+  }
   if (text.includes('exit\\n')) process.exit(0)
 })
 process.stdin.on('end', () => process.exit(0))
@@ -166,6 +172,16 @@ test('the relay forwards guest messages and keeps claim reports to itself', asyn
   await until(() => server.open().length === 2, 'second connection')
   await until(() => relayed.stderr().includes('guest says hello'), 'forwarded line')
   assert.ok(!relayed.stderr().includes(MARKER), relayed.stderr())
+})
+
+test('the marker text ending an overlong line is forwarded, not taken as a claim', async (t) => {
+  const server = await coordinator(t)
+  const relayed = await relay(t, server.port)
+  await until(() => server.open().length === 1, 'first connection')
+  server.open()[0].write('long\n')
+  await until(() => relayed.stderr().includes(MARKER), 'forwarded marker text')
+  await delay(500)
+  assert.equal(server.sockets.length, 1)
 })
 
 test('SIGTERM closes every connection and the relay exits', async (t) => {

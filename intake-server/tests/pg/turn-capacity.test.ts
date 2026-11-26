@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { runSessionTurn } from '#/agents/session/session-runner.ts'
+import { runSessionTurn, type SessionDriver } from '#/agents/session/session-runner.ts'
+import { TurnAttemptNotRunning } from '#/agents/session/slots.ts'
 import { SessionCapacityUnavailable } from '#/agents/session/session-adapters.ts'
 import { wakePendingSessions } from '#/agents/session/session-execution.ts'
 
@@ -115,4 +116,75 @@ test('a turn that finds no free connection goes back to the queue as if it never
   for (const id of enqueued) {
     assert.match(id, new RegExp(`^resume:${attempt}:0:`))
   }
+})
+
+async function runWith(fixture: Fixture, attempt: string, driver: SessionDriver) {
+  const root = await mkdtemp(join(tmpdir(), 'turn-capacity-'))
+  try {
+    return await runSessionTurn(
+      {
+        pool: fixture.runner.pool,
+        config: fixture.config,
+        host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
+        toolUrl: 'http://127.0.0.1:1',
+        drivers: { 'synthetic-session/1': driver },
+      },
+      attempt,
+      new AbortController().signal,
+    )
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+}
+
+/** Cancels the attempt as the Processing command commits it, between the runner's polls. */
+async function cancel(fixture: Fixture, attempt: string) {
+  await fixture.db.pool.query("UPDATE processing_attempt SET state='cancelled' WHERE id=$1", [
+    attempt,
+  ])
+}
+
+test('a cancellation committed while a turn waits for its runner stops it recording a command', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const { attempt } = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+  let child: string | undefined
+
+  const state = await runWith(fixture, attempt, async (_turn, context) => {
+    await cancel(fixture, attempt)
+    // A runner connection comes free now: the record must refuse before anything is sent.
+    await assert.rejects(context.recordChild!({ kind: 'vm', command: '{}' }), TurnAttemptNotRunning)
+    const slot = await fixture.db.pool.query<{ turn_child: string }>(
+      'SELECT turn_child FROM agent_slot WHERE attempt_id=$1',
+      [attempt],
+    )
+    child = slot.rows[0].turn_child
+    throw new TurnAttemptNotRunning()
+  })
+
+  assert.equal(child, 'none')
+  assert.equal(state, 'cancelled')
+  assert.equal((await sessionRow(fixture, attempt)).session_state, 'cancelled')
+})
+
+test('a turn out of capacity whose attempt was cancelled meanwhile settles as cancelled', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const { attempt } = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+
+  const state = await runWith(fixture, attempt, async () => {
+    await cancel(fixture, attempt)
+    throw new SessionCapacityUnavailable()
+  })
+
+  assert.equal(state, 'cancelled')
+  const row = await sessionRow(fixture, attempt)
+  assert.equal(row.session_state, 'cancelled')
+  assert.equal(row.progress, 'settled')
+  const slots = await fixture.db.pool.query('SELECT 1 FROM agent_slot WHERE attempt_id=$1', [
+    attempt,
+  ])
+  assert.equal(slots.rowCount, 0)
 })

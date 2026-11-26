@@ -51,6 +51,7 @@ import {
   recordSlotTurn,
   recordTurnChild,
   releaseSessionSlot,
+  TurnAttemptNotRunning,
   type TurnChild,
 } from './slots.ts'
 import {
@@ -1089,8 +1090,17 @@ export async function runSessionTurn(
     const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
     const turnNumber = current.turnCount + 1n
 
-    const recordChild = (child: TurnChild) =>
-      recordTurnChild(pool, attemptId, turnNumber, child, deps.fence)
+    const recordChild = async (child: TurnChild) => {
+      try {
+        await recordTurnChild(pool, attemptId, turnNumber, child, deps.fence)
+      } catch (error) {
+        // Settled as the cancellation it is, without waiting for the next poll to see it.
+        if (error instanceof TurnAttemptNotRunning) {
+          turnControl.abort()
+        }
+        throw error
+      }
+    }
 
     const driver = deps.drivers?.[current.manifest.profile_id] ?? builtInDriver(host, current)
     await driver(turn, {
@@ -1199,16 +1209,17 @@ export async function runSessionTurn(
       if (sessionNow[0]?.turnCount !== settledTurn || !ownSlot.length) {
         return sessionNow[0]?.state ?? next
       }
-      if (unstarted) {
+      // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
+      const live =
+        locked.attempt.state === 'running' && locked.job.current_attempt_id === locked.attempt.id
+      // An attempt cancelled since the driver gave up settles as a cancellation instead.
+      if (unstarted && live) {
         // Read under the session row's lock; the claim to running left it as it was.
         const queuedSince = sessionNow[0].queuedSince
         return requeueUnstartedTurn(client, { ...current, queuedSince }, attemptId)
       }
       // A wake's earlier state no longer applies once a turn has run.
       await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
-      // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
-      const live =
-        locked.attempt.state === 'running' && locked.job.current_attempt_id === locked.attempt.id
       if (next === 'finished' && accepted > 0n && live) {
         await acknowledgeSessionInbox(client, current.jobId, accepted)
       }
