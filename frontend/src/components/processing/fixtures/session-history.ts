@@ -1,7 +1,10 @@
 import type {
   BatchActivityDto,
+  BriefEntryDto,
   ProcessingJobDto,
+  SessionBriefDto,
   SessionHistoryAttemptDto,
+  SessionHistoryBriefDto,
   SessionHistoryDto,
   SessionHistoryEntryDto,
 } from '@invimport/contracts'
@@ -111,6 +114,61 @@ function photoView(ids: Ids, attemptId: string, number: number, seq: number, min
 }
 
 /** The Research session for the LM358 tube: two attempts, older entries on a second page. */
+/** The Research session's step instructions, as Settings › Agents saved them before it was queued. */
+const RESEARCH_INSTRUCTIONS =
+  'Open the manufacturer’s own datasheet before any distributor page. Record the datasheet revision and date.'
+
+/** The entries of the brief the LM358 Research session's second attempt started from. */
+function researchBriefEntries(ids: Ids): BriefEntryDto[] {
+  return [
+    { kind: 'step_guidance', source: 'human', stage: 'research', text: RESEARCH_INSTRUCTIONS },
+    {
+      kind: 'note',
+      source: 'human',
+      note_id: ids.id(66),
+      subject_id: ids.lot(3),
+      evidence_id: null,
+      group_id: null,
+      text: 'Tube of 40 from the bench drawer.',
+      text_sha256: 'a'.repeat(64),
+      actor_id: ids.id(67),
+      created_at: at(2),
+    },
+  ]
+}
+
+function researchBriefSections(entries: readonly BriefEntryDto[]): SessionBriefDto['sections'] {
+  return [
+    { name: 'batch', count: 0 },
+    { name: 'human', count: entries.length },
+    { name: 'asked', count: 0 },
+    { name: 'evidence', count: 0 },
+    { name: 'match', count: 0 },
+    { name: 'identity', count: 0 },
+    { name: 'observations', count: 0 },
+    { name: 'vocabulary', count: 0 },
+  ]
+}
+
+/** The brief a fixture session's attempt started from; only the LM358 Research session has one. */
+export function fixtureBrief(ids: Ids) {
+  return async (_batch: string, _job: string, attemptId: string): Promise<SessionHistoryBriefDto> => {
+    const entries = researchBriefEntries(ids)
+    return {
+      attempt_id: attemptId,
+      at: at(10),
+      brief: {
+        schema_version: 'bench-intake-brief/1',
+        stage: 'research',
+        lot_id: ids.lot(3),
+        revision: '7',
+        sections: researchBriefSections(entries),
+        entries,
+      },
+    }
+  }
+}
+
 function researchPages(ids: Ids) {
   const first = ids.id(23)
   const second = ids.id(33)
@@ -249,7 +307,20 @@ function researchPages(ids: Ids) {
     inbox_acked_seq: '3',
   }
   return {
-    newest: { session, entries: newest, before: 'older-page' } as SessionHistoryDto,
+    newest: {
+      session,
+      entries: newest,
+      before: 'older-page',
+      // The second attempt started from a brief, which its divider is followed by.
+      briefs: [
+        {
+          attempt_id: second,
+          at: at(10),
+          stage: 'research',
+          sections: researchBriefSections(researchBriefEntries(ids)),
+        },
+      ],
+    } as SessionHistoryDto,
     older: { session, entries: older } as SessionHistoryDto,
   }
 }

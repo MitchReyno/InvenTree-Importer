@@ -63,8 +63,8 @@ export const AgentStageSelections = object({
   images: Type.Optional(AgentStageSelection),
   inventory: Type.Optional(AgentStageSelection),
 })
-// Bounded here in UTF-16 units, enough for the limit in any script; the limit itself is counted in
-// characters on save, which answers invalid_agent_settings.
+// Bounded here as the request body is; the 1,000-character limit itself is checked on save, which
+// answers invalid_agent_settings.
 const stepInstructions = Type.String({
   minLength: 1,
   maxLength: 2 * STEP_INSTRUCTIONS_MAX_CHARACTERS,

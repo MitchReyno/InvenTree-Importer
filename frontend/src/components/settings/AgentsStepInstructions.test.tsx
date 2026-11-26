@@ -211,3 +211,52 @@ test('Discard drops the edit; clearing and saving removes the instructions', asy
   ).toBeVisible()
   expect(within(step('Research')).queryByRole('textbox')).toBeNull()
 })
+
+test('a paste counts each line break once, however the clipboard wrote it', async () => {
+  const user = userEvent.setup()
+  await renderAgents(client(settings({ stage_instructions: { research: 'a'.repeat(997) } })))
+  const box = within(step('Research')).getByRole('textbox', { name: 'Instructions for Research' })
+  await user.click(box)
+  await user.paste('\r\nxy\r\nz')
+  expect(box).toHaveValue(`${'a'.repeat(997)}\nxy`)
+  expect(count('Research')).toHaveTextContent('1,000 / 1,000')
+})
+
+test('a paste while a save is in flight changes nothing', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  api.saveSettings.mockImplementationOnce(() => new Promise<never>(() => undefined))
+  await renderAgents(api)
+  const box = await openBox(user, 'Research')
+  await user.type(box, RESEARCH)
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(box).toHaveAttribute('readonly'))
+  fireEvent.paste(box, { clipboardData: { getData: () => 'x'.repeat(2000) } })
+  expect(box).toHaveValue(RESEARCH)
+  expect(within(step('Research')).getByRole('status')).toHaveTextContent('')
+})
+
+test('focus goes back to the step when its box closes, and into the box when it stays', async () => {
+  const user = userEvent.setup()
+  const api = client(settings({ stage_instructions: { research: RESEARCH } }))
+  await renderAgents(api)
+  await openBox(user, 'Examine')
+  await user.type(within(step('Examine')).getByRole('textbox'), 'x')
+  await user.click(within(step('Examine')).getByRole('button', { name: 'Discard my edit' }))
+  expect(
+    within(step('Examine')).getByRole('button', { name: 'Instructions for Examine' }),
+  ).toHaveFocus()
+
+  const box = within(step('Research')).getByRole('textbox', { name: 'Instructions for Research' })
+  await user.type(box, ' Mine.')
+  await user.click(within(step('Research')).getByRole('button', { name: 'Discard my edit' }))
+  expect(box).toHaveFocus()
+
+  await user.clear(box)
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(
+      within(step('Research')).getByRole('button', { name: 'Instructions for Research' }),
+    ).toHaveFocus(),
+  )
+})

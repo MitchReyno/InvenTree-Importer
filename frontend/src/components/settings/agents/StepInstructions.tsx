@@ -78,6 +78,8 @@ export function StepInstructions({
   const [open, setOpen] = useState(false)
   const [cut, setCut] = useState(false)
   const box = useRef<HTMLTextAreaElement | null>(null)
+  // Set when the box closes under the operator's focus, so the step's button takes it back.
+  const returnFocus = useRef(false)
   const id = useId()
   const label = `Instructions for ${STAGE_LABEL[stage]}`
   const value = form.watch('text')
@@ -93,6 +95,7 @@ export function StepInstructions({
   })
 
   function openBox() {
+    returnFocus.current = false
     flushSync(() => setOpen(true))
     box.current?.focus()
   }
@@ -113,12 +116,13 @@ export function StepInstructions({
 
   function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     const target = event.currentTarget
-    const next = pastedWithin(
-      target.value,
-      target.selectionStart,
-      target.selectionEnd,
-      event.clipboardData.getData('text/plain'),
-    )
+    // A save in flight holds the box, for a paste as for typing.
+    if (target.readOnly) {
+      return
+    }
+    // A textarea holds each line break as one character, however the clipboard wrote it.
+    const pasted = event.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n')
+    const next = pastedWithin(target.value, target.selectionStart, target.selectionEnd, pasted)
     if (!next.cut) {
       return
     }
@@ -131,7 +135,18 @@ export function StepInstructions({
 
   if (!shown) {
     return (
-      <Button type="button" variant="ghost" size="sm" onClick={openBox}>
+      <Button
+        ref={(element) => {
+          if (element && returnFocus.current) {
+            returnFocus.current = false
+            element.focus()
+          }
+        }}
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={openBox}
+      >
         <span aria-hidden="true">＋ </span>
         {label}
       </Button>
@@ -176,6 +191,7 @@ export function StepInstructions({
         onSave={() => {
           // Saving an empty box removes the instructions, and the step shows its button again.
           if (form.getValues('text') === '') {
+            returnFocus.current = true
             setOpen(false)
           }
           text.save()
@@ -183,9 +199,17 @@ export function StepInstructions({
         onRetry={text.retry}
         onReload={text.reload}
         onDiscard={() => {
-          setOpen(false)
-          setCut(false)
-          text.discard()
+          returnFocus.current = true
+          flushSync(() => {
+            setOpen(false)
+            setCut(false)
+            text.discard()
+          })
+          // The box stays for saved instructions; focus goes back into it.
+          if (box.current?.isConnected) {
+            returnFocus.current = false
+            box.current.focus()
+          }
         }}
         dirty={text.dirty}
       />
