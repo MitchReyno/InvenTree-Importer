@@ -99,10 +99,15 @@ async function failing(client: PoolClient, scope: Scope, withStale: boolean) {
               ON src->>'kind'='evidence_observation' AND o.id=(src->>'evidence_observation_id')::uuid
             WHERE src->>'kind'='evidence_observation'
               AND (o.id IS NULL OR o.status<>'active' OR o.revision::text<>src->>'revision'))
-          -- A cited note a later one replaced.
+          -- A note it relies on or cites anywhere in its value that a later one replaced.
           OR EXISTS (
-            SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
-            WHERE src->>'kind'='note' AND ${replacedNoteSql("(src->>'note_id')::uuid")})
+            SELECT 1 FROM (
+              SELECT jsonb_array_elements(p.relies_on->'sources') AS src
+              UNION ALL
+              SELECT jsonb_path_query(convert_from(p.value_bytes,'UTF8')::jsonb, 'lax $.**.sources[*]')
+            ) cited
+            WHERE cited.src->>'kind'='note'
+              AND ${replacedNoteSql("(cited.src->>'note_id')::uuid")})
           OR EXISTS (
             SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
             LEFT JOIN public.capture_lot l

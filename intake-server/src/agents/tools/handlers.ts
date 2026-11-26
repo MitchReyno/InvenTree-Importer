@@ -1303,7 +1303,8 @@ async function requireCurrentReliance(
      WHERE l.observation_set_version <> cited.version LIMIT 1`,
     [sets.map((item) => item.lot), sets.map((item) => item.version)],
   )
-  const notes = proposal.relies_on.sources.flatMap((source) =>
+  // Notes it relies on, and notes it cites anywhere in its value.
+  const notes = [...proposal.relies_on.sources, ...proposalCitations(proposal)].flatMap((source) =>
     source.kind === 'note' ? [source.note_id] : [],
   )
   const replaced = await client.query(
@@ -2346,6 +2347,17 @@ export function sessionTools(context: SessionToolContext) {
           const stepProblem = stepRefusal(ask, new Set(liveLots))
           if (stepProblem) {
             throw new ToolRefusal('validation_failed', stepProblem.message, [stepProblem.issue])
+          }
+          // A `/7` lot session asks nothing about a lot Review retired: it couldn't be answered.
+          if (
+            principal.manifest.schema_version === 'bench-intake-input/7' &&
+            principal.subjectId !== null &&
+            (await lotRetired(client, principal.subjectId))
+          ) {
+            refuse(
+              'stale',
+              'Your lot was retired in Review; there is nothing more to ask about it.',
+            )
           }
           if (ask.replaces !== undefined) {
             await requireReplaceable(

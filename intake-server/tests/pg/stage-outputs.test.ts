@@ -3276,4 +3276,100 @@ test('a /7 lot session neither starts nor publishes for a lot retired in Review'
     session.propose(running7, { proposal: researchOutput(crystal.id, manifest) }),
   )
   assert.equal(refused.error, 'stale', JSON.stringify(refused))
+  // Nor can it ask about the retired lot: no question is stored.
+  const asked = await result(
+    session.ask(running7, {
+      schema_version: 'bench-intake-question/2',
+      subject_id: crystal.id,
+      reason: 'The marking is partly worn.',
+      fields: ['identity'],
+      steps: [
+        {
+          id: 'freq',
+          prompt: 'What frequency is printed?',
+          assumption: 'Treating it as 16 MHz.',
+          answer: { kind: 'text' },
+        },
+      ],
+    }),
+  )
+  assert.equal(asked.error, 'stale', JSON.stringify(asked))
+  const stored = await fixture.db.pool.query(
+    'SELECT 1 FROM processing_question WHERE attempt_id=$1',
+    [crystalResearch.attemptId],
+  )
+  assert.equal(stored.rowCount, 0)
+})
+
+test('a note an identity cites only in its sources, once replaced, stales it', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const crystal = await batch.lot('16 mhz crystal')
+  const pinnedNote = await fixture.db.pool.query<{ note_id: string; evidence_id: string }>(
+    `SELECT n.id AS note_id, n.evidence_id FROM processing_proposal p
+     CROSS JOIN LATERAL jsonb_array_elements(p.relies_on->'sources') src
+     JOIN media_evidence_note n ON n.id=(src->>'note_id')::uuid
+     WHERE p.id=$1 AND src->>'kind'='note'`,
+    [
+      (await inputOf(fixture, (await stageJob(batch, '16 mhz crystal', 'research')).attemptId))
+        .manifest.pinned_proposal_ids[0],
+    ],
+  )
+  const text = await fixture.db.pool.query<{ text: string }>(
+    'SELECT text FROM media_evidence_note WHERE id=$1',
+    [pinnedNote.rows[0].note_id],
+  )
+  const note = {
+    kind: 'note',
+    note_id: pinnedNote.rows[0].note_id,
+    text_sha256: sha256(Buffer.from(text.rows[0].text, 'utf8')).toString('hex'),
+  }
+  const published = await result(
+    session.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A 16 MHz crystal, per its note.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            {
+              kind: 'observation_set',
+              lot_id: crystal.id,
+              version: crystal.observation_set_version,
+            },
+          ],
+        },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [
+          { description: '16 MHz crystal', confidence: 'high', reason: 'Per the note.' },
+        ],
+      },
+    }),
+  )
+  assert.equal(published.ok, true, JSON.stringify(published))
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+    [batchId],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: {
+      kind: 'evidence_note',
+      evidence_id: pinnedNote.rows[0].evidence_id,
+      text: '18 MHz crystal',
+    },
+  })
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(published.id)]),
+  )
+  assert.notEqual(facts.get(String(published.id))?.stale, null)
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
 })

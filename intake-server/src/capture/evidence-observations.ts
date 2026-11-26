@@ -1048,6 +1048,10 @@ async function markSameItem(
   // Every observation whose mark changes, with its mark before and after.
   const marked: { id: string; before: string | null; after: string | null }[] = []
   if (!target) {
+    // Clearing a mark that isn't set changes nothing, so the observation keeps its revision.
+    if (row.sameItemAs === null) {
+      return
+    }
     await edited([row.id], null)
     marked.push({ id: row.id, before: row.sameItemAs, after: null })
   } else {
