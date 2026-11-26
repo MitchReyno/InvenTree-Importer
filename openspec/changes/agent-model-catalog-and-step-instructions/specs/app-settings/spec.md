@@ -14,7 +14,7 @@ Each agent step in "Provider and model per step" (Examine, Research and Images) 
 
 - **GIVEN** the operator types "Open the manufacturer's own datasheet before any distributor page." into Research's box
 - **WHEN** they choose Save
-- **THEN** the text is saved with the settings revision check, the box shows it with "Read by new Research sessions, after the app's own rules." and a count of 67 / 1,000, and Save and Discard go away until it is edited again.
+- **THEN** the text is saved with the settings revision check, the box shows it with "Read by new Research sessions, after the app's own rules." and a count of 66 / 1,000, and Save and Discard go away until it is edited again.
 
 #### Scenario: Paste past the limit
 

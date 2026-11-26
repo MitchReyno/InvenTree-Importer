@@ -19,6 +19,8 @@ export type BriefObservationRow = {
 /** A brief's entries grouped the way the session page shows them. */
 export type BriefView = {
   batch: Entry<'batch'> | null
+  /** The operator's instructions for this step, as the attempt was queued with them. */
+  stepGuidance: Entry<'step_guidance'> | null
   identities: Entry<'identity'>[]
   observations: BriefObservationRow[]
   /** Corrections to observations the brief doesn't list, such as an Examine lead's. */
@@ -59,6 +61,7 @@ export function briefView(brief: SessionBriefDto): BriefView {
 
   return {
     batch: ofKind(entries, 'batch')[0] ?? null,
+    stepGuidance: ofKind(entries, 'step_guidance')[0] ?? null,
     identities: ofKind(entries, 'identity'),
     observations,
     corrections: corrections.filter((entry) => !listed.has(entry.observation_id)),

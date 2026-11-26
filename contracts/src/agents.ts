@@ -14,6 +14,7 @@ const object = <T extends TProperties>(properties: T) =>
 
 import { AgentEffort, AgentSelection } from './agent-selection.ts'
 import { SessionHistoryAttempt, SessionLatestStatus, SessionState } from './sessions.ts'
+import { STEP_INSTRUCTIONS_MAX_CHARACTERS } from './step-instructions.ts'
 import type { AgentSelectionDto } from './agent-selection.ts'
 export {
   AgentEffort,
@@ -62,6 +63,18 @@ export const AgentStageSelections = object({
   images: Type.Optional(AgentStageSelection),
   inventory: Type.Optional(AgentStageSelection),
 })
+// Bounded here in UTF-16 units, enough for the limit in any script; the limit itself is counted in
+// characters on save, which answers invalid_agent_settings.
+const stepInstructions = Type.String({
+  minLength: 1,
+  maxLength: 2 * STEP_INSTRUCTIONS_MAX_CHARACTERS,
+})
+/** Each agent step's own instructions; a step without any is absent. Inventory has none. */
+export const AgentStageInstructions = object({
+  examine: Type.Optional(stepInstructions),
+  research: Type.Optional(stepInstructions),
+  images: Type.Optional(stepInstructions),
+})
 const agentSettingsFields = {
   providers: object({ claude: AgentProviderSettings, codex: AgentProviderSettings }),
   /** Null exactly when no provider is on. */
@@ -70,6 +83,8 @@ const agentSettingsFields = {
   session_concurrency: SessionConcurrency,
   /** Copied into each new batch's instructions at creation. */
   new_batch_instructions: Type.String({ maxLength: 8192 }),
+  /** Operator guidance sealed into each new session of its step, after the app's own rules. */
+  stage_instructions: AgentStageInstructions,
   /** Operator guidance sealed into each new session for Part descriptions. */
   part_description_style: Type.String({ maxLength: 500 }),
   /** Whether new batches start with Auto tags on. */
@@ -353,6 +368,7 @@ export type AgentSettingsSaveReplayDto = Static<typeof AgentSettingsSaveReplay>
 export type AgentSettingsSaveResultDto = Static<typeof AgentSettingsSaveResult>
 export type AgentProviderSettingsDto = Static<typeof AgentProviderSettings>
 export type AgentStageSelectionDto = Static<typeof AgentStageSelection>
+export type AgentStageInstructionsDto = Static<typeof AgentStageInstructions>
 export type AgentSessionListDto = Static<typeof AgentSessionList>
 export type AgentSessionQueryDto = Static<typeof AgentSessionQuery>
 export type AgentSessionDto = AgentSessionListDto['sessions'][number]

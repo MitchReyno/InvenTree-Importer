@@ -509,6 +509,12 @@ function inboxText(item: { id: string; seq: bigint; kind: string; payload: unkno
 const STYLE_GUIDANCE =
   'Write each Part description you propose in the pattern part_description_style gives, the operator’s saved style. It is still one line of at most 250 characters.'
 
+/** Placed after the app's rules, which the operator's guidance for a step never overrides. */
+const STEP_GUIDANCE =
+  'Operator guidance for this step: stage_instructions holds the operator’s saved instructions for this step. Follow them after the rules above; where they conflict, the rules above win.'
+const BRIEF_STEP_GUIDANCE =
+  'Operator guidance for this step: the step_guidance entry in your brief’s human section holds the operator’s saved instructions for this step. Follow them after the rules above and your stage instructions; where they conflict, those win.'
+
 const WEB_ON =
   'Public web pages are allowed in this session: after searching, read pages with WebFetch, where available, or curl, both through the session’s proxy.'
 const WEB_OFF =
@@ -573,21 +579,22 @@ function stageOpeningText(manifest: ProcessingInputV7Dto, pending: number, attem
 /**
  * A `/7` opening's guidance. Under a profile whose packs carry the rules (which tools publish, the
  * lead's work, asking and the catalogue), only the brief, description-style, web, status-line and
- * inbox lines remain.
+ * inbox lines remain. The step guidance line comes last, after every rule.
  */
 function stageInstructions(manifest: ProcessingInputV7Dto) {
   const sessionLines =
     `${BRIEF_GUIDANCE} ` +
     (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
     webGuidance(manifest)
+  const guidance = manifest.stage_instructions ? ` ${BRIEF_STEP_GUIDANCE}` : ''
   if (packCarriesRules(manifest)) {
-    return `${sessionLines}${STATUS_GUIDANCE} ${INBOX_GUIDANCE}`
+    return `${sessionLines}${STATUS_GUIDANCE} ${INBOX_GUIDANCE}${guidance}`
   }
   return (
     (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
     sessionLines +
     'Report steps with status, publish proposals with propose, ask questions with ask and keep working. ' +
-    `${ASK_GUIDANCE} ${INBOX_GUIDANCE} ${CATALOGUE_GUIDANCE}`
+    `${ASK_GUIDANCE} ${INBOX_GUIDANCE} ${CATALOGUE_GUIDANCE}${guidance}`
   )
 }
 
@@ -639,7 +646,10 @@ export function openingText(
       `${STATUS_GUIDANCE} ` +
       `${ASK_GUIDANCE} ` +
       `${INBOX_GUIDANCE} ` +
-      CATALOGUE_GUIDANCE,
+      CATALOGUE_GUIDANCE +
+      (manifest.stage_instructions ? ` ${STEP_GUIDANCE}` : ''),
+    // The operator's guidance for this step, sealed at queue time, after the app's rules.
+    ...(manifest.stage_instructions ? { stage_instructions: manifest.stage_instructions } : {}),
   })
 }
 

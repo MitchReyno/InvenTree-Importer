@@ -1,7 +1,9 @@
 import { useFormContext } from 'react-hook-form'
 import styled from 'styled-components'
 import {
+  AGENT_INSTRUCTION_STAGES,
   AGENT_SETTINGS_STAGES,
+  type AgentInstructionStage,
   type AgentProviderId,
   type AgentSettingsStage,
 } from '@invimport/contracts'
@@ -10,22 +12,32 @@ import { effortLabel, modelName, type CatalogViews } from '#/agents/model-catalo
 import { space } from '#/theme/generated/tokens'
 import { ModelEffortRow } from './ModelEffortRow'
 import { PROVIDER_LABEL, PROVIDERS, STAGE_LABEL, type ProviderFormValues } from './provider-form'
+import { StepInstructions } from './StepInstructions'
+import type { SubsectionFormProps } from './useSubsectionForm'
+
+function takesInstructions(stage: AgentSettingsStage): stage is AgentInstructionStage {
+  return (AGENT_INSTRUCTION_STAGES as readonly string[]).includes(stage)
+}
 
 /**
  * Each step's provider, model and effort, or Default, in one searchable picker with Effort beside
- * it; only providers that are on can be picked. A pick saves as it changes.
+ * it; only providers that are on can be picked. A pick saves as it changes. Examine, Research and
+ * Images also take their own instructions, each a text form of its own with Save and Discard.
  */
 export function StepModels({
   reset,
   catalogs,
   onRetry,
   onAutoEdit,
+  instructions,
 }: {
   /** Steps whose choice was reset because their provider was turned off. */
   reset: readonly AgentSettingsStage[]
   catalogs: CatalogViews
   onRetry: (provider: AgentProviderId) => void
   onAutoEdit: () => void
+  /** The settings page and read each step's instructions form saves through. */
+  instructions: SubsectionFormProps
 }) {
   const { watch, setValue } = useFormContext<ProviderFormValues>()
   const values = watch()
@@ -74,6 +86,7 @@ export function StepModels({
                 )
               }
             />
+            {takesInstructions(stage) && <StepInstructions {...instructions} stage={stage} />}
           </Step>
         )
       })}
@@ -89,5 +102,9 @@ const Steps = styled.div`
 `
 
 const Step = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: ${space[3]};
   min-width: 0;
 `

@@ -1,6 +1,6 @@
 # Implementation notes
 
-The plan for exact provider models, an effort choice and instructions for each step, delivered as PR-A to PR-F after the plan PR (#278). PR-A, effort in the settings, the sealed selection and both CLIs, merged as #291; PR-B, which reads, stores and serves each provider's model list, merged as #293; PR-C puts the lists, an Effort select and their states in Settings › Agents and the "Not offered" pill on Processing's step pages.
+The plan for exact provider models, an effort choice and instructions for each step, delivered as PR-A to PR-F after the plan PR (#278). PR-A, effort in the settings, the sealed selection and both CLIs, merged as #291; PR-B, which reads, stores and serves each provider's model list, merged as #293; PR-C, which puts the lists, an Effort select and their states in Settings › Agents and the "Not offered" pill on Processing's step pages, merged as #295; PR-D gives Examine, Research and Images their own instructions.
 
 ## Changes to the plan
 
@@ -26,6 +26,11 @@ The plan for exact provider models, an effort choice and instructions for each s
 - **2026-11-26, PR-C:** the card's line follows the spec's wording, without the CLI version the R4 board showed, and the "Not accepted" warning stops after "takes no “Extra high”", without the board's guess at the level the CLI would run instead.
 - **2026-11-26, PR-C:** a saved model the read list doesn't hold is named from the built-in list when it is there ("Opus 4.6"), else by its ID, as the spec's scenario shows it; while the first read runs it shows by its ID.
 - **2026-11-26, PR-C:** on a phone, Effort sits under the model picker, so the model's name keeps the row's width.
+- **2026-11-26, PR-D, task 5.1:** BI-022's #275 merged, and #294 since added the stage profile `shared-vm-agent/4`, which seals `/7` with a provider selection read from the settings. PR-D seals the step text from that same read, as the coordination with BI-022 asks, so `/7` is sealed and tested through `/4` (`formedBatch` with the test-only switch) rather than through `synthetic-session/1`, which reads no settings and so seals no step text, as it seals no Part description style. The plan's `/7` synthetic session in the process tier is therefore replaced by host Claude and Codex sessions whose fake CLI logs the opening, and a guest turn whose guest validates an input carrying the field; the `/7` opening and brief are tested at the PG tier. A provider-backed `/7` profile (BI-022 PR-G1/G2) needs no further work for the text.
+- **2026-11-26, PR-D:** the settings contract bounds each step's text at 2,000 UTF-16 units and `checkAgentSettings` counts the 1,000-character limit in code points, so a 1,001-character save is refused as `invalid_agent_settings`, as the spec has it. An empty string and an Inventory key are refused by the contract (`invalid_contract`); the editor sends an empty box as no key. The sealed `/6` field and the brief entry use the contracts' code-point check (`unicodeText(1, 1000)`).
+- **2026-11-26, PR-D:** the brief's `step_guidance` entry is the first of the `human` section, so it is in the opening whenever any of that section is. `briefScope` takes it from the sealed input, so the current view a `read_lot` or `read_batch` returns keeps the text the attempt was queued with, not the settings now. The session page shows it under "Operator guidance for this step" (`BriefStepGuidance`), apart from "Your facts".
+- **2026-11-26, PR-D:** the app-settings scenario's count was 67 for a 66-character sentence; the spec now says 66.
+- **2026-11-26, PR-D:** typing past 1,000 characters is undone where it was made rather than blocked by `maxLength`, which counts UTF-16 units and would stop at 500 characters outside the Basic Multilingual Plane. Discard on a box opened from the button closes it again.
 
 ## Unexpected challenges
 
@@ -48,7 +53,7 @@ The plan for exact provider models, an effort choice and instructions for each s
 
 ## Open items
 
-- **2026-11-25T15:02+11:00, task 5:** PR-D waits for BI-022's PR-A (#275, sealed briefs) to merge, then adds the `/6` field and the `/7` brief entry together for the attempts #275 seals. BI-022's provider-backed `/7` profile (PR-G1/G2) and multi-lot groups (PR-I) carry `step_guidance` from the settings snapshot they seal the selection from; task 7 (PR-F) captures the text on each queued lot and keeps groups consistent once BI-022's PR-I merges. BI-022's PR-G2 activation should follow PR-F; asked of BI-022's implementing session and listed for Mitch.
+- **2026-11-25T15:02+11:00, task 5:** PR-D adds the `/6` field and the `/7` brief entry together, after BI-022's PR-A (#275, sealed briefs) merged. BI-022's provider-backed `/7` profile (PR-G1/G2) and multi-lot groups (PR-I) carry `step_guidance` from the settings snapshot they seal the selection from; task 7 (PR-F) captures the text on each queued lot and keeps groups consistent once BI-022's PR-I merges. BI-022's PR-G2 activation should follow PR-F; asked of BI-022's implementing session and listed for Mitch.
 - **2026-11-25T15:02+11:00, task 6:** the live catalogue read and the two effort sessions need Mitch's go-ahead.
 - **2026-11-25T15:02+11:00, planning:** whether a step instruction edit should also reach running sessions, as a new inbox kind that doesn't wake finished sessions, is Mitch's call; not planned.
 - **2026-11-26, PR-A, until PR-C:** the Settings page keeps each saved effort through every save (`provider-form.ts`), but picking a step's model replaces its choice with `{provider, model}`, which drops that step's effort. Effort is set through the API until PR-C's Effort select. Resolved in PR-C: a pick keeps the effort unless the read list says the new model lacks it.

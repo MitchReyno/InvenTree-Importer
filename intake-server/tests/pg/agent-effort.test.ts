@@ -49,6 +49,7 @@ function withEfforts(
     },
     default_provider: 'claude',
     stage_selections: { research: { provider: 'codex', model: 'gpt-6-luna', effort: 'max' } },
+    stage_instructions: {},
     session_concurrency: 2,
     new_batch_instructions: '',
     part_description_style: '',

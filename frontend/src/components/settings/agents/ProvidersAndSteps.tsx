@@ -183,6 +183,7 @@ export function ProvidersAndSteps({
               catalogs={catalogs}
               onRetry={(provider) => void catalog.refresh(provider)}
               onAutoEdit={() => markEdited('auto')}
+              instructions={props}
             />
           </SettingRow>
         </SettingsCard>

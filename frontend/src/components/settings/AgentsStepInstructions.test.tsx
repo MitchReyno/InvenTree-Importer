@@ -1,0 +1,213 @@
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { expect, test, vi } from 'vitest'
+import type {
+  AgentModelCatalogDto,
+  AgentSettingsDto,
+  AgentSettingsUpdateDto,
+  ProviderStatusDto,
+} from '@invimport/contracts'
+import type { agentsClient } from '@invimport/contracts/client'
+import { render } from '#/test/render'
+import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
+import { modelCatalog } from '#/test/model-catalog'
+import { Settings } from './Settings'
+
+vi.mock('#/debug/useReadiness', () => ({ useReadiness: () => ({ data: { web: 'available' } }) }))
+
+const SELECTION = {
+  provider: 'claude',
+  authentication: 'subscription',
+  model: 'claude-opus-5-5',
+} as const
+const RESEARCH = 'Open the manufacturer’s own datasheet before any distributor page.'
+const IMAGES = 'Keep the anti-static bag in the stock photo.'
+const READ_AT = new Date(2026, 10, 26, 9, 12).toISOString()
+
+function settings(overrides: Partial<Omit<AgentSettingsDto, 'revision'>> = {}) {
+  return agentSettings('7', SELECTION, overrides)
+}
+
+function client(saved = settings()) {
+  return {
+    settings: vi.fn(async () => saved),
+    saveSettings: vi.fn(
+      async ({ expected_revision: _, save_id: _id, ...fields }: AgentSettingsUpdateDto) => ({
+        ...fields,
+        revision: '8',
+      }),
+    ),
+    sessions: vi.fn(async () => ({
+      batches: [],
+      sessions: [],
+      next_before: null,
+      totals: { slots_in_use: 0, queued: 0, waiting: 0 },
+      paused_batch_ids: [],
+      paused_truncated: false,
+    })),
+    pauseAll: vi.fn(),
+    providerStatus: vi.fn(async (): Promise<ProviderStatusDto> => ({
+      claude: { state: 'saved', saved_at: null, checked_at: READ_AT, last_sign_in_failure: null },
+      codex: {
+        state: 'signed_in',
+        checked_at: READ_AT,
+        refreshing: false,
+        last_sign_in_failure: null,
+      },
+      read_at: READ_AT,
+    })),
+    modelCatalog: vi.fn(async (): Promise<AgentModelCatalogDto> => modelCatalog()),
+    refreshModelCatalog: vi.fn(),
+  }
+}
+
+type Api = ReturnType<typeof client>
+
+async function renderAgents(api: Api) {
+  render(
+    <Settings
+      section="agents"
+      returnTo={undefined}
+      agents={api as unknown as ReturnType<typeof agentsClient>}
+      onDirtyChange={vi.fn()}
+      replaceSubsection={vi.fn()}
+    />,
+  )
+  await screen.findByRole('group', { name: 'Research' })
+}
+
+const step = (name: string) => screen.getByRole('group', { name })
+
+function count(name: string) {
+  return within(step(name)).getByText(/ \/ 1,000$/)
+}
+
+async function openBox(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(within(step(name)).getByRole('button', { name: `Instructions for ${name}` }))
+  return within(step(name)).getByRole('textbox', { name: `Instructions for ${name}` })
+}
+
+test('a step without instructions shows one quiet button, which opens an empty box with focus', async () => {
+  const user = userEvent.setup()
+  await renderAgents(client())
+  for (const name of ['Examine', 'Research', 'Images']) {
+    expect(within(step(name)).queryByRole('textbox')).toBeNull()
+  }
+  // Inventory takes no instructions.
+  expect(within(step('Inventory')).queryByRole('button', { name: /^Instructions for/ })).toBeNull()
+  const box = await openBox(user, 'Examine')
+  expect(box).toHaveValue('')
+  expect(box).toHaveFocus()
+  expect(count('Examine')).toHaveTextContent('0 / 1,000')
+  expect(within(step('Examine')).queryByRole('button', { name: 'Save' })).toBeNull()
+})
+
+test('Research’s instructions save on their own, and Save and Discard go until the next edit', async () => {
+  const user = userEvent.setup()
+  const api = client(settings({ stage_instructions: { images: IMAGES } }))
+  await renderAgents(api)
+  const box = await openBox(user, 'Research')
+  await user.type(box, RESEARCH)
+  expect(count('Research')).toHaveTextContent('66 / 1,000')
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('7', SELECTION, {
+        stage_instructions: { images: IMAGES, research: RESEARCH },
+      }),
+    ),
+  )
+  expect(await within(step('Research')).findByText(/^Saved\. New Research sessions/)).toBeVisible()
+  expect(box).toHaveValue(RESEARCH)
+  expect(
+    within(step('Research')).getByText('Read by new Research sessions, after the app’s own rules.'),
+  ).toBeVisible()
+  expect(within(step('Research')).queryByRole('button', { name: 'Save' })).toBeNull()
+  expect(within(step('Research')).queryByRole('button', { name: 'Discard my edit' })).toBeNull()
+  // Images shows its saved text, and no Save until it is edited.
+  const images = within(step('Images')).getByRole('textbox', { name: 'Instructions for Images' })
+  expect(images).toHaveValue(IMAGES)
+  expect(within(step('Images')).queryByRole('button', { name: 'Save' })).toBeNull()
+  await user.type(box, ' Again.')
+  expect(within(step('Research')).getByRole('button', { name: 'Save' })).toBeVisible()
+  expect(within(step('Research')).getByRole('button', { name: 'Discard my edit' })).toBeVisible()
+})
+
+test('the count turns amber from 900, and typing stops at 1,000', async () => {
+  const user = userEvent.setup()
+  await renderAgents(client(settings({ stage_instructions: { research: 'x'.repeat(899) } })))
+  const box = within(step('Research')).getByRole('textbox', { name: 'Instructions for Research' })
+  expect(count('Research')).toHaveTextContent('899 / 1,000')
+  expect(count('Research')).toHaveStyle({ color: 'var(--muted)' })
+  await user.type(box, 'y')
+  expect(count('Research')).toHaveTextContent('900 / 1,000')
+  expect(count('Research')).toHaveStyle({ color: 'var(--warn)' })
+  await user.type(box, 'z'.repeat(105))
+  expect(box).toHaveValue(`${'x'.repeat(899)}y${'z'.repeat(100)}`)
+  expect(count('Research')).toHaveTextContent('1,000 / 1,000')
+  // Counted in characters, as the server counts them.
+  fireEvent.change(box, { target: { value: '\u{1F50C}'.repeat(1000) } })
+  expect(count('Research')).toHaveTextContent('1,000 / 1,000')
+})
+
+test('a paste past the limit is cut at 1,000 with an announced message', async () => {
+  const user = userEvent.setup()
+  const api = client(settings({ stage_instructions: { images: 'a'.repeat(950) } }))
+  await renderAgents(api)
+  const box = within(step('Images')).getByRole('textbox', { name: 'Instructions for Images' })
+  await user.click(box)
+  await user.paste('b'.repeat(200))
+  expect(box).toHaveValue(`${'a'.repeat(950)}${'b'.repeat(50)}`)
+  expect(count('Images')).toHaveTextContent('1,000 / 1,000')
+  expect(count('Images')).toHaveStyle({ color: 'var(--warn)' })
+  expect(within(step('Images')).getByRole('status')).toHaveTextContent(
+    '1,000 characters is the most a step can hold. The pasted text was cut at 1,000.',
+  )
+  await user.click(within(step('Images')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('7', SELECTION, {
+        stage_instructions: { images: `${'a'.repeat(950)}${'b'.repeat(50)}` },
+      }),
+    ),
+  )
+})
+
+test('a paste that fits goes in as it is, with no message', async () => {
+  const user = userEvent.setup()
+  await renderAgents(client())
+  const box = await openBox(user, 'Research')
+  await user.paste(RESEARCH)
+  expect(box).toHaveValue(RESEARCH)
+  expect(within(step('Research')).getByRole('status')).toHaveTextContent('')
+})
+
+test('Discard drops the edit; clearing and saving removes the instructions', async () => {
+  const user = userEvent.setup()
+  const api = client(settings({ stage_instructions: { research: RESEARCH } }))
+  await renderAgents(api)
+  const box = within(step('Research')).getByRole('textbox', { name: 'Instructions for Research' })
+  await user.type(box, ' Mine.')
+  await user.click(within(step('Research')).getByRole('button', { name: 'Discard my edit' }))
+  expect(box).toHaveValue(RESEARCH)
+  expect(api.saveSettings).not.toHaveBeenCalled()
+  // An opened empty box that is discarded goes back to its button.
+  await openBox(user, 'Examine')
+  await user.type(within(step('Examine')).getByRole('textbox'), 'x')
+  await user.click(within(step('Examine')).getByRole('button', { name: 'Discard my edit' }))
+  expect(
+    within(step('Examine')).getByRole('button', { name: 'Instructions for Examine' }),
+  ).toBeVisible()
+
+  await user.clear(box)
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('7', SELECTION, { stage_instructions: {} }),
+    ),
+  )
+  expect(
+    await within(step('Research')).findByRole('button', { name: 'Instructions for Research' }),
+  ).toBeVisible()
+  expect(within(step('Research')).queryByRole('textbox')).toBeNull()
+})
