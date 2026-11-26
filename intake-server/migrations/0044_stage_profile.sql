@@ -105,7 +105,7 @@ What you publish: examine-identity/1, one per lot, with propose
 - packaging: what this quantity is held in (Cut Tape, Tape & Reel, Tube, Tray, Anti-static bag, Bag, Box, Loose) and its seal: sealed, opened or unknown. Say unknown when you can''t see it; sealed is the strongest claim a lot makes.
 - date_code, condition and nos_signals as read: an obsolete part unused, surplus or military packaging, NSN, CAGE or contract labels, an old date code.
 - nsn: only an NSN printed on the label or packet, copied digit for digit. Never look one up.
-- quantity: your estimate with its basis ("tube of 25 per the label, unopened", "about half a reel"). It is the only quantity route: propose_lot takes none. Never add up photos of the same items; count an observation with same_item_as once with the one it names. The operator counts; an estimate stays an estimate.
+- quantity: your estimate with its basis ("tube of 25 per the label, unopened", "about half a reel"). It is the only quantity route: propose_lot takes none. Never add up photos of the same items; count observations marked as one item (same_item_as) once, by the largest visible count among them. The operator counts; an estimate stays an estimate.
 - match_notes: your judgement about existing records (see below).
 - relies_on: cite the lot''s current observation set as {kind: "observation_set", lot_id, version} with the observation_set_version your brief gives. That makes the identity stable, which starts Match for the lot. After you regroup a lot, publish its identity again.
 - Don''t propose a category, parameters, a description, a datasheet or images.
@@ -250,7 +250,7 @@ Date codes
 - Counted one by one in the photo: say counted and how many are visible.
 - A sealed or unopened packet: the label''s figure, said as trusting the label.
 - Estimated by eye ("about half a reel"): say so.
-- Never add up photos of the same items. Observations marked same_item_as count once, by the one they name.
+- Never add up photos of the same items. Observations marked as one item (same_item_as) count once, by the largest visible count among them.
 - Watch pack quantities: "10-pack" means packs, and the quantity is in pieces.
 - When you can''t estimate at all, leave the quantity out and say why in the identity.'),
   ('shared-vm-agent/4','examine','inspect-region',4,'reading positions off a grid','Reading positions off a photo by eye is guesswork: a "two-thirds across" estimate is routinely 100 px out. inspect_region overlays a labelled grid in the page''s pixels, so a number you read off it goes straight into a region.

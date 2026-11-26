@@ -8,7 +8,7 @@ import type {
 import { VOCABULARY_PAGE_MAX_ENTRIES } from '@invimport/contracts'
 import { canonicalRecord, strictJson } from '@invimport/contracts/json'
 import { sha256 } from '#/db/authority.ts'
-import { captureInTransaction } from '#/capture/repository.ts'
+import { observationsInTransaction } from '#/capture/repository.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { stageGuides } from '#/processing/stage-policy.ts'
 import { catalogueVocabulary } from '#/processing/vocabulary.ts'
@@ -177,7 +177,7 @@ function matches(
 }
 
 /**
- * `read_vocabulary`: the batch's catalogue records as they stand now, optionally of one kind and
+ * `read_vocabulary`: the batch's catalogue records as they stand now, read in one query, optionally of one kind and
  * whose labels contain a search regardless of case, `VOCABULARY_PAGE_SIZE` to a page. A token
  * continues only the list it came from: once the matching records change, it is refused as
  * stale and the session reads again from the first page.
@@ -189,10 +189,10 @@ export async function readVocabulary(
   input: SessionReadVocabularyArgsDto,
 ) {
   const cursor = continuedCursor(input)
-  const capture = await captureInTransaction(client, config, batchId)
+  const observations = await observationsInTransaction(client, config, batchId)
   const search = searchPattern(input.search)
-  const found = catalogueVocabulary(capture.snapshot.observations, config.targetContextId).filter(
-    (entry) => matches(entry, input.kind, search),
+  const found = catalogueVocabulary(observations, config.targetContextId).filter((entry) =>
+    matches(entry, input.kind, search),
   )
   const list = listDigest(found)
   if (cursor && cursor.list !== list) {

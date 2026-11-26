@@ -107,6 +107,7 @@ Mitch reviewed the draft base instructions, stage packs and guide sections and a
 - The Research pack's `config_gaps` line now says the same as the guide: a gap is what the batch's vocabulary doesn't hold, not what the inventory lacks.
 - The base's no-repeat rule now says a question covering the same subject and any of the same fields, as the spec says, not only the same lot and fields.
 - The Examine pack said a response with `suggested: true` changed nothing else. One `propose_lot` or `regroup` call can apply some changes and turn others into suggestions, so the pack now says to read the batch again before relying on its lots. The opening's unsealed lead instructions for earlier profiles keep the older sentence.
+- The Examine pack and the quantities guide said an observation marked `same_item_as` counts once by the one it names. `lotItemCount` counts such a group once by its largest visible count, so both now say that.
 - The base keeps the `/3` web lines for every stage, as approved; the Examine and Images packs limit their stages' web use. Until the web gates admit `/4` (PR-G2), its inputs seal web research off and its opening carries no web line.
 
 ### Guides are sealed as a whole
@@ -117,7 +118,7 @@ The guide table's rows can't be changed or deleted, but a row could still be add
 
 - **Both a filter and paging.** `read_vocabulary({ kind?, search?, page_token? })`. `kind` is category, parameter_template, category_parameter or company; `search` (1–100 characters) keeps entries whose label contains it as literal text under Unicode case folding, so a capital sigma finds a final one. Results come 50 to a page (`VOCABULARY_PAGE_SIZE`), ordered by kind, label and observation, with the total and a `next_page_token` while more remain.
 - **Tokens** are the cursor as canonical JSON in base64url: a digest of the kind and search, a digest of the matching list (its observations in order) and the offset. Digests keep a token within the 512-character token bound whatever the search. A token continues only the kind and search it came with; any other call with it is a correctable `validation_failed`. When the matching records change between pages, the token is refused as `stale` and the session reads again from the first page, so no entry is repeated or skipped. Tokens aren't bound to the attempt: the read is of the session's own batch and writes nothing.
-- **Current, not sealed.** The brief's vocabulary section is the list as sealed; `read_vocabulary` reads it again from the batch now, through the capture snapshot, with the same projection (`processing/vocabulary.ts`). Observations from an earlier target context are left out, since a proposal can't cite them.
+- **Current, not sealed.** The brief's vocabulary section is the list as sealed; `read_vocabulary` reads it again from the batch now, in one query of its read observations (`observationsInTransaction`), with the same projection (`processing/vocabulary.ts`), so a lot added during the read can't fail it. Observations from an earlier target context are left out, since a proposal can't cite them.
 
 ### How `/4` is reached before activation
 

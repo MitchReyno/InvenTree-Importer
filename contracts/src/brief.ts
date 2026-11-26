@@ -16,7 +16,7 @@ const object = <T extends TProperties>(properties: T) =>
 /**
  * A `/7` session's brief: what it is given before it starts, sealed into its input. The shared
  * sections come first, then its stage's. Each section exists from the start; a section whose data
- * a later change supplies (Match state, the vocabulary) is empty until then.
+ * a later change supplies (Match state) is empty until then.
  */
 export const BRIEF_SHARED_SECTIONS = ['batch', 'human', 'asked', 'evidence', 'match'] as const
 export const BRIEF_STAGE_SECTIONS = {
