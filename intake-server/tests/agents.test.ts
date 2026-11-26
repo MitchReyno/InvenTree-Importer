@@ -153,6 +153,12 @@ test('authentication environment never inherits an application key, provider tok
   }
 })
 
+test('unsaved settings keep their default models now the pickers read the providers’ lists', () => {
+  const { providers } = unsavedAgentSettings()
+  assert.equal(providers.claude.default_model, 'sonnet')
+  assert.equal(providers.codex.default_model, 'gpt-6.1-sol')
+})
+
 test('settings contracts and structured outcomes refuse credentials, missing models and ambiguous results', () => {
   validate('AgentSettings', unsavedAgentSettings())
   const { revision, ...fields } = unsavedAgentSettings()

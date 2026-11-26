@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {
-  AGENT_MODEL_SUGGESTIONS,
+  DEFAULT_MODEL_BEFORE_SAVE,
   type AgentSelectionDto,
   type AgentSettingsUpdateDto,
 } from '@invimport/contracts'
@@ -41,7 +41,7 @@ export function singleProvider({
       [other]: {
         enabled: false,
         authentication: 'subscription',
-        default_model: AGENT_MODEL_SUGGESTIONS[other][0],
+        default_model: DEFAULT_MODEL_BEFORE_SAVE[other],
       },
     } as AgentSettingsUpdateDto['providers'],
     default_provider: selection.provider,

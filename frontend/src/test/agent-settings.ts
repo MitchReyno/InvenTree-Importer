@@ -1,6 +1,6 @@
 import { expect } from 'vitest'
 import {
-  AGENT_MODEL_SUGGESTIONS,
+  DEFAULT_MODEL_BEFORE_SAVE,
   type AgentProviderId,
   type AgentProviderSettingsDto,
   type AgentSelectionDto,
@@ -11,7 +11,7 @@ import {
 const off = (provider: AgentProviderId): AgentProviderSettingsDto => ({
   enabled: false,
   authentication: 'subscription',
-  default_model: AGENT_MODEL_SUGGESTIONS[provider][0],
+  default_model: DEFAULT_MODEL_BEFORE_SAVE[provider],
 })
 
 /** Saved agent settings with one provider on as the default (or none), every step on Default. */

@@ -6,13 +6,13 @@ import { usePersonalClaudeCredential } from './usePersonalClaudeCredential'
 
 type Props = {
   /** The VM confirmed a change, or one may have happened; the card reads its status again. */
-  onChanged: (configured: boolean | undefined, late?: boolean) => void
+  onChanged: (configured: boolean | undefined, late?: boolean) => void | Promise<boolean | void>
   onClose: () => void
 }
 
 /** The Claude subscription token dialog: the management key, the token, Save and Remove. */
 export function ClaudeTokenDialog({ onChanged, onClose }: Props) {
-  const { token, status, phase, message, readError, editKey, save, remove } =
+  const { token, status, phase, message, notice, readError, editKey, save, remove } =
     usePersonalClaudeCredential({
       onChanged,
       onClose,
@@ -50,6 +50,7 @@ export function ClaudeTokenDialog({ onChanged, onClose }: Props) {
           help="From claude setup-token; it starts sk-ant-oat01-."
         />
         {message && <Alert role="alert">{message}</Alert>}
+        {notice && <p role="status">{notice}</p>}
         {readError && <Alert role="alert">{readError}</Alert>}
         <Actions>
           <Button type="submit" variant="primary" disabled={!ready}>

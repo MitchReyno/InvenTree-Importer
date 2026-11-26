@@ -23,6 +23,7 @@ import { space } from '#/theme/generated/tokens'
 import type { HeaderClient } from '#/header/types'
 import { Settings } from '../Settings'
 import { fakeCodexCheck, fakeProviderStatus, installFakeRunner } from './fake-runner'
+import { fakeModelCatalog, fixtureListState, fixtureSettings } from './fake-model-catalog'
 
 const scope = {
   origin: 'http://localhost:3000',
@@ -37,20 +38,10 @@ const identity = {
 }
 const batchId = '10000000-0000-4000-8000-000000000001'
 
-let saved: AgentSettingsDto = {
-  revision: '7',
-  providers: {
-    claude: { enabled: true, authentication: 'subscription', default_model: 'opus' },
-    codex: { enabled: false, authentication: 'subscription', default_model: 'gpt-6.1-sol' },
-  },
-  default_provider: 'claude',
-  stage_selections: {},
-  session_concurrency: 3,
-  new_batch_instructions: '',
-  part_description_style: '',
-  auto_tags_default: false,
-  web: { public_pages: true, prefer_datasheets: true },
-}
+// The model list state comes from the address (`?models=failed`), for each state's capture.
+const listState = fixtureListState()
+const models = fakeModelCatalog(listState)
+let saved: AgentSettingsDto = fixtureSettings(listState)
 
 /**
  * An in-memory agents client. The sign-in dialogs POST to `/personal-runner/*`, which the
@@ -93,6 +84,7 @@ const agents = {
     await new Promise((resolve) => setTimeout(resolve, 150))
     return fakeProviderStatus()
   },
+  ...models,
 } as unknown as ReturnType<typeof agentsClient>
 
 // Staged for the demo: once checked, InvenTree has refused the token, and later reads say so,

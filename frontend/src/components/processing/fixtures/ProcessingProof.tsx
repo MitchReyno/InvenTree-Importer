@@ -19,6 +19,7 @@ import { fixtureActivity, fixtureHistory } from './session-history'
 import { dateCodeFigures, packetLabelFigures, wornSuffixFigures } from './question-figures'
 import { sessionList, sessionRow } from '#/test/agent-sessions'
 import { heyyySessions, HEYYY_LOT, HEYYY_NAMES } from '#/components/agents/fixtures/heyyy'
+import { modelCatalog } from '#/test/model-catalog'
 import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace'
 import { Main, PageContent } from '#/components/AppLayout'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
@@ -372,6 +373,15 @@ const savedSettings: AgentSettingsDto = {
   web: { public_pages: true, prefer_datasheets: true },
 }
 
+/** `?models=gone`: Images saved with a model Claude's current list no longer offers. */
+const modelGone = new URLSearchParams(location.search).get('models') === 'gone'
+const stepSettings: AgentSettingsDto = modelGone
+  ? {
+      ...savedSettings,
+      stage_selections: { images: { provider: 'claude', model: 'claude-opus-4-6' } },
+    }
+  : savedSettings
+
 function session(n: number, stage: string, subject: string | null, extra: object) {
   return sessionRow({
     attempt_id: id(n + 20),
@@ -686,8 +696,9 @@ export function ProcessingProof() {
                 value={{
                   agents: {
                     sessions: async () => fixtureSessions(sessions),
-                    settings: async () => savedSettings,
+                    settings: async () => stepSettings,
                     pause: pauseClient.pause,
+                    modelCatalog: async () => modelCatalog(),
                   },
                 }}
               >

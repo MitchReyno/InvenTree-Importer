@@ -11,6 +11,8 @@ import { useMountSignal } from '#/lifecycle/useMountSignal'
 import { createSavedStatus, type SavedStatusStore } from '#/processing/saved-status'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import {
+  AGENT_SETTINGS_STAGES,
+  type AgentSettingsStage,
   questionView,
   type BatchAttentionDto,
   type CaptureSnapshotDto,
@@ -62,6 +64,9 @@ import { QuestionAnswer } from './QuestionAnswer'
 import { ProcessingOverview } from './ProcessingOverview'
 import { ProcessingSkeleton } from './ProcessingSkeleton'
 import { StepPage } from './StepPage'
+import { NotOfferedPill } from './NotOfferedPill'
+import { useModelCatalog } from '#/agents/useModelCatalog'
+import { modelName, notOffered, stepModel } from '#/agents/model-catalog'
 import { ExamineView, type SharperRequestStore } from './ExamineView'
 import { InstructionField } from './InstructionField'
 import { STEP_LABEL } from './ProcessingParts'
@@ -83,6 +88,11 @@ import type { CaptureEdit } from '#/capture/types'
 const STEP_HELP: Partial<Record<ProcessingView, string>> = {
   research:
     'Each account researches one lot at a time. A lot waiting for your answer steps aside, so another lot can research meanwhile.',
+}
+
+/** The steps whose sessions run a provider's model chosen in Settings › Agents. */
+function isAgentStage(view: ProcessingView): view is AgentSettingsStage {
+  return (AGENT_SETTINGS_STAGES as readonly string[]).includes(view)
 }
 
 /** The per-lot steps a lot table pill can focus; Examine runs once for the batch. */
@@ -235,10 +245,18 @@ export function ProcessingWorkspace({
     enabled: agents !== undefined && sessionPageJobId === undefined,
     refetchInterval: pollInterval,
   })
+  const agentStep = isAgentStage(view) ? view : undefined
+  // A step page warns when its model is no longer offered, from the same list Settings shows.
+  const catalogSource = agents?.modelCatalog
+    ? { modelCatalog: agents.modelCatalog, refreshModelCatalog: agents.refreshModelCatalog }
+    : undefined
+  const catalog = useModelCatalog(catalogSource, { enabled: agentStep !== undefined })
   const agentSettings = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-settings'),
     queryFn: () => agents!.settings(),
-    enabled: agents !== undefined && view === 'overview',
+    enabled:
+      agents !== undefined &&
+      (view === 'overview' || (agentStep !== undefined && catalogSource !== undefined)),
     refetchInterval: pollInterval,
   }).query
 
@@ -252,6 +270,21 @@ export function ProcessingWorkspace({
       undefined)
     : undefined
   const sessionLimit = liveRead(agentSettings) ? agentSettings.data?.session_concurrency : undefined
+  const runsModel =
+    agentStep && liveRead(agentSettings) && agentSettings.data
+      ? stepModel(agentSettings.data, agentStep)
+      : null
+  const runsOn =
+    runsModel && agentSettings.data
+      ? catalog.viewsFor({
+          claude: agentSettings.data.providers.claude.authentication,
+          codex: agentSettings.data.providers.codex.authentication,
+        })[runsModel.provider]
+      : undefined
+  const modelGone =
+    runsModel && runsOn && notOffered(runsOn, runsModel.model)
+      ? modelName(runsOn, runsModel.model)
+      : null
   // The batch's own read says whether it is paused; a change shows once it is read again. Pause
   // and Resume send no revision, so they wait for a read started after the last live hint.
   const revisionlessReady = !displayOnly && fresh.settledAfterHint
@@ -1255,6 +1288,7 @@ export function ProcessingWorkspace({
                   sessionList={sessionList}
                   sessionRecovery={sessionRecovery}
                   help={STEP_HELP[view]}
+                  modelWarning={modelGone && <NotOfferedPill name={modelGone} />}
                   answered={answeredGroup(jobs)}
                 >
                   {view === 'images' || jobs.length > 0 ? (

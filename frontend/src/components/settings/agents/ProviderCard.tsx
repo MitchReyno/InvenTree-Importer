@@ -15,7 +15,8 @@ import {
 } from '#/components/ui'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { ProviderCardStatus } from '#/components/agents/useProviderStatus'
-import { ModelPicker } from './ModelPicker'
+import { catalogLine, type CatalogViews } from '#/agents/model-catalog'
+import { ModelEffortRow } from './ModelEffortRow'
 import { PROVIDER_LABEL, type ProviderFormValues } from './provider-form'
 import { SignInHelp } from './SignInHelp'
 
@@ -38,11 +39,16 @@ type Props = {
   onAutoEdit: () => void
   /** The button that opens its sign-in dialog. */
   credential: ReactNode
+  /** Each provider's model list; this card's picker lists its own. */
+  catalogs: CatalogViews
+  /** Try again, inside its list after a failed read. */
+  onRetry: (provider: AgentProviderId) => void
 }
 
 /**
- * One provider, set up on its own: on or off, sign-in and default model, which save as they
- * change; its sign-in status from the agent VM, and the button for its sign-in dialog.
+ * One provider, set up on its own: on or off, sign-in and default model and effort, which save as
+ * they change; its sign-in status from the agent VM, the button for its sign-in dialog, and where
+ * its model list was read.
  */
 export function ProviderCard({
   provider,
@@ -53,12 +59,15 @@ export function ProviderCard({
   onEnabledChange,
   onAutoEdit,
   credential,
+  catalogs,
+  onRetry,
 }: Props) {
   const { watch, setValue } = useFormContext<ProviderFormValues>()
   const settings = watch(`providers.${provider}`)
   const label = PROVIDER_LABEL[provider]
   const statusId = `${provider}-card-status`
   const refusedId = `${provider}-refused`
+  const clock = useMinute()
 
   return (
     <Card role="group" aria-label={label} aria-describedby={statusId}>
@@ -116,21 +125,34 @@ export function ProviderCard({
       <Small>
         <SignInHelp provider={provider} authentication={settings.authentication} />
       </Small>
-      <Model>
-        <ModelPicker
+      <Model role="group" aria-labelledby={`${provider}-model-label`}>
+        <ModelLabel id={`${provider}-model-label`}>Default model and effort</ModelLabel>
+        <ModelEffortRow
           label="Default model"
+          labelHidden
+          effortLabel="Default effort"
           providers={[provider]}
           // A provider's own default model can be chosen before it is turned on.
           selectable={{ claude: true, codex: true }}
-          value={settings.default_model ? { provider, model: settings.default_model } : null}
-          onChange={(choice) => {
-            if (!choice) {
+          value={
+            settings.default_model
+              ? { provider, model: settings.default_model, effort: settings.default_effort }
+              : null
+          }
+          catalogs={catalogs}
+          runs={`New sessions on ${label}’s default model`}
+          onRetry={onRetry}
+          onChange={(next) => {
+            if (!next) {
               return
             }
-            setValue(`providers.${provider}.default_model`, choice.model, { shouldDirty: true })
+            // The model and its effort change together, in one save.
+            setValue(`providers.${provider}.default_model`, next.model, { shouldDirty: true })
+            setValue(`providers.${provider}.default_effort`, next.effort, { shouldDirty: true })
             onAutoEdit()
           }}
         />
+        <Small>{catalogLine(catalogs[provider], clock)}</Small>
       </Model>
     </Card>
   )
@@ -197,8 +219,16 @@ const Row = styled.div`
 `
 
 const Model = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[2]};
   width: 100%;
-  max-width: 320px;
+  max-width: 440px;
+`
+
+const ModelLabel = styled.span`
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.label.weight};
 `
 
 const Failure = styled.span`

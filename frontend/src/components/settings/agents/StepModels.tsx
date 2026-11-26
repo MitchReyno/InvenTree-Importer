@@ -1,21 +1,30 @@
 import { useFormContext } from 'react-hook-form'
 import styled from 'styled-components'
-import { AGENT_SETTINGS_STAGES, type AgentSettingsStage } from '@invimport/contracts'
+import {
+  AGENT_SETTINGS_STAGES,
+  type AgentProviderId,
+  type AgentSettingsStage,
+} from '@invimport/contracts'
 import { Small } from '#/components/ui'
-import { color, space } from '#/theme/generated/tokens'
-import { ModelPicker } from './ModelPicker'
+import { effortLabel, modelName, type CatalogViews } from '#/agents/model-catalog'
+import { space } from '#/theme/generated/tokens'
+import { ModelEffortRow } from './ModelEffortRow'
 import { PROVIDER_LABEL, PROVIDERS, STAGE_LABEL, type ProviderFormValues } from './provider-form'
 
 /**
- * Each step's provider and model, or Default, in one searchable picker; only providers that are
- * on can be picked. A pick saves as it changes.
+ * Each step's provider, model and effort, or Default, in one searchable picker with Effort beside
+ * it; only providers that are on can be picked. A pick saves as it changes.
  */
 export function StepModels({
   reset,
+  catalogs,
+  onRetry,
   onAutoEdit,
 }: {
   /** Steps whose choice was reset because their provider was turned off. */
   reset: readonly AgentSettingsStage[]
+  catalogs: CatalogViews
+  onRetry: (provider: AgentProviderId) => void
   onAutoEdit: () => void
 }) {
   const { watch, setValue } = useFormContext<ProviderFormValues>()
@@ -24,9 +33,16 @@ export function StepModels({
     claude: values.providers.claude.enabled,
     codex: values.providers.codex.enabled,
   }
-  const fallback = values.default_provider
-    ? `Default · ${PROVIDER_LABEL[values.default_provider]} ${values.providers[values.default_provider].default_model}`
-    : 'Default · no provider on'
+  const defaultProvider = values.default_provider
+  const defaults = defaultProvider ? values.providers[defaultProvider] : undefined
+  const fallback =
+    defaultProvider && defaults
+      ? `Default · ${PROVIDER_LABEL[defaultProvider]} ${modelName(catalogs[defaultProvider], defaults.default_model)}`
+      : 'Default · no provider on'
+  const defaultEffort = {
+    value: '' as const,
+    label: defaults?.default_effort ? effortLabel(defaults.default_effort) : 'Default',
+  }
 
   return (
     <Steps>
@@ -34,22 +50,30 @@ export function StepModels({
         const choice = values.stages[stage]
         return (
           <Step key={stage} role="group" aria-label={STAGE_LABEL[stage]}>
-            <ModelPicker
+            <ModelEffortRow
               label={STAGE_LABEL[stage]}
+              effortLabel={`${STAGE_LABEL[stage]} effort`}
               providers={PROVIDERS}
               selectable={selectable}
-              value={choice.provider ? { provider: choice.provider, model: choice.model } : null}
+              value={choice.provider ? { ...choice, provider: choice.provider } : null}
               fallback={fallback}
-              onChange={(picked) => {
-                setValue(`stages.${stage}`, picked ?? { provider: '', model: '' }, {
+              defaultEffort={defaultEffort}
+              catalogs={catalogs}
+              runs={`New ${STAGE_LABEL[stage]} sessions`}
+              onRetry={onRetry}
+              onChange={(next) => {
+                setValue(`stages.${stage}`, next ?? { provider: '', model: '' }, {
                   shouldDirty: true,
                 })
                 onAutoEdit()
               }}
+              note={
+                reset.includes(stage) &&
+                !choice.provider && (
+                  <Small role="status">Its provider was turned off, so it now uses Default.</Small>
+                )
+              }
             />
-            {reset.includes(stage) && !choice.provider && (
-              <Small role="status">Its provider was turned off, so it now uses Default.</Small>
-            )}
           </Step>
         )
       })}
@@ -65,10 +89,5 @@ const Steps = styled.div`
 `
 
 const Step = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${space[2]};
-  small {
-    color: ${color.muted};
-  }
+  min-width: 0;
 `

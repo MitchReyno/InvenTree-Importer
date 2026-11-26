@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import {
-  AGENT_MODEL_SUGGESTIONS,
+  DEFAULT_MODEL_BEFORE_SAVE,
   AGENT_SETTINGS_STAGES,
   validate,
   type AgentProviderId,
@@ -37,7 +37,7 @@ function providerOff(provider: AgentProviderId): AgentProviderSettingsDto {
   return {
     enabled: false,
     authentication: 'subscription',
-    default_model: AGENT_MODEL_SUGGESTIONS[provider][0],
+    default_model: DEFAULT_MODEL_BEFORE_SAVE[provider],
   }
 }
 
@@ -174,7 +174,7 @@ function legacySelection(input: AgentSettingsUpdateDto): AgentSelectionDto | und
 const FIRST_SAVE_FALLBACK: AgentSelectionDto = {
   provider: 'claude',
   authentication: 'subscription',
-  model: AGENT_MODEL_SUGGESTIONS.claude[0],
+  model: DEFAULT_MODEL_BEFORE_SAVE.claude,
 }
 
 /** Save receipts kept per settings scope: the newest this many, for at most a week. */

@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path'
 import { BUILT_IN_MODEL_CATALOG, type AgentCatalogModelDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { singleProvider } from '../support/agent-settings.ts'
-import { saveAgentSettings } from '#/agents/settings.ts'
+import { readAgentSettings, saveAgentSettings } from '#/agents/settings.ts'
 import { readModelCatalog, refreshModelCatalog } from '#/agents/model-catalog/api.ts'
 import { CatalogReadError } from '#/agents/model-catalog/normalise.ts'
 import {
@@ -312,6 +312,54 @@ test('the API may only read the table and request a refresh, which can invalidat
     ]),
     { code: '42501' },
   )
+})
+
+test('a sign-in dialog’s invalidation marks the sign-in method it changed, not the one saved', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const { reader } = fakeReader('rev-a')
+  const catalog = worker(fixture, () => reader)
+  t.after(() => catalog.close())
+  await round(catalog)
+
+  async function useAuthentication(authentication: 'subscription' | 'api_key') {
+    const saved = await readAgentSettings(fixture.api.pool, fixture.config)
+    await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        expected_revision: saved.revision,
+        selection: { provider: 'claude', authentication, model: 'claude-opus-5-5' },
+      }),
+    )
+  }
+
+  // The subscription token is replaced while the API key is the saved method.
+  await useAuthentication('api_key')
+  const receipt = await refreshModelCatalog(fixture.api.pool, fixture.config, {
+    provider: 'claude',
+    authentication: 'subscription',
+    invalidate: true,
+  })
+  assert.deepEqual(receipt, {
+    provider: 'claude',
+    authentication: 'subscription',
+    stale_sign_in: true,
+  })
+  const rows = await fixture.db.pool.query<{ authentication: string; stale_sign_in: boolean }>(
+    'SELECT authentication, stale_sign_in FROM agent_model_catalog WHERE provider=$1',
+    ['claude'],
+  )
+  assert.deepEqual(
+    rows.rows.filter((row) => row.stale_sign_in).map((row) => row.authentication),
+    ['subscription'],
+  )
+
+  // Switching back never shows the old token's list as current.
+  await useAuthentication('subscription')
+  const answer = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(answer.claude.state, 'stale_sign_in')
 })
 
 test('a refresh request is read and cleared, and one made during the read stays', async (t) => {

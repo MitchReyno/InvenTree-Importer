@@ -1,4 +1,4 @@
-import { useId, useMemo, type KeyboardEvent, type ReactNode, type Ref } from 'react'
+import { useId, useMemo, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 import Select, {
   type GroupBase,
   type InputActionMeta,
@@ -38,6 +38,13 @@ export type SearchablePickerProps<O> = {
   getOptionValue: (option: O) => string
   isOptionDisabled?: (option: O) => boolean
   formatGroupLabel?: (group: GroupBase<O>) => ReactNode
+  /** Draws an option in the menu or as the chosen value; its label stays its accessible name. */
+  formatOptionLabel?: (option: O, context: 'menu' | 'value') => ReactNode
+  /**
+   * Options that act within the menu, such as showing a folded group, rather than choosing: the
+   * menu stays open and the search is kept when one is picked.
+   */
+  keepsMenuOpen?: (option: O) => boolean
   disabled?: boolean
   loading?: boolean
   loadingMessage?: () => string
@@ -74,6 +81,8 @@ export function SearchablePicker<O>({
   getOptionValue,
   isOptionDisabled,
   formatGroupLabel,
+  formatOptionLabel,
+  keepsMenuOpen,
   disabled = false,
   loading = false,
   loadingMessage,
@@ -93,10 +102,15 @@ export function SearchablePicker<O>({
   // Stable for the picker's life: a new Input component would remount the field and lose focus.
   const parts = useMemo(() => ({ Input: DescribedInput<O> }), [])
   const styles = useMemo(() => pickerStyles<O>(compact), [compact])
+  // With in-menu actions the picker owns the menu, so such a pick leaves it open.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const ownsMenu = keepsMenuOpen !== undefined
 
   function changeInput(next: string, meta: InputActionMeta) {
     if (meta.action === 'input-change') {
       onInputChange(next)
+    } else if (meta.action === 'set-value' && ownsMenu) {
+      // Cleared in `pick`, once it is known whether the option chose anything.
     } else if (
       meta.action === 'set-value' ||
       meta.action === 'input-blur' ||
@@ -141,10 +155,25 @@ export function SearchablePicker<O>({
         inputValue={inputValue}
         onInputChange={changeInput}
         onChange={(option) => {
-          if (option) {
-            onChange(option)
+          if (!option) {
+            return
           }
+          if (ownsMenu && !keepsMenuOpen(option)) {
+            onInputChange('')
+            setMenuOpen(false)
+          }
+          onChange(option)
         }}
+        {...(ownsMenu
+          ? {
+              menuIsOpen: menuOpen,
+              onMenuOpen: () => setMenuOpen(true),
+              onMenuClose: () => setMenuOpen(false),
+              closeMenuOnSelect: false,
+              // A touch device's pick would blur the field, closing the menu an in-menu action keeps.
+              blurInputOnSelect: false,
+            }
+          : {})}
         filterOption={null}
         // Tab leaves the field, as it does a native select; only Enter or a click picks.
         tabSelectsValue={false}
@@ -152,6 +181,9 @@ export function SearchablePicker<O>({
         getOptionValue={getOptionValue}
         isOptionDisabled={isOptionDisabled}
         formatGroupLabel={formatGroupLabel}
+        formatOptionLabel={
+          formatOptionLabel && ((option, meta) => formatOptionLabel(option, meta.context))
+        }
         isDisabled={disabled}
         isLoading={loading}
         loadingMessage={loadingMessage}

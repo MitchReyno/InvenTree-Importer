@@ -6,10 +6,11 @@ import { render } from '#/test/render'
 import { ChatGPTSignIn } from './ChatGPTSignIn'
 import { KEY_PAUSE_MS } from './usePersonalClaudeCredential'
 import { resetRunnerQueue } from './useChatGPTSignIn'
+import { deferred } from '#/test/deferred'
 
 let send: Mock<typeof fetch>
-let onConfirmed: Mock<() => void>
-let onChanged: Mock<() => void>
+let onConfirmed: Mock<() => void | Promise<boolean | void>>
+let onChanged: Mock<() => void | Promise<boolean | void>>
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -103,12 +104,87 @@ it('closes by itself once a poll confirms the account', async () => {
   expect(send).toHaveBeenCalledTimes(4)
 })
 
+it('stays open with its key and Disconnect held until the confirmed account is recorded', async () => {
+  const recording = deferred<void>()
+  const confirmed = vi.fn(() => recording.promise)
+  send.mockResolvedValueOnce(signedOut()).mockResolvedValueOnce(challenge())
+  render(<ChatGPTSignIn onConfirmed={confirmed} onChanged={onChanged} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByText('TEST-CODE')).toBeVisible()
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  await wait(6000)
+  expect(confirmed).toHaveBeenCalledTimes(1)
+  expect(screen.getByText('Signed in to ChatGPT. Updating the model list…')).toBeVisible()
+  // Nothing can change the account, or end its sign-in, until it is recorded.
+  expect(screen.getByRole('button', { name: 'Disconnect ChatGPT' })).toBeDisabled()
+  expect(screen.getByLabelText('Codex runner management key')).toBeDisabled()
+  await act(async () => recording.resolve())
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('stays open to say the model list may be out of date when it couldn’t be marked', async () => {
+  const confirmed = vi.fn(async () => false)
+  send.mockResolvedValueOnce(signedOut()).mockResolvedValueOnce(challenge())
+  render(<ChatGPTSignIn onConfirmed={confirmed} onChanged={onChanged} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByText('TEST-CODE')).toBeVisible()
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  await wait(6000)
+  expect(confirmed).toHaveBeenCalledTimes(1)
+  expect(
+    screen.getByText('Codex’s model list may be out of date for up to a minute.'),
+  ).toBeVisible()
+  expect(screen.getByRole('dialog')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Disconnect ChatGPT' })).toBeEnabled()
+})
+
 it('an account already signed in is shown, not closed', async () => {
   send.mockResolvedValueOnce(Response.json({ state: 'connected' }))
   openDialog()
   await enterKey()
   expect(await screen.findByText('Signed in to ChatGPT')).toBeVisible()
   expect(onConfirmed).not.toHaveBeenCalled()
+})
+
+it('a disconnect whose model list couldn’t be marked says the list may be out of date', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+    .mockResolvedValueOnce(signedOut())
+  onChanged.mockResolvedValue(false)
+  openDialog()
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Disconnect ChatGPT' }))
+  expect(
+    await screen.findByText('Codex’s model list may be out of date for up to a minute.'),
+  ).toBeVisible()
+  expect(sent().at(-1)).toEqual({ action: 'disconnect' })
+})
+
+it('holds its key and controls while a disconnect is recorded, then says the list may be out of date', async () => {
+  const recording = deferred<boolean>()
+  onChanged.mockReturnValue(recording.promise)
+  send
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+    .mockResolvedValueOnce(signedOut())
+  openDialog()
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Disconnect ChatGPT' }))
+  await wait(0)
+  expect(sent().at(-1)).toEqual({ action: 'disconnect' })
+  expect(screen.getByLabelText('Codex runner management key')).toBeDisabled()
+  await act(async () => recording.resolve(false))
+  expect(
+    screen.getByText('Codex’s model list may be out of date for up to a minute.'),
+  ).toBeVisible()
+  expect(screen.getByLabelText('Codex runner management key')).toBeEnabled()
 })
 
 it('closing mid-sign-in makes one final poll, cancels the pending login and has the card read again', async () => {
