@@ -97,6 +97,7 @@ test('session profiles are stored with instruction bytes matching their digests'
         ['shared-vm-agent/1', 'native_unverified', 'native-session-tools/1'],
         ['shared-vm-agent/2', 'native_unverified', 'native-session-tools/1'],
         ['shared-vm-agent/3', 'native_unverified', 'native-session-web-tools/1'],
+        ['shared-vm-agent/4', 'native_unverified', 'native-session-stage-tools/1'],
         ['synthetic-session/1', 'fixture_only', 'native-session-tools/1'],
       ],
     )
@@ -475,8 +476,8 @@ test('the session migration upgrades a database already at the previous migratio
     const after = await db.pool.query<{ id: string }>(
       'SELECT id FROM processing_profile ORDER BY id',
     )
-    // native-agent/2, shared-vm-agent/1, /2 and /3, and synthetic-session/1.
-    assert.equal(after.rows.length, Number(before.rows[0].count) + 5)
+    // native-agent/2, shared-vm-agent/1 to /4, and synthetic-session/1.
+    assert.equal(after.rows.length, Number(before.rows[0].count) + 6)
     const nullable = await db.pool.query<{ is_nullable: string }>(
       "SELECT is_nullable FROM information_schema.columns WHERE table_name='processing_job' AND column_name='subject_id'",
     )

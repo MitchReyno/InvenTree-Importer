@@ -174,3 +174,73 @@ test('a brief read names a lot, and pages by a token or the sealed revision', ()
     newer: { revision: '13' },
   })
 })
+
+test('input /7 also seals the stage profile shared-vm-agent/4 with its provider selection', () => {
+  const selection = { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' }
+  const stageProfile = {
+    ...input,
+    profile_id: 'shared-vm-agent/4',
+    instruction_version: 'shared-vm-agent/4',
+    agent: selection,
+    settings_revision: '3',
+    web: { public_pages: false, prefer_datasheets: false },
+  }
+  validate('ProcessingInputV7', stageProfile)
+  // The stage profile always seals a provider; the synthetic one never does.
+  assert.throws(() =>
+    validate('ProcessingInputV7', { ...stageProfile, agent: null, settings_revision: null }),
+  )
+  assert.throws(() => validate('ProcessingInputV7', { ...input, agent: selection }))
+  assert.throws(() =>
+    validate('ProcessingInputV7', { ...stageProfile, instruction_version: 'synthetic-session/1' }),
+  )
+})
+
+test('a vocabulary entry cites a catalogue observation the brief can reference', () => {
+  const entry = {
+    kind: 'vocabulary',
+    reference: { observation_id: id(60), target_context_id: id(61), model: 'company', pk: '7' },
+    label: 'Diodes Incorporated',
+    mapping: { kind: 'company', manufacturer: true, supplier: false },
+  }
+  validate('SessionBrief', {
+    schema_version: 'bench-intake-brief/1',
+    stage: 'research',
+    lot_id: id(4),
+    revision: '12',
+    sections: sections.map((section) =>
+      section.name === 'vocabulary' ? { ...section, count: 1 } : section,
+    ),
+    entries: [entry],
+  })
+  const { mapping: _mapping, ...unmapped } = entry
+  validate('BriefPage', {
+    schema_version: 'bench-intake-brief-page/1',
+    index: 1,
+    entries: [unmapped],
+  })
+  // A Part or a location is not vocabulary.
+  for (const model of ['part', 'location']) {
+    assert.throws(() =>
+      validate('BriefPage', {
+        schema_version: 'bench-intake-brief-page/1',
+        index: 1,
+        entries: [{ ...unmapped, reference: { ...entry.reference, model } }],
+      }),
+    )
+  }
+})
+
+test('read_guide names a section or none, and read_vocabulary filters by kind and name', () => {
+  validate('SessionReadGuideArgs', {})
+  validate('SessionReadGuideArgs', { section: 'logo-look-alikes' })
+  assert.throws(() => validate('SessionReadGuideArgs', { section: 'Logo look-alikes' }))
+  assert.throws(() => validate('SessionReadGuideArgs', { section: 'logos', stage: 'images' }))
+  validate('SessionReadVocabularyArgs', {})
+  validate('SessionReadVocabularyArgs', { kind: 'category', search: 'diod' })
+  validate('SessionReadVocabularyArgs', { kind: 'company', page_token: 'eyJhIjoxfQ' })
+  assert.throws(() => validate('SessionReadVocabularyArgs', { kind: 'part' }))
+  assert.throws(() => validate('SessionReadVocabularyArgs', { search: '' }))
+  assert.throws(() => validate('SessionReadVocabularyArgs', { search: 'x'.repeat(101) }))
+  assert.throws(() => validate('SessionReadVocabularyArgs', { page_token: 'a b' }))
+})

@@ -85,6 +85,54 @@ A sealed brief keeps its bytes, but nothing of evidence removed since reaches th
 
 - The canvas's "collapsed after the first visit" (open on the first) isn't built; it needs a decision on remembering visits per viewer.
 
+## Task 7 (PR-G1): the stage profile, packs and guides
+
+### Mitch's decisions on the wording (2026-11-26)
+
+Mitch reviewed the draft base instructions, stage packs and guide sections and approved them, with these choices:
+
+1. **The opening under `/4`.** The packs carry the lead's instructions, the ask guidance and the catalogue guidance, so a `shared-vm-agent/4` opening leaves those three out and keeps the brief, status-line, inbox, description-style and web lines. `synthetic-session/1`'s opening is unchanged.
+2. **Web search for Examine.** Allowed only to read an unfamiliar logo or marking, never to work out what the part is. Images researches nothing.
+3. **Ask guidance** is sealed in the base. The `ask` tool's description keeps its unsealed copy, which isn't version-bound: only the base's copy changes with a new profile.
+4. **Tags aren't Examine's.** Examine reports NOS signals, the seal and a visible NSN, never tags; tags are derived by rule in Records.
+5. **Quantity.** Examine never claims a count. "Counted from the photo" is the estimate's basis, not an exact quantity.
+6. **The vocabulary is the batch's.** It is the batch's retained catalogue observations (at most 100 read observations), not the whole InvenTree catalogue. Full-catalogue reads are an open item below.
+7. **The Research guide has nine sections**, each under about 1.8 KB: modes, nsn-and-data-books, datasheets, identity-and-specifications, naming-and-notes, vocabulary-and-gaps, logos, logo-look-alikes and same-part.
+8. **The brief's vocabulary section** is filled in this PR, from the same lookup `read_vocabulary` uses.
+
+### Wording after review
+
+- The Examine pack said to pass `base_revision` "on every write", but only `record_observation`, `propose_lot` and `regroup` take it (the strict `propose`, `ask` and `reply` contracts refuse it). The pack now names those three. This is a correction to the approved text, not a change of what it asks for.
+- The Research guide's vocabulary section said a record missing from the vocabulary was missing from the inventory. The vocabulary is only what the batch has looked up, so it now says to report such a gap as not in the batch's vocabulary, and to check the vocabulary's templates before naming a new one.
+- The Research pack's `config_gaps` line now says the same as the guide: a gap is what the batch's vocabulary doesn't hold, not what the inventory lacks.
+- The base's no-repeat rule now says a question covering the same subject and any of the same fields, as the spec says, not only the same lot and fields.
+- The Examine pack said a response with `suggested: true` changed nothing else. One `propose_lot` or `regroup` call can apply some changes and turn others into suggestions, so the pack now says to read the batch again before relying on its lots. The opening's unsealed lead instructions for earlier profiles keep the older sentence.
+- The Examine pack and the quantities guide said an observation marked `same_item_as` counts once by the one it names. `lotItemCount` counts such a group once by its largest visible count, so both now say that.
+- The base keeps the `/3` web lines for every stage, as approved; the Examine and Images packs limit their stages' web use. Until the web gates admit `/4` (PR-G2), its inputs seal web research off and its opening carries no web line.
+
+### Guides are sealed as a whole
+
+The guide table's rows can't be changed or deleted, but a row could still be added for a profile. So `processing/stage-policy.ts` records each stage guide's digest (`stageGuides`): the SHA-256 of the canonical ordered list of its sections' names, titles and text digests. `read_guide` serves a guide only while its stored sections give that digest; otherwise the call fails (`tool_failed`) rather than serve a section the profile wasn't sealed with.
+
+### `read_vocabulary`'s lookup interface
+
+- **Both a filter and paging.** `read_vocabulary({ kind?, search?, page_token? })`. `kind` is category, parameter_template, category_parameter or company; `search` (1–100 characters) keeps entries whose label contains it as literal text under Unicode case folding, so a capital sigma finds a final one. Results come 50 to a page (`VOCABULARY_PAGE_SIZE`), ordered by kind, label and observation, with the total and a `next_page_token` while more remain.
+- **Tokens** are the cursor as canonical JSON in base64url: a digest of the kind and search, a digest of the matching list (its observations in order) and the offset. Digests keep a token within the 512-character token bound whatever the search. A token continues only the kind and search it came with; any other call with it is a correctable `validation_failed`. When the matching records change between pages, the token is refused as `stale` and the session reads again from the first page, so no entry is repeated or skipped. Tokens aren't bound to the attempt: the read is of the session's own batch and writes nothing.
+- **Current, not sealed.** The brief's vocabulary section is the list as sealed; `read_vocabulary` reads it again from the batch now, in one query of its read observations (`observationsInTransaction`), with the same projection (`processing/vocabulary.ts`), so a lot added during the read can't fail it. Observations from an earlier target context are left out, since a proposal can't cite them.
+
+### How `/4` is reached before activation
+
+- `configuredInputVersion` seals `/7` for `shared-vm-agent/4` when `ProcessingConfig.stageInputs` is `local`, as for `synthetic-session/1`. Configuration can't select `/4` (`INTAKE_PROCESSING_PROFILE` refuses it, with or without the switch), so only tests reach it.
+- `/4` is stage-only: sealing a `/6` input for it is refused as `unsupported_processing_profile`, and its `/6` fields are checked only as part of the `/7` input.
+- `webAccess()` stays `/3`-only until PR-G2 changes the web-policy gates together, so `/4` inputs seal web research off. The packs and base keep the web lines; they apply once activation turns the gates on.
+- Tests run `/4` sessions with the synthetic driver (`formedBatch` takes the profile). Admission, pairing and the VM path stay PR-G2's.
+
+### Open items
+
+- **Full-catalogue vocabulary.** The vocabulary is the batch's observed catalogue records (at most 100 read observations), not InvenTree's whole catalogue. Reading the full catalogue needs an InvenTree reader in the API process, since the session worker has none; until then Research mostly proposes new categories and reports gaps.
+- **The ask picture wording.** The base keeps BI-019's ask guidance as approved, which asks for a caption "naming what to look at and why it is shown", while a figure has separate `caption` and `why` fields. The `ask` tool's schema names both; a later profile may say so in the base.
+- **The session page doesn't list vocabulary entries.** The brief on the session page (PR-H) shows the entries it knows; a Research brief's vocabulary entries are left out of the opened card, and its collapsed line doesn't count them.
+
 ## Task 5 (PR-E1) status
 
 Merged in #274. Task 5 (PR-E1) adds recipe `/2` and the decoder operations behind `inspect_region`, `preview_images` and `match_logo`; nothing outside tests calls them yet. Task 1 (PR-A) is recorded above.

@@ -3,7 +3,7 @@ import type { processingFixture } from './processing.ts'
 import { processingSubjectScope, sealed } from '#/processing/model.ts'
 import { transaction } from '#/db/database.ts'
 import { resolveMediaInputs } from '#/media/inputs.ts'
-import { sessionLotInputManifest } from '#/processing/session-input.ts'
+import { sessionInputV6, sessionLotInputManifest } from '#/processing/session-input.ts'
 import type { CaptureBinding } from '#/capture/model.ts'
 
 type ProcessingFixture = Awaited<ReturnType<typeof processingFixture>>
@@ -40,12 +40,14 @@ export async function lotSession(
       capture.batch.id,
       processingSubjectScope(capture.batch, lot.id),
     )
-    const manifest = sessionLotInputManifest(
-      capture.batch,
-      lot.id,
-      stage,
-      { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
-      profile,
+    const manifest = sessionInputV6(
+      sessionLotInputManifest(
+        capture.batch,
+        lot.id,
+        stage,
+        { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
+        profile,
+      ),
     )
     const input = sealed(manifest)
     const command = sealed({ fixture: 'session-tools-command', attempt_id: ids.attempt })
@@ -174,12 +176,14 @@ export async function leadSession(
       capture.batch.id,
       processingSubjectScope(capture.batch, capture.packetA.id),
     )
-    const lot = sessionLotInputManifest(
-      capture.batch,
-      capture.packetA.id,
-      'research',
-      { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
-      profile,
+    const lot = sessionInputV6(
+      sessionLotInputManifest(
+        capture.batch,
+        capture.packetA.id,
+        'research',
+        { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
+        profile,
+      ),
     )
     const input = sealed({
       ...lot,
@@ -345,12 +349,14 @@ export async function nextSessionAttempt(
       capture.batch.id,
       processingSubjectScope(capture.batch, lot.id),
     )
-    const manifest = sessionLotInputManifest(
-      capture.batch,
-      lot.id,
-      'research',
-      { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
-      profile,
+    const manifest = sessionInputV6(
+      sessionLotInputManifest(
+        capture.batch,
+        lot.id,
+        'research',
+        { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
+        profile,
+      ),
     )
     const input = sealed(manifest)
     const command = sealed({ fixture: 'history-attempt', attempt_id: ids.attempt })

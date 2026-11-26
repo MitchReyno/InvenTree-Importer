@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import type {
-  AgentSettingsDto,
-  CaptureSnapshotDto,
-  ProcessingInputV6Dto,
-} from '@invimport/contracts'
+import type { AgentSettingsDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { commands, outbox } from '#/db/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -18,12 +14,18 @@ import { processingAttempts, processingInputs } from './schema.ts'
 import { assembleBrief } from './brief.ts'
 import { withdrawRetiredInstructions } from '#/agents/instructions.ts'
 import { briefPages, sealBrief, storeInputPages, type SealedBriefPage } from './brief-pages.ts'
-import { configuredInputVersion, stagePacks, type SessionInputVersion } from './stage-policy.ts'
+import {
+  configuredInputVersion,
+  stageOnlyProfile,
+  stagePacks,
+  type SessionInputVersion,
+} from './stage-policy.ts'
 import {
   briefScope,
   stageInputManifest,
   sessionLeadInputManifest,
   sessionLotInputManifest,
+  type SessionInputFields,
   type SessionInputProfile,
   type SessionLotStage,
 } from './session-input.ts'
@@ -94,9 +96,12 @@ export async function prepareSessionAttempt(
   if (!lead && (job.subject_id === null || !LOT_STAGES.includes(job.stage as Stage))) {
     fail('unsupported_processing_stage', 422)
   }
-  // Checked before provider settings: no saved setting makes an incompatible profile seal `/7`.
+  // Checked before provider settings: no saved setting makes an incompatible profile seal `/7`,
+  // and a stage-only profile seals nothing else.
   if (inputVersion === 'bench-intake-input/7') {
     requireStageInputs(config, profileId)
+  } else if (stageOnlyProfile(profileId)) {
+    fail('unsupported_processing_profile', 422)
   }
   const descriptor = { manifest: media.manifest, sha256: media.manifestDigest }
   let profile: SessionInputProfile = { id: 'synthetic-session/1' }
@@ -167,7 +172,7 @@ async function sealStageInput(
   client: PoolClient,
   config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
-  base: ProcessingInputV6Dto,
+  base: SessionInputFields,
   profileId: SessionProfileId,
   supersedingJobId: string | undefined,
 ): Promise<SealedSessionInput> {
