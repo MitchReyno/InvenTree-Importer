@@ -252,7 +252,7 @@ it('a confirmation still settling when the dialog is closed never closes it once
     () =>
       new Promise<void>((resolve) => {
         settle = resolve
-      }) as unknown as void,
+      }),
   )
   openDialog()
   await enterKey()
