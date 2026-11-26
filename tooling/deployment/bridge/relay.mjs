@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import { Duplex } from 'node:stream'
+import { StringDecoder } from 'node:string_decoder'
 import { connect } from 'node:net'
 import { spawn } from 'node:child_process'
 import { once, setMaxListeners } from 'node:events'
@@ -331,23 +332,37 @@ function guestArgs(runId) {
   ]
 }
 
+/** A longer unfinished line can't be the claim report, so it is forwarded instead of kept. */
+const MAX_HELD_LINE_CHARS = 4096
+
 /** Forwards the guest's standard error by line, except its claim report, which calls `onClaimed`. */
 function watchGuestErrors(stream, onClaimed) {
+  const decoder = new StringDecoder('utf8')
   let partial = ''
+
+  const forward = (text) => {
+    process.stderr.write(text)
+  }
+
   stream.on('data', (bytes) => {
-    const lines = (partial + bytes).split('\n')
+    const lines = (partial + decoder.write(bytes)).split('\n')
     partial = lines.pop()
     for (const line of lines) {
       if (line === TURN_CLAIMED_MARKER) {
         onClaimed()
       } else {
-        process.stderr.write(line + '\n')
+        forward(line + '\n')
       }
+    }
+    if (partial.length > MAX_HELD_LINE_CHARS) {
+      forward(partial)
+      partial = ''
     }
   })
   stream.on('end', () => {
-    if (partial) {
-      process.stderr.write(partial + '\n')
+    const rest = partial + decoder.end()
+    if (rest) {
+      forward(rest + '\n')
     }
   })
 }
@@ -364,11 +379,24 @@ async function connectLane() {
   return undefined
 }
 
+/**
+ * How long a guest launcher gets to exit once its connection has closed before it is stopped.
+ * It covers the guest's own cleanup, including the paired supervisor's 12 s removal-receipt wait.
+ */
+const GUEST_EXIT_MS = 60_000
+
 /** Carries one turn connection until its guest exits; resolves whether the guest was claimed. */
 async function carryTurn(socket, onClaimed) {
   const runId = randomUUID()
   let claimed = false
   const child = spawn('limactl', guestArgs(runId), { stdio: ['pipe', 'pipe', 'pipe'] })
+  // A launcher that can't be started reports an error, and may not close.
+  const exited = new Promise((resolve) => {
+    child.once('close', resolve)
+    child.once('error', resolve)
+  })
+  child.stdout.on('error', () => {})
+  child.stderr.on('error', () => {})
   watchGuestErrors(child.stderr, () => {
     if (!claimed) {
       claimed = true
@@ -390,15 +418,28 @@ async function carryTurn(socket, onClaimed) {
       stop.on('error', () => {})
     }
   }
-  socket.once('close', stopGuest)
+  let exitTimer
+  let guestExited = false
+  socket.once('close', () => {
+    stopGuest()
+    // A launcher that outlives its connection by this much is stopped, so the lane comes back.
+    if (!guestExited) {
+      exitTimer = setTimeout(() => void stopChild(child, exited), GUEST_EXIT_MS)
+    }
+  })
   socket.once('end', () => socket.destroy())
   const terminate = () => socket.destroy()
   stopping.signal.addEventListener('abort', terminate, { once: true })
-  socket.pipe(child.stdin)
-  child.stdout.pipe(socket)
-  await once(child, 'close')
-  stopping.signal.removeEventListener('abort', terminate)
-  socket.destroy()
+  try {
+    socket.pipe(child.stdin)
+    child.stdout.pipe(socket)
+    await exited
+  } finally {
+    guestExited = true
+    stopping.signal.removeEventListener('abort', terminate)
+    socket.destroy()
+    clearTimeout(exitTimer)
+  }
   return claimed
 }
 

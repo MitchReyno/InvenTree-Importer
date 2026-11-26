@@ -149,6 +149,8 @@ export async function startSessionBridge(
   const idle = new Map<TLSSocket, Frames>()
   // Turn connections that reached the idle pool and are still open, idle or busy.
   const admittedTurns = new Set<TLSSocket>()
+  // Turn connections ever admitted per route, so a waiter sees one that came and went unsampled.
+  const routeAdmissions = new Map<string, number>()
   const rich = new WeakSet<TLSSocket>()
   const reapPeers = new WeakSet<TLSSocket>()
   const probePeers = new WeakSet<TLSSocket>()
@@ -243,6 +245,8 @@ export async function startSessionBridge(
           }
           socket.setTimeout(0) // The greeting deadline ends once the peer is admitted.
           admittedTurns.add(socket)
+          const key = socketRouteKey(socket)
+          routeAdmissions.set(key, (routeAdmissions.get(key) ?? 0) + 1)
           idle.set(socket, frames)
         } catch {
           socket.destroy()
@@ -521,6 +525,14 @@ export async function startSessionBridge(
     return [...admittedTurns].some((socket) => servesRoute(socket, route))
   }
 
+  function socketRouteKey(socket: TLSSocket) {
+    return routeKey({ subscription: subscriptions.get(socket), toolWorker: rich.has(socket) })
+  }
+
+  function admissionsOf(route: GuestRoute) {
+    return routeAdmissions.get(routeKey(route)) ?? 0
+  }
+
   /**
    * Whether the guest confirms the worker of an earlier turn removed, for the exact command that
    * turn sent (as recorded on its slot). Only `worker_removed` confirms; anything else, an
@@ -561,6 +573,7 @@ export async function startSessionBridge(
 
     const available = (probe = false, reap = false) => idlePeer(context.manifest, probe, reap)
 
+    const admittedBefore = admissionsOf(route)
     let connection = available()
     // A busy connection of the route at any point shows its relay is running.
     let relaySeen = routeConnected(route)
@@ -570,6 +583,8 @@ export async function startSessionBridge(
       relaySeen ||= routeConnected(route)
     }
     if (!connection) {
+      // So does one admitted during the wait, even if it closed between samples.
+      relaySeen ||= admissionsOf(route) !== admittedBefore
       throw noConnection(route, relaySeen)
     }
     const [socket, frames] = connection
@@ -846,6 +861,10 @@ function noConnection(route: GuestRoute, relaySeen: boolean) {
 }
 
 type GuestRoute = ReturnType<typeof guestRoute>
+
+function routeKey(route: { subscription: unknown; toolWorker: boolean }) {
+  return `${String(route.subscription ?? 'none')}:${route.toolWorker ? 'tools' : 'plain'}`
+}
 
 /** The guest route a manifest needs: a tool worker for `/3`, and its subscription relay if any. */
 function guestRoute(manifest: { profile_id?: unknown; agent?: unknown }) {

@@ -7,6 +7,7 @@ import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { runSessionTurn } from '#/agents/session/session-runner.ts'
 import { SessionCapacityUnavailable } from '#/agents/session/session-adapters.ts'
+import { wakePendingSessions } from '#/agents/session/session-execution.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
@@ -89,4 +90,29 @@ test('a turn that finds no free connection goes back to the queue as if it never
     [attempt],
   )
   assert.deepEqual(resume.rows, [{ from_state: 'finished' }])
+
+  // The wake sweep gives it a fresh workflow once its command workflow has ended, once a minute.
+  const command = await fixture.db.pool.query<{ workflow_id: string }>(
+    `SELECT command.workflow_id FROM command
+       JOIN processing_attempt attempt ON attempt.command_id = command.id
+      WHERE attempt.id=$1`,
+    [attempt],
+  )
+  const workflows = new Map<string, string>([[command.rows[0].workflow_id, 'SUCCESS']])
+  const enqueued: string[] = []
+  const scheduler = {
+    getWorkflow: async (id: string) =>
+      workflows.has(id) ? { status: workflows.get(id) } : undefined,
+    enqueue: async (options: { workflowID: string }) => {
+      enqueued.push(options.workflowID)
+      workflows.set(options.workflowID, 'SUCCESS')
+    },
+  }
+  await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+  await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+  // One per minute bucket: two only if the sweeps straddled a minute.
+  assert.ok(enqueued.length >= 1 && new Set(enqueued).size === enqueued.length, String(enqueued))
+  for (const id of enqueued) {
+    assert.match(id, new RegExp(`^resume:${attempt}:0:`))
+  }
 })

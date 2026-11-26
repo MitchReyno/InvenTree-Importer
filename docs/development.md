@@ -115,7 +115,7 @@ When anything is out of date it first checks the operator key as `pnpm vm:setup`
 Then it starts:
 
 - `vm-tunnel`: forwards loopback ports 14315 and 14317 to the guest, for **Settings › Agents**;
-- `vm-relay-claude` and `vm-relay-codex`: one relay each, using `INTAKE_VM_PORT`, with the tool worker unless `INTAKE_VM_AGENT_TOOLS=false`. Each carries as many turns at once as **Sessions at once** allows (up to 8, or `INTAKE_VM_RELAY_TURNS`), keeping one guest turn ready while idle. A turn that finds them all busy goes back to the queue. Concurrent turns need VM memory: each tool turn may use up to about 1 GiB.
+- `vm-relay-claude` and `vm-relay-codex`: one relay each, using `INTAKE_VM_PORT`, with the tool worker unless `INTAKE_VM_AGENT_TOOLS=false`. Each carries as many turns at once as **Sessions at once** allows (the relay's default capacity of 8 covers any setting), keeping one guest turn ready while idle. The launcher doesn't pass `INTAKE_VM_RELAY_TURNS`; lower **Sessions at once** to run fewer turns. A turn that finds them all busy goes back to the queue. Concurrent turns need VM memory: each tool turn may use up to about 1 GiB.
 
 They keep running through source reloads. If one of them exits, for example because the VM was stopped elsewhere, the app stops with `<name> stopped; stopping the app.` Lima's own messages appear with a `[limactl]` prefix, so a slow or failed boot shows its progress and cause.
 

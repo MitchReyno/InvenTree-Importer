@@ -143,6 +143,15 @@ async function turnLog(root: string) {
   return turns
 }
 
+/** Resolves once the fake guest has logged the attempt's turn as started. */
+async function started(root: string, attemptId: string) {
+  const deadline = Date.now() + 60_000
+  while (!(await turnLog(root)).get(attemptId)?.start) {
+    assert.ok(Date.now() < deadline, `turn ${attemptId} never started`)
+    await new Promise((settle) => setTimeout(settle, 100))
+  }
+}
+
 test(
   'two tool turns for one provider run at once through one relay',
   { timeout: 150_000 },
@@ -150,8 +159,8 @@ test(
     const { root, fixture, sessions, run } = await twoSessions(t, HOLD_MS)
     const [first, second] = sessions
     const firstTurn = run(first)
-    // The second starts while the first's guest holds its connection.
-    await new Promise((settle) => setTimeout(settle, 3000))
+    // The second starts once the first's guest has its command, so its connection is taken.
+    await started(root, first)
     const secondTurn = run(second)
     const results = await Promise.all([firstTurn, secondTurn])
     const codes = await failureCodes(fixture, second)
@@ -172,10 +181,10 @@ test(
   'a turn that finds every connection busy goes back to the queue and runs later',
   { timeout: 240_000 },
   async (t) => {
-    const { fixture, sessions, run } = await twoSessions(t, HOLD_MS + 15_000, 1)
+    const { root, fixture, sessions, run } = await twoSessions(t, HOLD_MS + 15_000, 1)
     const [first, second] = sessions
     const firstTurn = run(first)
-    await new Promise((settle) => setTimeout(settle, 3000))
+    await started(root, first)
     // The relay carries one turn, so the second's wait ends with no free connection.
     assert.equal(await run(second), 'queued')
     assert.deepEqual(await sessionRow(fixture, second), {

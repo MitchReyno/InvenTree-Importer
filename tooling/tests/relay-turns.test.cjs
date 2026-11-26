@@ -71,7 +71,7 @@ async function relay(t, port, env = {}) {
       detached: true,
       stdio: ['ignore', 'ignore', 'pipe'],
       env: {
-        PATH: root + ':' + process.env.PATH,
+        PATH: env.PATH ?? root + ':' + process.env.PATH,
         INTAKE_VM_CLAUDE_SUBSCRIPTION: '1',
         INTAKE_VM_BUILTIN_TOOLS: '1',
         FAKE_LANE,
@@ -147,6 +147,15 @@ test('a ready connection the coordinator drops is replaced', async (t) => {
   await until(() => server.open().length === 1, 'first connection')
   server.open()[0].destroy()
   await until(() => server.open().length === 1 && server.sockets.length === 2, 'replacement')
+})
+
+test('a guest launcher that cannot start is retried at a bounded pace', async (t) => {
+  const server = await coordinator(t)
+  // No limactl on the path, so every guest fails to spawn.
+  await relay(t, server.port, { PATH: '/nonexistent' })
+  await delay(2000)
+  // One connection per lane attempt, each followed by the 500 ms wait.
+  assert.ok(server.sockets.length >= 1 && server.sockets.length <= 5, String(server.sockets.length))
 })
 
 test('the relay forwards guest messages and keeps claim reports to itself', async (t) => {

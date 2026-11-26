@@ -758,7 +758,6 @@ export async function runSessionTurn(
             state: agentSessions.sessionState,
             attemptState: processingAttempts.state,
             turnCount: agentSessions.turnCount,
-            queuedSince: agentSessions.queuedSince,
             lineageId: agentSessions.sessionLineageId,
             providerSessionId: agentSessions.nativeSessionId,
             jobId: processingAttempts.jobId,
@@ -1180,7 +1179,11 @@ export async function runSessionTurn(
       // the next one; that turn's state, capability and slot are not this settlement's to change.
       const sessionNow = await executeDatabaseQuery(
         queryDatabase(client)
-          .select({ turnCount: agentSessions.turnCount, state: agentSessions.sessionState })
+          .select({
+            turnCount: agentSessions.turnCount,
+            state: agentSessions.sessionState,
+            queuedSince: agentSessions.queuedSince,
+          })
           .from(agentSessions)
           .where(eq(agentSessions.attemptId, attemptId))
           .for('update'),
@@ -1197,7 +1200,9 @@ export async function runSessionTurn(
         return sessionNow[0]?.state ?? next
       }
       if (unstarted) {
-        return requeueUnstartedTurn(client, current, attemptId)
+        // Read under the session row's lock; the claim to running left it as it was.
+        const queuedSince = sessionNow[0].queuedSince
+        return requeueUnstartedTurn(client, { ...current, queuedSince }, attemptId)
       }
       // A wake's earlier state no longer applies once a turn has run.
       await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
