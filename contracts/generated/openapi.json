@@ -97521,6 +97521,10 @@
                               "type": "string"
                             },
                             {
+                              "const": "agent_vm_unavailable",
+                              "type": "string"
+                            },
+                            {
                               "const": "agent_version_unqualified",
                               "type": "string"
                             },
@@ -98258,6 +98262,10 @@
                                   },
                                   {
                                     "const": "agent_process_unavailable",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_vm_unavailable",
                                     "type": "string"
                                   },
                                   {
@@ -114065,6 +114073,10 @@
                                 },
                                 {
                                   "const": "agent_process_unavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_vm_unavailable",
                                   "type": "string"
                                 },
                                 {
@@ -153818,6 +153830,10 @@
                     "type": "string"
                   },
                   {
+                    "const": "agent_vm_unavailable",
+                    "type": "string"
+                  },
+                  {
                     "const": "agent_version_unqualified",
                     "type": "string"
                   },
@@ -154184,6 +154200,10 @@
               },
               {
                 "const": "agent_process_unavailable",
+                "type": "string"
+              },
+              {
+                "const": "agent_vm_unavailable",
                 "type": "string"
               },
               {

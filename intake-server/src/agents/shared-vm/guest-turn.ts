@@ -33,6 +33,8 @@ export interface GuestTurnOptions {
   policyPath: string
   /** Replaces the provider runner; the default follows `isolated`. */
   runNative?: typeof nativeTurn
+  /** Told once the coordinator has claimed this connection with its first packet. */
+  onClaimed?: () => void
 }
 
 /** Serves exactly one turn or terminal probe on `socket`, then ends it. */
@@ -77,6 +79,7 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     modelCatalog: true,
   })
   const packet = await frames.read()
+  options.onClaimed?.()
   const probe = 'inspectTerminal' in packet
   if (
     probe &&

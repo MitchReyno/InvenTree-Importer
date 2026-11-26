@@ -111,6 +111,7 @@ const CODE_SENTENCES: [code: (typeof SESSION_FAILURE_CODES)[number], sentence: s
   ['agent_login_required', 'Claude needs you to sign in again'],
   ['agent_credentials_unavailable', "Claude's credentials weren't available"],
   ['agent_process_unavailable', "The Claude CLI couldn't be started"],
+  ['agent_vm_unavailable', "Claude's agent VM connection wasn't available"],
   ['agent_version_unqualified', "The Claude CLI version isn't supported"],
   ['agent_version_unavailable', "The Claude CLI's version couldn't be read"],
   ['agent_admission_unavailable', "The Claude CLI refused this session's setup"],

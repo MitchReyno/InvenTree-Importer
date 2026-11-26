@@ -529,3 +529,63 @@ test('a gated Inventory never holds back another lot’s ready Inventory', async
     assert.equal(await claimSessionSlot(client, fixture.config, await inventory(led.id)), true)
   })
 })
+
+test('a republished identity replaces a successor still waiting for its runner, not one that has sent its command', async (t) => {
+  const { fixture, batchId, lot, successors } = await formedBatch(t)
+  const led = await lot('led 0603 red')
+  const before = await successors(led.id)
+  const research = before.find((row) => row.stage === 'research')!
+  const images = before.find((row) => row.stage === 'images')!
+  // Both claimed their first turn; Research still waits for a connection, Images has sent its
+  // command to the VM.
+  for (const [index, row, child] of [
+    [6, research, 'none'],
+    [7, images, 'vm'],
+  ] as const) {
+    await fixture.db.pool.query("UPDATE processing_attempt SET state='running' WHERE id=$1", [
+      row.attempt_id,
+    ])
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='running',turn_count=1 WHERE attempt_id=$1",
+      [row.attempt_id],
+    )
+    await fixture.db.pool.query(
+      `INSERT INTO agent_slot(actor_id,slot_index,attempt_id,claimed_at,turn,turn_child,vm_command)
+       VALUES($1,$2,$3,now(),1,$4,$5)
+       ON CONFLICT (actor_id,slot_index) DO UPDATE SET attempt_id=EXCLUDED.attempt_id,
+         claimed_at=EXCLUDED.claimed_at,turn=EXCLUDED.turn,turn_child=EXCLUDED.turn_child,
+         vm_command=EXCLUDED.vm_command`,
+      [fixture.identity.actor, index, row.attempt_id, child, child === 'vm' ? '{}' : null],
+    )
+  }
+  const next = (
+    await fixture.db.pool.query<{ id: string }>(
+      `SELECT p.id FROM processing_proposal p JOIN processing_attempt a ON a.id=p.attempt_id
+       JOIN processing_job j ON j.id=a.job_id
+       WHERE j.stage='examine' AND p.relies_on->'fields' ? 'quantity' LIMIT 1`,
+    )
+  ).rows[0].id
+  await transaction(fixture.writer.pool, async (client) => {
+    const capture = await lockCaptureForInputSettlement(client, fixture.config, batchId)
+    assert.equal(
+      await onLeadIdentity(
+        client,
+        fixture.config,
+        capture.snapshot,
+        identityFor(led.id, led.observation_set_version!),
+        next,
+      ),
+      'queued',
+    )
+  })
+  const after = await successors(led.id)
+  const nowResearch = after.find((row) => row.stage === 'research')!
+  const nowImages = after.find((row) => row.stage === 'images')!
+  assert.notEqual(nowResearch.attempt_id, research.attempt_id)
+  assert.equal(nowImages.attempt_id, images.attempt_id)
+  const notices = await fixture.db.pool.query<{ kind: string }>(
+    'SELECT kind FROM agent_session_inbox WHERE session_lineage_id=$1',
+    [images.job_id],
+  )
+  assert.ok(notices.rows.some((row) => row.kind === 'revision'))
+})

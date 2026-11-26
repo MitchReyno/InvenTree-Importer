@@ -13,6 +13,7 @@ export const categories: Record<Exclude<SessionFailureCode, 'agent_unknown'>, Ca
   agent_login_required: 'authentication',
   agent_credentials_unavailable: 'authentication',
   agent_process_unavailable: 'configuration',
+  agent_vm_unavailable: 'provider_network',
   agent_version_unqualified: 'configuration',
   agent_version_unavailable: 'configuration',
   agent_admission_unavailable: 'configuration',
@@ -164,6 +165,11 @@ const codeDescriptions: Partial<Record<string, { summary: string; recovery: stri
   agent_profile_retired: {
     summary: 'This step was queued under an agent profile that has since been retired.',
     recovery: 'Run the step again to start it under the current profile. Its history is kept.',
+  },
+  agent_vm_unavailable: {
+    summary: 'The agent VM had no connection for this provider.',
+    recovery:
+      'Check that the VM and its relays are running (pnpm dev starts them), then run the step again.',
   },
 }
 

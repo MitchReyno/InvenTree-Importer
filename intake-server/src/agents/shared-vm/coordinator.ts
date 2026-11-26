@@ -8,7 +8,11 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import type { SessionDriver } from '#/agents/session/session-runner.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
-import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
+import {
+  SessionCapacityUnavailable,
+  SessionResumeUnavailable,
+} from '#/agents/session/session-adapters.ts'
+import { MAX_SESSION_SLOTS } from '#/agents/session/slots.ts'
 import { NativeSessionError, retainedCause, retainedProviderError } from '#/agents/failure-model.ts'
 import { refusalOutcome } from './journal.ts'
 import { pairing } from './pair.ts'
@@ -64,8 +68,11 @@ const CATALOG_TIMING: CatalogTiming = {
 /** What a catalogue request got: the guest's answer, or why there was none. */
 export type BridgeCatalogAnswer = GuestCatalogAnswer
 
-/** Turn connections the bridge holds, as many as the most sessions that can run at once. */
-const MAX_TURN_PEERS = 8
+/**
+ * Turn connections the bridge holds. Busy ones never outnumber the slots, and each relay adds one
+ * ready connection; this leaves room for every relay of a deployment beside the slots' turns.
+ */
+const MAX_TURN_PEERS = 2 * MAX_SESSION_SLOTS
 /** Status connections per provider, apart from turns: its relay's, with room for a reconnect. */
 const MAX_STATUS_PEERS_PER_PROVIDER = 2
 const MAX_STATUS_PEERS = 2 * MAX_STATUS_PEERS_PER_PROVIDER
@@ -78,6 +85,15 @@ const GUEST_ANSWER_MARGIN_MS = 100
 
 /** Under the API's 2 s request, leaving it time to answer. */
 const STATUS_TIMING: StatusTiming = { deadlineMs: 1800, peerWaitMs: 500 }
+
+/** How long a turn waits for a free connection of its route. */
+export interface TurnTiming {
+  toolWorkerPeerWaitMs: number
+  peerWaitMs: number
+}
+
+// A tool relay starts its provider tunnel, worker and paired supervisor for each new connection.
+const TURN_TIMING: TurnTiming = { toolWorkerPeerWaitMs: 45_000, peerWaitMs: 15_000 }
 
 export type BridgeStatusUnknownReason =
   | 'not_configured'
@@ -125,11 +141,16 @@ export async function startSessionBridge(
   options?: SessionBridgeOptions,
   statusTiming: StatusTiming = STATUS_TIMING,
   catalogTiming: CatalogTiming = CATALOG_TIMING,
+  turnTiming: TurnTiming = TURN_TIMING,
 ) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('invalid_bridge_port')
   }
   const idle = new Map<TLSSocket, Frames>()
+  // Turn connections that reached the idle pool and are still open, idle or busy.
+  const admittedTurns = new Set<TLSSocket>()
+  // Turn connections ever admitted per route, so a waiter sees one that came and went unsampled.
+  const routeAdmissions = new Map<string, number>()
   const rich = new WeakSet<TLSSocket>()
   const reapPeers = new WeakSet<TLSSocket>()
   const probePeers = new WeakSet<TLSSocket>()
@@ -161,6 +182,7 @@ export async function startSessionBridge(
         socket.once('close', () => {
           connected.delete(socket)
           turnSockets.delete(socket)
+          admittedTurns.delete(socket)
           statusSockets.delete(socket)
           idle.delete(socket)
           statusPeers.claude.delete(socket)
@@ -222,6 +244,9 @@ export async function startSessionBridge(
             throw new Error('runner_protocol_mismatch')
           }
           socket.setTimeout(0) // The greeting deadline ends once the peer is admitted.
+          admittedTurns.add(socket)
+          const key = socketRouteKey(socket)
+          routeAdmissions.set(key, (routeAdmissions.get(key) ?? 0) + 1)
           idle.set(socket, frames)
         } catch {
           socket.destroy()
@@ -471,13 +496,18 @@ export async function startSessionBridge(
   const transports = new Set<Socket>()
   // Closing the bridge ends every wait for a peer, so a stopping worker isn't held by one.
   const closing = new AbortController()
-  server.maxConnections = 16
+  server.maxConnections = MAX_TURN_PEERS + MAX_STATUS_PEERS + MAX_CATALOG_PEERS
   server.on('connection', (socket) => {
     transports.add(socket)
     socket.once('close', () => transports.delete(socket))
   })
   server.listen(port, '127.0.0.1')
   await once(server, 'listening')
+
+  /** Whether an admitted turn connection serves `route`. */
+  function servesRoute(socket: TLSSocket, route: GuestRoute) {
+    return subscriptions.get(socket) === route.subscription && rich.has(socket) === route.toolWorker
+  }
 
   /** An idle turn connection of the manifest's route; `probe` and `reap` ask for those proofs. */
   function idlePeer(manifest: Record<string, unknown>, probe = false, reap = false) {
@@ -486,9 +516,21 @@ export async function startSessionBridge(
       ([socket]) =>
         (!probe || probePeers.has(socket)) &&
         (!reap || reapPeers.has(socket)) &&
-        subscriptions.get(socket) === route.subscription &&
-        rich.has(socket) === route.toolWorker,
+        servesRoute(socket, route),
     )
+  }
+
+  /** Whether any turn connection of the route is open, idle or busy: its relay is running. */
+  function routeConnected(route: GuestRoute) {
+    return [...admittedTurns].some((socket) => servesRoute(socket, route))
+  }
+
+  function socketRouteKey(socket: TLSSocket) {
+    return routeKey({ subscription: subscriptions.get(socket), toolWorker: rich.has(socket) })
+  }
+
+  function admissionsOf(route: GuestRoute) {
+    return routeAdmissions.get(routeKey(route)) ?? 0
   }
 
   /**
@@ -518,32 +560,32 @@ export async function startSessionBridge(
   }
 
   const driver: SessionDriver = async (turn, context) => {
-    const toolWorker = guestRoute(context.manifest).toolWorker
+    const route = guestRoute(context.manifest)
+    const toolWorker = route.toolWorker
     if (toolWorker && !options) {
       throw new Error('protected_hosts_required')
     }
     if (!context.recordChild) {
       throw new Error('turn_child_recorder_required')
     }
-    // The tool relay starts its provider tunnel, worker and paired supervisor on a cold VM.
-    const deadline = Date.now() + (toolWorker ? 45_000 : 15_000)
-    const subscription = guestRoute(context.manifest).subscription
+    const waitMs = toolWorker ? turnTiming.toolWorkerPeerWaitMs : turnTiming.peerWaitMs
+    const deadline = Date.now() + waitMs
 
     const available = (probe = false, reap = false) => idlePeer(context.manifest, probe, reap)
 
+    const admittedBefore = admissionsOf(route)
     let connection = available()
+    // A busy connection of the route at any point shows its relay is running.
+    let relaySeen = routeConnected(route)
     while (!connection && Date.now() < deadline) {
       await delay(100, undefined, { signal: context.signal })
       connection = available()
+      relaySeen ||= routeConnected(route)
     }
     if (!connection) {
-      if (toolWorker) {
-        throw new NativeSessionError('agent_process_unavailable')
-      }
-      if (subscription) {
-        throw new NativeSessionError('agent_login_required')
-      }
-      throw new Error('paired_guest_unavailable')
+      // So does one admitted during the wait, even if it closed between samples.
+      relaySeen ||= admissionsOf(route) !== admittedBefore
+      throw noConnection(route, relaySeen)
     }
     const [socket, frames] = connection
     idle.delete(socket)
@@ -799,6 +841,29 @@ function catalogAnswer(frame: Record<string, unknown>, kind: 'read' | 'generatio
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Why a turn got no connection: its route's connections were all busy, so it waits in the queue,
+ * or none was open, so its relay isn't running.
+ */
+function noConnection(route: GuestRoute, relaySeen: boolean) {
+  if (relaySeen) {
+    return new SessionCapacityUnavailable()
+  }
+  if (route.toolWorker) {
+    return new NativeSessionError('agent_vm_unavailable')
+  }
+  if (route.subscription) {
+    return new NativeSessionError('agent_login_required')
+  }
+  return new Error('paired_guest_unavailable')
+}
+
+type GuestRoute = ReturnType<typeof guestRoute>
+
+function routeKey(route: { subscription: unknown; toolWorker: boolean }) {
+  return `${String(route.subscription ?? 'none')}:${route.toolWorker ? 'tools' : 'plain'}`
 }
 
 /** The guest route a manifest needs: a tool worker for `/3`, and its subscription relay if any. */

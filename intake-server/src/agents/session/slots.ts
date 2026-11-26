@@ -201,10 +201,49 @@ export async function recordSlotTurn(client: PoolClient, attemptId: string, turn
 /** What a turn is about to start outside its worker: a host process, or a command to the VM. */
 export type TurnChild = { kind: 'host' } | { kind: 'vm'; command: string }
 
+/** The turn's attempt was cancelled, superseded or replaced before it started anything. */
+export class TurnAttemptNotRunning extends Error {
+  constructor() {
+    super('turn_attempt_not_running')
+  }
+}
+
+/**
+ * Whether the attempt is still its job's current running one, read under share locks on the job
+ * and then the attempt, the order a cancellation takes them, so a committed cancellation is seen.
+ */
+async function attemptStillRunning(client: PoolClient, attemptId: string) {
+  const attempts = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ jobId: processingAttempts.jobId })
+      .from(processingAttempts)
+      .where(eq(processingAttempts.id, attemptId)),
+  )
+  if (!attempts.length) {
+    return false
+  }
+  const jobs = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ currentAttemptId: processingJobs.currentAttemptId })
+      .from(processingJobs)
+      .where(eq(processingJobs.id, attempts[0].jobId))
+      .for('share'),
+  )
+  const locked = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ state: processingAttempts.state })
+      .from(processingAttempts)
+      .where(eq(processingAttempts.id, attemptId))
+      .for('share'),
+  )
+  return locked[0]?.state === 'running' && jobs[0]?.currentAttemptId === attemptId
+}
+
 /**
  * Commits what a turn is about to start, before it starts it. A turn whose slot no longer holds
  * it refuses, and so does a worker that lost its supervisor lock, so nothing is started that a
- * restart could not find.
+ * restart could not find. So does a turn whose attempt has stopped running, so a cancellation
+ * committed while the turn waited for its runner sends nothing.
  */
 export async function recordTurnChild(
   pool: Pool,
@@ -215,6 +254,9 @@ export async function recordTurnChild(
 ) {
   await transaction(pool, async (client) => {
     await requireSupervisorFence(client, fence, 'ownership')
+    if (!(await attemptStillRunning(client, attemptId))) {
+      throw new TurnAttemptNotRunning()
+    }
     const recorded = await executeDatabaseQuery(
       queryDatabase(client)
         .update(agentSlots)
