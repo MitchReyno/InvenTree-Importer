@@ -260,3 +260,46 @@ test('focus goes back to the step when its box closes, and into the box when it 
     ).toHaveFocus(),
   )
 })
+
+test('a second cut paste in a row is announced again', async () => {
+  const user = userEvent.setup()
+  await renderAgents(client(settings({ stage_instructions: { images: 'a'.repeat(999) } })))
+  const box = within(step('Images')).getByRole('textbox', { name: 'Instructions for Images' })
+  const status = within(step('Images')).getByRole('status')
+  const messages: string[] = []
+  const observer = new MutationObserver(() => messages.push(status.textContent ?? ''))
+  observer.observe(status, { childList: true, characterData: true, subtree: true })
+  await user.click(box)
+  await user.paste('bb')
+  await user.paste('cc')
+  observer.disconnect()
+  expect(messages.filter((text) => text.startsWith('1,000 characters'))).toHaveLength(2)
+  expect(box).toHaveValue(`${'a'.repeat(999)}b`)
+})
+
+test('after a save focus goes back into the box, unless the operator moved it', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  await renderAgents(api)
+  const box = await openBox(user, 'Research')
+  await user.type(box, RESEARCH)
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  await within(step('Research')).findByText(/^Saved\. New Research sessions/)
+  await waitFor(() => expect(box).toHaveFocus())
+
+  // A clear whose save is answered after the operator tabbed away leaves their focus alone.
+  let answer: (value: AgentSettingsDto) => void = () => undefined
+
+  api.saveSettings.mockImplementationOnce(
+    () => new Promise<AgentSettingsDto>((resolve) => (answer = resolve)),
+  )
+  await user.clear(box)
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  const examine = within(step('Examine')).getByRole('button', { name: 'Instructions for Examine' })
+  examine.focus()
+  answer({ ...settings(), revision: '9' })
+  expect(
+    await within(step('Research')).findByRole('button', { name: 'Instructions for Research' }),
+  ).toBeVisible()
+  expect(examine).toHaveFocus()
+})

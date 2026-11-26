@@ -213,11 +213,21 @@ test('a step’s attempt seals its own text at queue time, and an edit reaches o
   }
 })
 
-test('the Examine lead seals Examine’s text; a synthetic lead seals none', async () => {
-  for (const profileId of ['native-agent/2', 'synthetic-session/1'] as const) {
+test('the Examine lead seals only Examine’s own text; a synthetic lead seals none', async () => {
+  const cases = [
+    {
+      profileId: 'native-agent/2',
+      saved: { examine: EXAMINE, research: RESEARCH_A },
+      sealed: EXAMINE,
+    },
+    { profileId: 'native-agent/2', saved: { research: RESEARCH_A }, sealed: undefined },
+    { profileId: 'synthetic-session/1', saved: { examine: EXAMINE }, sealed: undefined },
+  ] as const
+  for (const { profileId, saved, sealed } of cases) {
+    const label = `${profileId} ${Object.keys(saved).join('+')}`
     const fixture = await processingFixture({ profileId })
     try {
-      await saveInstructions(fixture, { examine: EXAMINE, research: RESEARCH_A })
+      await saveInstructions(fixture, saved)
       const capture = await fixture.seedCapture()
       await seedPhoto(fixture, capture.batch.id, { width: 768, height: 512 })
       await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
@@ -226,11 +236,10 @@ test('the Examine lead seals Examine’s text; a synthetic lead seals none', asy
         [capture.batch.id],
       )
       const { manifest } = await inputOf(fixture, lead.rows[0].current_attempt_id)
-      assert.equal(
-        manifest.stage_instructions,
-        profileId === 'native-agent/2' ? EXAMINE : undefined,
-        profileId,
-      )
+      assert.equal(manifest.stage_instructions, sealed, label)
+      const opening = openingText(manifest, 0, false)
+      assert.equal(opening.includes(RESEARCH_A), false, label)
+      assert.equal(opening.includes('Operator guidance for this step'), sealed !== undefined, label)
     } finally {
       await fixture.dispose()
     }

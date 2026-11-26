@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ChangeEvent, type ClipboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent, type ClipboardEvent } from 'react'
 import { flushSync } from 'react-dom'
 import styled from 'styled-components'
 import {
@@ -45,6 +45,11 @@ const FORMS = Object.fromEntries(
   }
 >
 
+/** Whether focus fell to the page, as it does when the focused control is removed. */
+function focusLost() {
+  return document.activeElement === null || document.activeElement === document.body
+}
+
 function characters(text: string) {
   return [...text].length
 }
@@ -80,6 +85,8 @@ export function StepInstructions({
   const box = useRef<HTMLTextAreaElement | null>(null)
   // Set when the box closes under the operator's focus, so the step's button takes it back.
   const returnFocus = useRef(false)
+  // Set by Save, whose button goes once the save settles, so focus goes back into the box.
+  const refocusBox = useRef(false)
   const id = useId()
   const label = `Instructions for ${STAGE_LABEL[stage]}`
   const value = form.watch('text')
@@ -93,6 +100,18 @@ export function StepInstructions({
     validate: (next) => characters(next) <= STEP_INSTRUCTIONS_MAX_CHARACTERS && storable(next),
     onChange: () => markEdited('text'),
   })
+
+  // Syncs DOM focus with a settled save: Save's button is gone, so focus that fell to the page goes
+  // back into the box. Focus the operator moved elsewhere meanwhile stays where it is.
+  useEffect(() => {
+    if (!refocusBox.current || text.busy) {
+      return
+    }
+    refocusBox.current = false
+    if (box.current && focusLost()) {
+      box.current.focus()
+    }
+  }, [text.busy, text.state])
 
   function openBox() {
     returnFocus.current = false
@@ -130,6 +149,8 @@ export function StepInstructions({
     form.setValue('text', next.text)
     target.setSelectionRange(next.caret, next.caret)
     markEdited('text')
+    // Cleared first, so a second cut in a row is announced again.
+    flushSync(() => setCut(false))
     setCut(true)
   }
 
@@ -137,7 +158,7 @@ export function StepInstructions({
     return (
       <Button
         ref={(element) => {
-          if (element && returnFocus.current) {
+          if (element && returnFocus.current && focusLost()) {
             returnFocus.current = false
             element.focus()
           }
@@ -193,6 +214,8 @@ export function StepInstructions({
           if (form.getValues('text') === '') {
             returnFocus.current = true
             setOpen(false)
+          } else {
+            refocusBox.current = true
           }
           text.save()
         }}
