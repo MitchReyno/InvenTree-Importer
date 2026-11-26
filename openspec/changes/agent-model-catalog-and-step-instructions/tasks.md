@@ -159,18 +159,20 @@
 ## 6. Live catalogue and effort check
 
 - **PR delivery:** PR-E.
-- **Outcome:** evidence that the real guest reads each signed-in provider's models with no turn, and that a real session sent the chosen effort and completed; the effort the provider applied stays unverified.
-- **Scope and approach:** with Mitch's go-ahead and his `pnpm dev` with the refreshed guest image: Check again for each provider, the stored row and the Settings page compared with the provider's own list; then one short session per provider at a non-default effort, checking that the session completed and that its recorded `sent_effort` is the chosen level. Neither pinned CLI reports the effort it applied, so the effective effort is recorded as unverified.
+- **Target outcome:** evidence that the real guest reads each signed-in provider's models with no turn, and that a real session turn per provider sent the chosen effort and completed; the effort the provider applied stays unverified. Result so far: Codex's read and both effort turns passed; Claude's read did not (task 6.2).
+- **Scope and approach:** with Mitch's go-ahead and his `pnpm dev` with the refreshed guest image: Check again for each provider, the stored row and the Settings page compared with the provider's own list; then one short session per provider at a non-default effort, checking that its turn completed and that its recorded `sent_effort` is the chosen level. Neither pinned CLI reports the effort it applied, so the effective effort is recorded as unverified.
 - **Prerequisites:** PR-A, PR-B and PR-C merged; Mitch's go-ahead for each live step.
 - **Acceptance:** shared-vm-execution "Model lists read without a provider turn"; processing-agent-sessions "Sessions run at the sealed effort".
 - **TDD approach:** none: a live verification of merged behaviour. Its contract is the checklist below and the evidence on the PR.
 - **Verification:** captures and trimmed outputs on PR-E; `notes.md` records the result and anything unexpected.
 - **Risks and decisions:** the sessions are real provider turns with their cost; the read itself makes no paid call.
 
-- [ ] 6.1 Ask Mitch for the go-ahead, naming the reads and the two short sessions.
-- [ ] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started.
-- [ ] 6.3 Run one short session per provider at a non-default effort; confirm it completed and its `sent_effort` matches, and record the effective effort as unverified.
-- [ ] 6.4 Record the outcome in `notes.md`, attach the evidence to PR-E, and run `pnpm lint:markdown`.
+- [x] 6.1 Ask Mitch for the go-ahead, naming the reads and the two short sessions. Given on 2026-11-26.
+- [ ] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Codex's list matched and no turn started; Claude's read stores no list, an open bug (see `notes.md`), so this stays open.
+- [x] 6.3 Run one short session per provider at a non-default effort; confirm its turn completed and its `sent_effort` matches, and record the effective effort as unverified. Claude's session finished; Codex's completed its turn and waits for an answer (see `notes.md`); both recorded `sent_effort: low`.
+- [x] 6.4 Record the outcome in `notes.md` and run `pnpm lint:markdown`.
+- [ ] 6.5 Attach the evidence to PR-E.
+- [ ] 6.6 After the Claude fix, measure `bench-claude-catalog`'s memory and task use during a read that returns the full list.
 
 ## 7. Step instructions in multi-lot groups
 
@@ -194,9 +196,9 @@
 - [x] PR-A: implement tasks 1 and 2, review the exact head, publish with the pinned-version proof, CI green, merge. Merged as #291 at `fe29f952`.
 - [x] PR-B: implement task 3, review the exact head, publish, CI green, merge. Merged as #293 at `ed698945`.
 - [x] PR-C: implement task 4, review the exact head, publish with the captures and the demo, CI green, merge. Merged as #295 at `daf96d40`.
-- [ ] PR-D: implement task 5, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-D: implement task 5, review the exact head, publish with the demo, CI green, merge. Merged as #296 at `87cce5b2`.
 - [ ] PR-F: implement task 7 once BI-022's PR-I has merged, review the exact head, publish, CI green, merge.
-- [ ] PR-E: run task 6 with Mitch's go-ahead, publish the evidence, CI green, merge.
+- [ ] PR-E: run task 6 with Mitch's go-ahead, review the exact head, publish the partial result with its evidence, CI green, merge. 6.5 is required before the merge; 6.2 and 6.6 may stay open for the Claude fix and its approved recheck.
 - [ ] Update BI-023 as PRs merge. It is Done only after PR-A to PR-D and PR-F merge and their acceptance is evidenced; the live check (PR-E) is recorded separately.
 - [ ] Mark R3, R4 and R5 in the design log as Built, with their PRs.
 - [ ] Before syncing: re-run strict validation and `pnpm openspec:overlap --change agent-model-catalog-and-step-instructions`. `polish-ui-styling-and-loading` adds "One searchable model picker" and "Model picker limits and exact IDs" to app-settings; sync it first.
