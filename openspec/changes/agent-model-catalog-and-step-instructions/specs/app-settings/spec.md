@@ -82,7 +82,13 @@ Before a provider's first read lands, its picker SHALL show "Reading <provider>'
 
 - **GIVEN** Claude's list read under one token, and a new token saved in the app's dialog
 - **WHEN** a Claude picker or a Processing step page is open, or opens, before a read under the new token lands, or after that read failed
-- **THEN** it marks the earlier list as from an earlier sign-in with its time, shows no "Not offered" or "Not accepted" warning, once the dialog has confirmed the save, that view never shows a list read under the old token as current, other visible views stop doing so at their next refresh, within about 60 seconds, a hidden view when it is shown again, and all of them update without a reload once the new list lands.
+- **THEN** it marks the earlier list as from an earlier sign-in with its time, shows no "Not offered" or "Not accepted" warning, once the dialog has confirmed the save, that view never shows a list read under the old token as current (unless the server refused to mark the list, when the dialog says the list may be out of date for up to a minute and the server's own sign-in check marks it within a minute of that sign-in method being in use), other visible views stop doing so at their next refresh, within about 60 seconds, a hidden view when it is shown again, and all of them update without a reload once the new list lands.
+
+#### Scenario: The list couldn't be marked
+
+- **GIVEN** a new Claude token saved in the app's dialog
+- **WHEN** the server refuses the request to mark Claude's list as from an earlier sign-in
+- **THEN** the dialog stays open saying "Token saved. Claude's model list may be out of date for up to a minute.", the request is not sent again, and the list is marked by the server's own sign-in check within 60 seconds of Claude's subscription being the sign-in method in use, and updates without a reload once the new list lands. A ChatGPT sign-in or a disconnect the VM confirmed says the same of Codex's list.
 
 #### Scenario: Sign-in changed outside the app
 

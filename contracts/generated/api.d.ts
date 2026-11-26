@@ -27557,6 +27557,7 @@ export interface components {
         };
         AgentModelCatalogRefresh: {
             provider: "codex" | "claude";
+            authentication?: "api_key" | "subscription";
             invalidate?: boolean;
         };
         AgentModelCatalogRefreshReceipt: {

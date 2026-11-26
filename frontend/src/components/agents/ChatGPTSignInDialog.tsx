@@ -8,22 +8,33 @@ type Props = {
   /** The VM confirmed the ChatGPT account after a sign-in in the dialog. */
   onConfirmed: () => void
   /** The sign-in may have changed; the card reads its status again. */
-  onChanged: () => void
+  onChanged: () => void | Promise<boolean | void>
   onClose: () => void
+  /** The confirmed account is being recorded; nothing can change it until that settles. */
+  settling?: boolean
+  /** The server couldn't mark Codex's model list as from an earlier sign-in. */
+  listNotMarked?: boolean
 }
 
 /** The ChatGPT sign-in dialog: the management key, then the device sign-in. */
-export function ChatGPTSignInDialog({ onConfirmed, onChanged, onClose }: Props) {
-  const { busy, blocked, shown, shownMessage, request, editKey } = useChatGPTSignIn({
-    onConfirmed,
-    onChanged,
-  })
+export function ChatGPTSignInDialog({
+  onConfirmed,
+  onChanged,
+  onClose,
+  settling = false,
+  listNotMarked = false,
+}: Props) {
+  const signIn = useChatGPTSignIn({ onConfirmed, onChanged })
+  const { busy, shown, shownMessage, request, editKey } = signIn
+  const blocked = signIn.blocked || settling || signIn.recording
 
   function account() {
     if (shown?.state === 'connected') {
       return (
         <>
-          <p role="status">Signed in to ChatGPT</p>
+          <p role="status">
+            {settling ? 'Signed in to ChatGPT. Updating the model list…' : 'Signed in to ChatGPT'}
+          </p>
           <Button disabled={blocked} onClick={() => void request('disconnect')}>
             Disconnect ChatGPT
           </Button>
@@ -81,9 +92,13 @@ export function ChatGPTSignInDialog({ onConfirmed, onChanged, onClose }: Props) 
           type="password"
           autoComplete="off"
           help="Held only while this dialog is open."
+          disabled={settling || signIn.recording}
           onChange={(event) => editKey(event.target.value)}
         />
         {account()}
+        {(listNotMarked || signIn.listNotMarked) && (
+          <p role="status">Codex’s model list may be out of date for up to a minute.</p>
+        )}
         {shownMessage && <Alert role="alert">{shownMessage}</Alert>}
       </Body>
     </Dialog>

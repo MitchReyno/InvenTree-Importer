@@ -25,10 +25,13 @@ export {
 /** How many sessions may run provider turns at once; waiting sessions hold no slot. */
 export const SessionConcurrency = Type.Integer({ minimum: 1, maximum: 8 })
 export type AgentProviderId = AgentSelectionDto['provider']
-/** Suggested model IDs per provider, first one first; models stay free text. */
-export const AGENT_MODEL_SUGGESTIONS: Record<AgentProviderId, readonly string[]> = {
-  claude: ['sonnet', 'opus', 'haiku'],
-  codex: ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-luna'],
+/**
+ * Each provider's default model before any settings are saved, and the first save's fallback.
+ * The pickers list the providers' own models (`agents/models`); this only seeds new settings.
+ */
+export const DEFAULT_MODEL_BEFORE_SAVE: Record<AgentProviderId, string> = {
+  claude: 'sonnet',
+  codex: 'gpt-6.1-sol',
 }
 /** The steps that can name their own provider and model; any other step uses the default. */
 export const AGENT_SETTINGS_STAGES = ['examine', 'research', 'images', 'inventory'] as const

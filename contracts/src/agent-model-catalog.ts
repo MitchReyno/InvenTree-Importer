@@ -85,9 +85,13 @@ export const AgentModelCatalog = object({
   claude: AgentProviderCatalog,
   codex: AgentProviderCatalog,
 })
-/** Asks for a read; `invalidate`, sent once a sign-in change is confirmed, also marks it stale. */
+/**
+ * Asks for a read; `invalidate`, sent once a sign-in change is confirmed, also marks it stale.
+ * `authentication` names the sign-in method that changed; absent, the saved one is read.
+ */
 export const AgentModelCatalogRefresh = object({
   provider: AgentSelection.properties.provider,
+  authentication: Type.Optional(AgentSelection.properties.authentication),
   invalidate: Type.Optional(Type.Boolean()),
 })
 export const AgentModelCatalogRefreshReceipt = object({

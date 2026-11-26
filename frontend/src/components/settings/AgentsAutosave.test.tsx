@@ -62,7 +62,7 @@ function providerSwitch(provider: 'Claude' | 'Codex') {
 }
 
 /** Picks an option in a step's or a card's model picker, by searching for it first. */
-function pick(picker: HTMLElement, option: string, search = option.split(' · ').at(-1)!) {
+function pick(picker: HTMLElement, option: string, search = option.split(' ').at(-1)!) {
   fireEvent.change(picker, { target: { value: search } })
   fireEvent.click(screen.getByRole('option', { name: option }))
 }
@@ -348,7 +348,7 @@ describe('providers', () => {
   test('turning a provider off saves at once with its steps reset, superseding a queued step choice', async () => {
     const { server } = await renderAgents(bothOn)
     const research = within(screen.getByRole('group', { name: 'Research' }))
-    pick(stepPicker('Research'), 'Codex · gpt-6-luna')
+    pick(stepPicker('Research'), 'GPT-6-Luna gpt-6-luna')
     await wait(200)
     fireEvent.click(providerSwitch('Codex'))
     await wait(0)
@@ -396,7 +396,7 @@ describe('providers', () => {
       },
     })
     const { server } = await renderAgents(withEfforts)
-    pick(stepPicker('Examine'), 'Codex · gpt-6-luna')
+    pick(stepPicker('Examine'), 'GPT-6-Luna gpt-6-luna')
     await wait(600)
     expect(server.sent()).toHaveLength(1)
     expect(server.sent()[0].providers).toEqual(withEfforts.providers)
@@ -423,7 +423,7 @@ describe('providers', () => {
     server.otherTab({
       providers: { ...bothOn.providers, codex: { ...bothOn.providers.codex, enabled: false } },
     })
-    pick(stepPicker('Research'), 'Codex · gpt-6.1-sol')
+    pick(stepPicker('Research'), 'GPT-6.1-Sol gpt-6.1-sol')
     await wait(600)
     fireEvent.click(
       within(heading('Provider and model per step')).getByRole('button', {
@@ -450,7 +450,7 @@ describe('round 1 regressions', () => {
     })
     const { server } = await renderAgents(codexOff)
     fireEvent.click(providerSwitch('Codex'))
-    pick(stepPicker('Research'), 'Claude · sonnet', 'son')
+    pick(stepPicker('Research'), 'Use “sonnet” with Claude', 'sonnet')
     server.otherTab({
       providers: {
         ...codexOff.providers,

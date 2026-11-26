@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import type { AgentSettingsDto } from '@invimport/contracts'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { AgentProviderId, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
@@ -11,6 +11,7 @@ import { ChatGPTSignIn } from '#/components/agents/ChatGPTSignIn'
 import { PauseAllAgents } from '#/components/agents/PauseAllAgents'
 import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCredential'
 import { useProviderStatus } from '#/components/agents/useProviderStatus'
+import { useModelCatalog } from '#/agents/useModelCatalog'
 import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 import { SettingsSkeleton } from './SettingsSkeleton'
@@ -29,6 +30,13 @@ import { createSaveQueue } from './agents/save-queue'
 import type { SettingsPage } from './agents/useSettingsSave'
 import { sessionListKey } from '#/agents/session-list'
 import { invalidateStartFreshReads } from '#/processing/start-fresh'
+
+/** Each provider's newest sign-in change, numbered across visits so an older one never matches. */
+type SignInOrder = Partial<Record<AgentProviderId, number>>
+
+const NO_SIGN_IN_CHANGES: SignInOrder = {}
+
+let signInChangeCount = 0
 
 /** Every session, for the list's totals; no page or filter narrows them. */
 const ALL_SESSIONS = { filter: 'all' } as const
@@ -67,6 +75,18 @@ export function AgentsSection({
   const scope = useServerScope()
   const poll = useRetainedPollInterval()
   const providerStatus = useProviderStatus(client)
+  // Shared with Processing; a sign-in change marks it stale before the dialog confirms.
+  const catalog = useModelCatalog(client)
+  // Each provider's newest sign-in change, kept with the status read so it outlives this visit.
+  const signInOrderKey = serverQueryKey(scope, 'provider-status', 'sign-in-order')
+  useQuery({
+    queryKey: signInOrderKey,
+    queryFn: () => NO_SIGN_IN_CHANGES,
+    enabled: false,
+    initialData: NO_SIGN_IN_CHANGES,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
   const queryClient = useQueryClient()
   // Says whether this profile's sessions have web access; until it answers, the form stays usable.
   const readiness = useReadiness(true)
@@ -137,13 +157,53 @@ export function AgentsSection({
   }, [subsection, ready, routeFromScroll, beforeScroll])
 
   /**
+   * A sign-in change the VM confirmed: the server is asked to mark the provider's subscription list
+   * as from an earlier sign-in first, then the card shows the change. A newer change made
+   * meanwhile wins, so an older continuation never publishes over it; a late answer to a closed
+   * dialog never displaces a newer one. Answers whether the server marked the list, so the dialog
+   * can say when the list may be out of date for up to a minute.
+   */
+  async function afterSignInChange(
+    provider: AgentProviderId,
+    { late = false }: { late?: boolean },
+    publish: () => void,
+  ) {
+    const newest = () => queryClient.getQueryData<SignInOrder>(signInOrderKey)?.[provider]
+
+    if (!late) {
+      signInChangeCount += 1
+      const change = signInChangeCount
+      queryClient.setQueryData<SignInOrder>(signInOrderKey, (order = NO_SIGN_IN_CHANGES) => ({
+        ...order,
+        [provider]: change,
+      }))
+    }
+    const mine = newest()
+    const marked = await catalog.signInChanged(provider, 'subscription')
+    if (newest() === mine) {
+      publish()
+    }
+
+    return marked
+  }
+
+  /** Reads a confirmed save changes: Start fresh's eligibility, and which list each sign-in has. */
+  function readAfterSave() {
+    invalidateStartFreshReads(queryClient, scope)
+    void queryClient.invalidateQueries({
+      queryKey: serverQueryKey(scope, 'model-catalog'),
+      exact: true,
+    })
+  }
+
+  /**
    * Publishes confirmed settings and answers with what is current. A read that was already
    * running, or a reload older than a save confirmed meanwhile, never replaces newer settings.
    */
   function adoptLoaded(confirmed: AgentSettingsDto, source: 'save' | 'reload') {
     if (source === 'save') {
       localSaves.current.add(confirmed.revision)
-      invalidateStartFreshReads(queryClient, scope)
+      readAfterSave()
     }
     const latest = newestRevision(
       confirmed,
@@ -185,7 +245,7 @@ export function AgentsSection({
         adopt: adoptLoaded,
         ownSave: (revision) => {
           localSaves.current.add(revision)
-          invalidateStartFreshReads(queryClient, scope)
+          readAfterSave()
         },
         localSaves: localSaves.current,
         reportDirty: reportDirty.report,
@@ -226,18 +286,27 @@ export function AgentsSection({
         <ProvidersAndSteps
           {...form}
           status={providerStatus}
+          catalog={catalog}
           credentials={{
             claude: (
               <PersonalClaudeCredential
                 onChanged={(configured, late) =>
-                  providerStatus.signInChanged('claude', claudeState(configured), { late })
+                  afterSignInChange('claude', { late }, () =>
+                    providerStatus.signInChanged('claude', claudeState(configured), { late }),
+                  )
                 }
               />
             ),
             codex: (
               <ChatGPTSignIn
-                onConfirmed={() => providerStatus.signInChanged('codex', 'signed_in')}
-                onChanged={() => providerStatus.signInChanged('codex')}
+                onConfirmed={() =>
+                  afterSignInChange('codex', {}, () =>
+                    providerStatus.signInChanged('codex', 'signed_in'),
+                  )
+                }
+                onChanged={() =>
+                  afterSignInChange('codex', {}, () => providerStatus.signInChanged('codex'))
+                }
               />
             ),
           }}

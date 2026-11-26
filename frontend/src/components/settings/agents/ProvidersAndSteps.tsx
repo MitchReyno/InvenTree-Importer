@@ -9,6 +9,7 @@ import {
 import { SegmentedControl, SettingRow } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
 import type { ProviderStatusState } from '#/components/agents/useProviderStatus'
+import type { ModelCatalogState } from '#/agents/useModelCatalog'
 import { SettingsCard } from '#/components/settings/SettingsCard'
 import { AgentAutosaveStatus } from './AgentAutosaveStatus'
 import { AgentSubsection } from './AgentSubsection'
@@ -31,6 +32,7 @@ const KEYS: readonly FieldKey[] = [
     `providers.${provider}.enabled` as const,
     `providers.${provider}.authentication` as const,
     `providers.${provider}.default_model` as const,
+    `providers.${provider}.default_effort` as const,
   ]),
   'default_provider',
   ...AGENT_SETTINGS_STAGES.map((stage) => `stage_selections.${stage}` as const),
@@ -43,12 +45,15 @@ const KEYS: readonly FieldKey[] = [
  */
 export function ProvidersAndSteps({
   status,
+  catalog,
   credentials,
   sessions,
   ...props
 }: SubsectionFormProps & {
   /** Each provider's sign-in status from the agent VM, with Check again. */
   status: ProviderStatusState
+  /** Each provider's model list, with a read on request. */
+  catalog: ModelCatalogState
   /** Each provider card's sign-in dialog button. */
   credentials: Record<AgentProviderId, ReactNode>
   /** The Sessions subsection, placed between Providers and the steps. */
@@ -69,6 +74,11 @@ export function ProvidersAndSteps({
     onProviderKept: (provider, reason) => setRefused({ provider, reason }),
   })
   const values = form.watch()
+  // Each list must be for the sign-in the cards show, or it decides nothing.
+  const catalogs = catalog.viewsFor({
+    claude: values.providers.claude.authentication,
+    codex: values.providers.codex.authentication,
+  })
 
   function setEnabled(provider: AgentProviderId, enabled: boolean) {
     const current = form.getValues()
@@ -123,11 +133,16 @@ export function ProvidersAndSteps({
               provider={provider}
               status={status[provider]}
               checking={status.checking}
-              onCheckAgain={() => void status.checkAgain()}
+              onCheckAgain={() => {
+                void status.checkAgain()
+                void catalog.refresh(provider)
+              }}
               refused={refused?.provider === provider ? refused.reason : undefined}
               onEnabledChange={(enabled) => setEnabled(provider, enabled)}
               onAutoEdit={() => markEdited('auto')}
               credential={credentials[provider]}
+              catalogs={catalogs}
+              onRetry={(listed) => void catalog.refresh(listed)}
             />
           ))}
         </Cards>
@@ -161,9 +176,14 @@ export function ProvidersAndSteps({
         <SettingsCard aria-label="Provider and model per step">
           <SettingRow
             label="Each step"
-            help="Default follows the default provider. A step can use any provider that is on."
+            help="Lists the exact models of every provider that’s on, with the effort levels each accepts. Default follows the default provider."
           >
-            <StepModels reset={reset} onAutoEdit={() => markEdited('auto')} />
+            <StepModels
+              reset={reset}
+              catalogs={catalogs}
+              onRetry={(provider) => void catalog.refresh(provider)}
+              onAutoEdit={() => markEdited('auto')}
+            />
           </SettingRow>
         </SettingsCard>
       </AgentSubsection>

@@ -33,6 +33,8 @@ type Props = {
   onOpenSession: (jobId: string) => void
   /** How the step works, behind a help button beside its heading. */
   help?: string
+  /** A warning about the model the step's new sessions run, beside its heading. */
+  modelWarning?: ReactNode
   /** The step's outputs: readings, sources, crops or matches. */
   /** The step's answered questions, folded below its open ones. */
   answered?: ReactNode
@@ -53,6 +55,7 @@ export function StepPage({
   sessionList,
   sessionRecovery,
   help,
+  modelWarning,
   answered,
   children,
 }: Props) {
@@ -67,6 +70,7 @@ export function StepPage({
         <StatePill state={summary.state} />
         <Title>{label}</Title>
         {help && <HelpButton label={`About ${label}`} explanation={help} />}
+        {modelWarning}
         <FieldNote>
           {[summary.text, sessionCount(sessions.length)].filter(Boolean).join(' · ')}
         </FieldNote>
