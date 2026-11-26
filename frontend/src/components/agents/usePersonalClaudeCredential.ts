@@ -229,6 +229,10 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
         return
       }
       changing.current = false
+      // The VM stored it: the token sent is cleared so it can't be sent twice, keeping any newer edit.
+      if (token.current && token.current.value === value) {
+        token.current.value = ''
+      }
       // Confirmed once the change's effects are recorded, such as the model list marked stale.
       const marked = await onChanged(next.configured)
       // A dialog closed or rekeyed meanwhile has moved on; this confirmation doesn't close it.
@@ -237,10 +241,6 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       }
       if (marked === false) {
         // The change is done, but the server couldn't mark the model list; the dialog says so.
-        // The token it sent is cleared, so it can't be sent twice, unless it was edited since.
-        if (token.current && token.current.value === value) {
-          token.current.value = ''
-        }
         setStatus(next)
         setPhase('idle')
         setNotice(listNotMarked(action))

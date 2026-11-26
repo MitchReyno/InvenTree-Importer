@@ -26,7 +26,7 @@ export function ChatGPTSignInDialog({
 }: Props) {
   const signIn = useChatGPTSignIn({ onConfirmed, onChanged })
   const { busy, shown, shownMessage, request, editKey } = signIn
-  const blocked = signIn.blocked || settling
+  const blocked = signIn.blocked || settling || signIn.recording
 
   function account() {
     if (shown?.state === 'connected') {
@@ -92,7 +92,7 @@ export function ChatGPTSignInDialog({
           type="password"
           autoComplete="off"
           help="Held only while this dialog is open."
-          disabled={settling}
+          disabled={settling || signIn.recording}
           onChange={(event) => editKey(event.target.value)}
         />
         {account()}

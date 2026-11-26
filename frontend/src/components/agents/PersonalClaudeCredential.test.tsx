@@ -284,3 +284,21 @@ it('stays open to say the model list may be out of date when it couldn’t be ma
   // The token it sent is cleared, so it can't be sent twice.
   expect(screen.getByLabelText('Subscription token')).toHaveValue('')
 })
+
+it('clears the saved token as soon as the VM stores it, even if the key is edited meanwhile', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
+  const recording = new Promise<boolean>(() => {})
+  onChanged.mockReturnValue(recording as never)
+  openDialog()
+  await enterKey()
+  fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: TOKEN } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save token' }))
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  expect(onChanged).toHaveBeenCalledExactlyOnceWith(true)
+  fireEvent.change(screen.getByLabelText('Personal runner management key'), {
+    target: { value: 'another' },
+  })
+  expect(screen.getByLabelText('Subscription token')).toHaveValue('')
+})

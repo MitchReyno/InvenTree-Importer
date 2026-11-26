@@ -168,6 +168,25 @@ it('a disconnect whose model list couldn’t be marked says the list may be out 
   expect(sent().at(-1)).toEqual({ action: 'disconnect' })
 })
 
+it('holds its key and controls while a disconnect is recorded, then says the list may be out of date', async () => {
+  const recording = deferred<boolean>()
+  onChanged.mockReturnValue(recording.promise as never)
+  send
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+    .mockResolvedValueOnce(signedOut())
+  openDialog()
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Disconnect ChatGPT' }))
+  await wait(0)
+  expect(sent().at(-1)).toEqual({ action: 'disconnect' })
+  expect(screen.getByLabelText('Codex runner management key')).toBeDisabled()
+  await act(async () => recording.resolve(false))
+  expect(
+    screen.getByText('Codex’s model list may be out of date for up to a minute.'),
+  ).toBeVisible()
+  expect(screen.getByLabelText('Codex runner management key')).toBeEnabled()
+})
+
 it('closing mid-sign-in makes one final poll, cancels the pending login and has the card read again', async () => {
   await startSignIn()
   send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())

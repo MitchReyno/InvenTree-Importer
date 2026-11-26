@@ -198,6 +198,8 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
   const [busy, setBusy] = useState(false)
   // A disconnect the VM confirmed whose model list the server couldn't mark as out of date.
   const [listNotMarked, setListNotMarked] = useState(false)
+  // A confirmed disconnect whose effects, such as the model list marked stale, are being recorded.
+  const [recording, setRecording] = useState(false)
   // A status call can end the login, so a replayed poll adopts the call still running for it.
   const statusCall = useRef<{ id: string; call: Promise<Account> } | null>(null)
   const polling = account?.state === 'pending'
@@ -335,11 +337,13 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
       setAccount(next)
       setMessage('')
       if (action === 'disconnect') {
-        void Promise.resolve(callbacks.current.onChanged()).then((marked) => {
-          if (marked === false && !mine.ended) {
-            setListNotMarked(true)
-          }
-        })
+        // The dialog stays busy, its key held, until the change's effects are recorded.
+        setRecording(true)
+        const marked = await Promise.resolve(callbacks.current.onChanged()).catch(() => undefined)
+        if (!mine.ended) {
+          setRecording(false)
+          setListNotMarked(marked === false)
+        }
       } else if (action !== 'status') {
         void callbacks.current.onChanged()
       }
@@ -395,6 +399,7 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
 
   return {
     listNotMarked,
+    recording,
     busy,
     blocked,
     shown,
