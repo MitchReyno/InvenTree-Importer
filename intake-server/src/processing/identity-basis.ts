@@ -79,6 +79,15 @@ async function failing(client: PoolClient, scope: Scope, withStale: boolean) {
               ON src->>'kind'='evidence_observation' AND o.id=(src->>'evidence_observation_id')::uuid
             WHERE src->>'kind'='evidence_observation'
               AND (o.id IS NULL OR o.status<>'active' OR o.revision::text<>src->>'revision'))
+          -- A cited note that a later note of the same photo replaced.
+          OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
+            JOIN public.media_evidence_note n
+              ON src->>'kind'='note' AND n.id=(src->>'note_id')::uuid
+            WHERE src->>'kind'='note' AND EXISTS (
+              SELECT 1 FROM public.media_evidence_note later
+              WHERE later.batch_id=n.batch_id AND later.evidence_id=n.evidence_id
+                AND later.revision>n.revision))
           OR EXISTS (
             SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
             LEFT JOIN public.capture_lot l

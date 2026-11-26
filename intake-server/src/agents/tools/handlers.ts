@@ -1299,6 +1299,23 @@ async function requireCurrentReliance(
      WHERE l.observation_set_version <> cited.version LIMIT 1`,
     [sets.map((item) => item.lot), sets.map((item) => item.version)],
   )
+  const notes = proposal.relies_on.sources.flatMap((source) =>
+    source.kind === 'note' ? [source.note_id] : [],
+  )
+  const replaced = await client.query(
+    `SELECT 1 FROM public.media_evidence_note n
+     WHERE n.id = ANY($1::uuid[]) AND EXISTS (
+       SELECT 1 FROM public.media_evidence_note later
+       WHERE later.batch_id=n.batch_id AND later.evidence_id=n.evidence_id AND later.revision>n.revision)
+     LIMIT 1`,
+    [notes],
+  )
+  if (replaced.rowCount) {
+    refuse(
+      'stale',
+      'A relied-on note was replaced; read your brief again and cite the current note.',
+    )
+  }
   const retired = await client.query(
     'SELECT 1 FROM public.capture_lot_retirement WHERE lot_id = ANY($1::uuid[]) LIMIT 1',
     [sets.map((item) => item.lot)],

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { batchInputVersion } from './stage-policy.ts'
 import { and, eq, getTableColumns, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import {
@@ -325,6 +326,23 @@ export async function answerSessionQuestion(
     changes: answeredChanges(plan.inboxPayload, subjectId, before.snapshot, after.snapshot),
     context: { origin: { by: 'operator' }, briefRevision: snapshot.revision },
   })
+  // Under `/7` an answer about a Part is about the lots linked to it, so what relied on their
+  // fields is stale and told as well.
+  if ((await batchInputVersion(client, config, batchId)) === 'bench-intake-input/7') {
+    for (const lot of before.snapshot.lots.filter((item) => item.part_subject_id === subjectId)) {
+      await fieldsSuperseded(client, {
+        batchId,
+        subjectId: lot.id,
+        fields: ask.fields,
+        reason: 'answer_received',
+        message: `A question about this lot's Part was answered: ${plan.title}`,
+        key: `answer:${questionId}:${lot.id}`,
+        except: job.id,
+        changes: answeredChanges(plan.inboxPayload, lot.id, before.snapshot, after.snapshot),
+        context: { origin: { by: 'operator' }, briefRevision: snapshot.revision },
+      })
+    }
+  }
   await capture.publish()
   await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
   return {

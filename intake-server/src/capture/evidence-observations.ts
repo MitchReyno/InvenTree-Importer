@@ -1196,11 +1196,6 @@ export async function currentLotItemCount(client: PoolClient, batchId: string, l
   )
 }
 
-/**
- * Keeps the reading an operator correction replaces, so a session's brief can show the reading
- * before and after it. The author and time are the capture revision's. An unchanged reading
- * keeps nothing.
- */
 /** What an observation says: its reading, its region on the page and how many items it shows. */
 interface ObservationFacts {
   readings: Record<string, unknown>
@@ -1208,6 +1203,10 @@ interface ObservationFacts {
   count: number | null
 }
 
+/**
+ * Keeps a changed reading, so a session's brief can show it before and after, and stales what
+ * relied on what the observation said. An unchanged observation keeps and tells nothing.
+ */
 async function retainCorrection(
   client: PoolClient,
   batchId: string,

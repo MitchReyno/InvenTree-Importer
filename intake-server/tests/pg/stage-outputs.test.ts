@@ -2981,3 +2981,120 @@ test('an identity citing the set of a lot split in Review isn’t current, and c
     'cancelled',
   )
 })
+
+test('an answer about a draft Part stales the identities of the lots linked to it, not others', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const crystal = await batch.lot('16 mhz crystal')
+  // The crystal lot is linked to a draft Part.
+  const withPart = await edit(fixture, batchId, { kind: 'add_part', label: 'Draft crystal' })
+  const partId = withPart.parts.at(-1)!.id
+  await edit(fixture, batchId, { kind: 'lot', id: crystal.id, part_subject_id: partId })
+  // The lead publishes the crystal's identity again, and Research is queued on it.
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const linked = (await snapshotOf(fixture, batchId)).lots.find((lot) => lot.id === crystal.id)!
+  const lead = await running(fixture, leadAttempt)
+  const identity = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A 16 MHz crystal.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            {
+              kind: 'observation_set',
+              lot_id: crystal.id,
+              version: linked.observation_set_version,
+            },
+          ],
+        },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(identity.ok, true, JSON.stringify(identity))
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const [ledIdentity] = (
+    await inputOf(fixture, (await stageJob(batch, 'led 0603 red', 'research')).attemptId)
+  ).manifest.pinned_proposal_ids
+  // The lead asks about the Part's identity, and the operator answers.
+  const asked = await result(
+    session.ask(lead, {
+      schema_version: 'bench-intake-question/2',
+      subject_id: partId,
+      reason: 'The marking is partly worn.',
+      fields: ['identity'],
+      steps: [
+        {
+          id: 'freq',
+          prompt: 'What frequency is printed?',
+          assumption: 'Treating it as 16 MHz.',
+          answer: { kind: 'text' },
+        },
+      ],
+    }),
+  )
+  assert.equal(asked.ok, true, JSON.stringify(asked))
+  const answered = await fixture.http(`/batches/${batchId}/questions/${asked.id}/answers`, {
+    schema_version: 'bench-intake-answer/2',
+    expected_question_revision: '1',
+    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+    attempt_id: leadAttempt,
+    input_sha256: (await inputOf(fixture, leadAttempt)).digest,
+    steps: [{ step_id: 'freq', value: { kind: 'text', text: '16.000 MHz' } }],
+  })
+  assert.equal(answered.status, 200, JSON.stringify(answered.value))
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(identity.id), ledIdentity]),
+  )
+  assert.equal(facts.get(String(identity.id))?.stale, 'answer_received')
+  assert.equal(facts.get(ledIdentity)?.stale, null)
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+})
+
+test('replacing a photo’s note an identity relies on stales it', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const { manifest } = await inputOf(fixture, research.attemptId)
+  const [identityId] = manifest.pinned_proposal_ids
+  // The photo note the identity relies on.
+  const evidence = await fixture.db.pool.query<{ evidence_id: string }>(
+    `SELECT n.evidence_id FROM processing_proposal p
+     CROSS JOIN LATERAL jsonb_array_elements(p.relies_on->'sources') src
+     JOIN media_evidence_note n ON n.id=(src->>'note_id')::uuid
+     WHERE p.id=$1 AND src->>'kind'='note'`,
+    [identityId],
+  )
+  assert.equal(evidence.rowCount, 1)
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+    [batchId],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: {
+      kind: 'evidence_note',
+      evidence_id: evidence.rows[0].evidence_id,
+      text: '16 MHz crystal, no: 18 MHz',
+    },
+  })
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [identityId]),
+  )
+  assert.notEqual(facts.get(identityId)?.stale, null)
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+})
