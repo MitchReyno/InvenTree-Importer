@@ -3367,7 +3367,58 @@ test('a note an identity cites only in its sources, once replaced, stales it', a
   const facts = await transaction(fixture.runner.pool, (client) =>
     proposalCurrentnessFacts(client, batchId, [String(published.id)]),
   )
-  assert.notEqual(facts.get(String(published.id))?.stale, null)
+  assert.equal(facts.get(String(published.id))?.stale, 'source_superseded')
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+})
+
+test('choosing another Part for a lot’s draft Part stales its identity', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const crystal = await batch.lot('16 mhz crystal')
+  const withPart = await edit(fixture, batchId, { kind: 'add_part', label: 'Draft crystal' })
+  const partId = withPart.parts.at(-1)!.id
+  await edit(fixture, batchId, { kind: 'lot', id: crystal.id, part_subject_id: partId })
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const linked = (await snapshotOf(fixture, batchId)).lots.find((lot) => lot.id === crystal.id)!
+  const identity = await result(
+    session.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A 16 MHz crystal.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            {
+              kind: 'observation_set',
+              lot_id: crystal.id,
+              version: linked.observation_set_version,
+            },
+          ],
+        },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(identity.ok, true, JSON.stringify(identity))
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const before = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(identity.id)]),
+  )
+  assert.equal(before.get(String(identity.id))?.stale, null)
+  // The same draft Part, another choice: the lot's Part link doesn't change.
+  await edit(fixture, batchId, { kind: 'part', id: partId, choice: { mode: 'unknown' } })
+  const after = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(identity.id)]),
+  )
+  assert.equal(after.get(String(identity.id))?.stale, 'operator_correction')
   assert.equal(
     await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
     'cancelled',

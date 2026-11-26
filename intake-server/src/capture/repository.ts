@@ -1354,6 +1354,53 @@ export async function lockCaptureForOperatorCommand(
   }
 }
 
+/** A Part's choice as a revision names it: the InvenTree Part it selects, or its mode. */
+function choiceText(choice: CaptureSnapshotDto['parts'][number]['choice'] | undefined) {
+  if (!choice) {
+    return null
+  }
+  const value = 'value' in choice ? (choice.value as { pk?: unknown } | undefined) : undefined
+  return value && typeof value.pk === 'string' ? `${choice.mode} ${value.pk}` : choice.mode
+}
+
+/** Tells what relied on the identity of each lot linked to a Part whose choice changed. */
+async function tellPartChoice(
+  client: PoolClient,
+  batchId: string,
+  before: CaptureSnapshotDto,
+  after: CaptureSnapshotDto,
+  partId: string,
+  key: string,
+) {
+  const was = before.parts.find((part) => part.id === partId)?.choice
+  const now = after.parts.find((part) => part.id === partId)?.choice
+  if (canonicalRecord(was ?? null) === canonicalRecord(now ?? null)) {
+    return
+  }
+  // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
+  const { fieldsSuperseded } = await import('#/processing/currentness.ts')
+  for (const lot of after.lots.filter((item) => item.part_subject_id === partId)) {
+    await fieldsSuperseded(client, {
+      batchId,
+      subjectId: lot.id,
+      fields: ['identity'],
+      reason: 'operator_correction',
+      message: "The operator chose a different Part for this lot's draft Part.",
+      key: `part-choice:${key}:${lot.id}`,
+      changes: [
+        {
+          kind: 'field',
+          subject_id: partId,
+          field: 'identity',
+          from: choiceText(was),
+          to: choiceText(now),
+        },
+      ],
+      context: { origin: { by: 'operator' }, briefRevision: after.revision },
+    })
+  }
+}
+
 /**
  * A Review command that changed a lot's Part link or quantity, by moving lots or editing them in
  * bulk, reaches relying sessions as a lot edit does, naming the values before and after.
@@ -1364,6 +1411,9 @@ async function tellChangedLots(
   before: CaptureSnapshotDto,
   after: CaptureSnapshotDto,
 ) {
+  for (const part of after.parts) {
+    await tellPartChoice(client, batchId, before, after, part.id, `review:${after.revision}`)
+  }
   for (const lot of after.lots) {
     const was = before.lots.find((item) => item.id === lot.id)
     if (!was) {
@@ -1538,6 +1588,10 @@ export function captureRepository(pool: Pool, config: Binding) {
       return command('capture_edit', id, key, input, async (c) => {
         const locked = await lockCaptureForEdit(c, config, id, input.expected_revision)
         const applied = await locked.apply(input)
+        // A different Part chosen for a draft Part corrects the identity of every lot linked to it.
+        if (input.change.kind === 'part' && input.change.choice !== undefined) {
+          await tellPartChoice(c, id, locked.snapshot, applied, input.change.id, key)
+        }
         // An operator correction of a lot's identity or quantity reaches every relying session.
         if (input.change.kind === 'lot') {
           const changes = lotCorrections(locked.snapshot, applied, input.change.id, input.change)

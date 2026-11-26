@@ -1059,6 +1059,10 @@ async function markSameItem(
       fail('same_item_different_lots', 409)
     }
     const root = target.sameItemAs ?? target.id
+    // Marking it the same as the group it is already in changes nothing.
+    if (row.sameItemAs === root) {
+      return
+    }
     if (root !== row.id) {
       const followers = await executeDatabaseQuery(
         db
