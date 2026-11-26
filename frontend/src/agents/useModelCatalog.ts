@@ -68,28 +68,6 @@ function markedStale(
 
 type Authentication = AgentSelectionDto['authentication']
 
-/**
- * A provider's sign-in changes and the invalidations that cover them. Changes are numbered as
- * they are made; an invalidation the server acknowledges covers every change made before it was
- * sent, since the server marks the list then. The list stays marked here while a change is newer
- * than every covered one; a refusal covers nothing and adds nothing.
- */
-type Changes = { latest: number; covered: number; authentication: Authentication }
-
-type SignInChanges = Partial<Record<AgentProviderId, Changes>>
-
-const NONE: SignInChanges = {}
-
-const PROVIDERS = ['claude', 'codex'] as const satisfies readonly AgentProviderId[]
-
-/** Numbers sign-in changes across every view of the catalogue in this tab. */
-let changeCount = 0
-
-/** Whether a provider's list must stay marked: a change no acknowledged invalidation covers. */
-function uncovered(changes: Changes | undefined): changes is Changes {
-  return changes !== undefined && changes.latest > changes.covered
-}
-
 /** Each provider's current authentication, so a list read for another one is never trusted. */
 export type CatalogAuthentication = Record<AgentProviderId, Authentication>
 
@@ -106,92 +84,12 @@ export function useModelCatalog(
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'model-catalog')
-  const changesKey = serverQueryKey(scope, 'model-catalog', 'sign-in-changes')
-  // Kept beside the read rather than in this view, so another view and a remount honour it too.
-  useQuery({
-    queryKey: changesKey,
-    queryFn: () => NONE,
-    enabled: false,
-    initialData: NONE,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  })
 
-  function changesNow() {
-    return queryClient.getQueryData<SignInChanges>(changesKey) ?? NONE
-  }
-
-  function updateChanges(
-    provider: AgentProviderId,
-    authentication: Authentication,
-    update: (changes: Changes) => Changes,
-  ) {
-    queryClient.setQueryData<SignInChanges>(changesKey, (all = NONE) => {
-      const known = all[provider] ?? { latest: 0, covered: 0, authentication }
-      return { ...all, [provider]: update(known) }
-    })
-  }
-
-  /**
-   * Sends an invalidation covering every change made so far. An acknowledgement covers them; a
-   * refusal leaves them for the next attempt.
-   */
-  async function invalidate(provider: AgentProviderId, authentication: Authentication) {
-    const covers = changesNow()[provider]?.latest ?? 0
-    try {
-      await client!.refreshModelCatalog!({ provider, authentication, invalidate: true })
-    } catch {
-      return
-    }
-    updateChanges(provider, authentication, (changes) => ({
-      ...changes,
-      covered: Math.max(changes.covered, covers),
-    }))
-  }
-
-  /**
-   * Sends an invalidation again for each provider whose list is still marked here, unless the
-   * read was cancelled meanwhile. A view that can't send one leaves it for one that can.
-   */
-  async function sendPending(signal: AbortSignal) {
-    if (!client?.refreshModelCatalog) {
-      return
-    }
-    for (const provider of PROVIDERS) {
-      const waiting = changesNow()[provider]
-      if (signal.aborted) {
-        return
-      }
-      if (uncovered(waiting)) {
-        await invalidate(provider, waiting.authentication)
-      }
-    }
-  }
-
-  /**
-   * A read of the list. A provider with a change no acknowledged invalidation covers stays marked
-   * as from an earlier sign-in, as does one that had such a change when this read was sent, since
-   * the answer may predate the server's mark. A cancelled read sends nothing more and is unused.
-   */
+  /** A read of the list; one cancelled meanwhile is never used. */
   async function readCatalog({ signal }: { signal: AbortSignal }) {
-    await sendPending(signal)
+    const catalog = await client!.modelCatalog()
     if (signal.aborted) {
       throw new Error('model_catalog_read_cancelled')
-    }
-    const sentWith = changesNow()
-    const answered = await client!.modelCatalog()
-    if (signal.aborted) {
-      throw new Error('model_catalog_read_cancelled')
-    }
-    let catalog = answered
-    for (const provider of PROVIDERS) {
-      const waiting = changesNow()[provider]
-      const waited = sentWith[provider]
-      if (uncovered(waiting)) {
-        catalog = markedStale(catalog, provider, waiting.authentication)
-      } else if (uncovered(waited)) {
-        catalog = markedStale(catalog, provider, waited.authentication)
-      }
     }
 
     return withSchedule(catalog, queryClient.getQueryData<CatalogRead>(queryKey))
@@ -218,22 +116,17 @@ export function useModelCatalog(
   }
 
   /**
-   * A sign-in change the VM confirmed, or may have made, for the provider's `authentication`.
-   * It is numbered and its invalidation sent; whatever the answer, this view marks that list as
-   * from an earlier sign-in before the read it starts, so it never shows the old list as current.
-   * Until an acknowledged invalidation sent after it covers it, the list stays marked and one is
-   * sent again before each read.
+   * A sign-in change the VM confirmed, or may have made, for the provider's `authentication`: asks
+   * the server to mark that list as from an earlier sign-in, marks it so here before the read it
+   * starts, and answers whether the server took it. A refusal isn't sent again: the server's own
+   * sign-in check marks the list within a minute, which the sign-in dialog tells the operator.
    */
   async function signInChanged(provider: AgentProviderId, authentication: Authentication) {
-    changeCount += 1
-    const change = changeCount
-    updateChanges(provider, authentication, (changes) => ({
-      ...changes,
-      latest: Math.max(changes.latest, change),
-      authentication,
-    }))
-    if (client?.refreshModelCatalog) {
-      await invalidate(provider, authentication)
+    let marked = true
+    try {
+      await client?.refreshModelCatalog?.({ provider, authentication, invalidate: true })
+    } catch {
+      marked = false
     }
     // A read sent before the change may still answer with the old list as current.
     await queryClient.cancelQueries({ queryKey })
@@ -246,6 +139,8 @@ export function useModelCatalog(
         },
     )
     void queryClient.invalidateQueries({ queryKey })
+
+    return marked
   }
 
   return {

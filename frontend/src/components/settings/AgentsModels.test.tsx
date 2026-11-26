@@ -406,3 +406,29 @@ test('a list from an earlier sign-in never resets the effort of a model picked f
     effort: 'max',
   })
 })
+
+test('a token saved while the server can’t mark the model list says it may be out of date', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(NOW)
+  const api = client()
+  const send = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', send)
+  send
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
+  await renderAgents(api)
+  api.refreshModelCatalog.mockRejectedValue(new Error('offline'))
+  fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+  fireEvent.change(screen.getByLabelText('Personal runner management key'), {
+    target: { value: 'operator' },
+  })
+  await act(() => vi.advanceTimersByTimeAsync(KEY_PAUSE_MS))
+  fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: TOKEN } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Replace token' }))
+  expect(
+    await screen.findByText(
+      'Token saved. Claude’s model list may be out of date for up to a minute.',
+    ),
+  ).toBeVisible()
+  expect(api.refreshModelCatalog).toHaveBeenCalledTimes(1)
+})

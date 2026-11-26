@@ -65,6 +65,12 @@ function refused(error: unknown) {
 const UNCONFIRMED =
   'The agent VM didn’t confirm the change, so it may or may not have applied. Its status was read again.'
 
+/** A token change the VM made whose model list the server couldn't mark as out of date. */
+export function listNotMarked(action: 'save' | 'remove') {
+  const done = action === 'save' ? 'Token saved.' : 'Token removed.'
+  return `${done} Claude’s model list may be out of date for up to a minute.`
+}
+
 const TOKEN_CHANGED =
   'The token changed since this dialog read it, so nothing was saved. Its status was read again.'
 
@@ -73,7 +79,7 @@ type Options = {
    * The VM confirmed a change: true when a token is now saved; undefined when it may have. `late`
    * marks an answer to a dialog already closed or rekeyed, which a newer confirmation outranks.
    */
-  onChanged: (configured: boolean | undefined, late?: boolean) => void | Promise<void>
+  onChanged: (configured: boolean | undefined, late?: boolean) => void | Promise<boolean | void>
   /** Closes the dialog, which drops the key. */
   onClose: () => void
 }
@@ -99,6 +105,8 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
   const [phase, setPhase] = useState<'idle' | 'checking' | 'saving' | 'removing'>('idle')
   // A command's outcome, and apart from it why the status couldn't be read after it.
   const [message, setMessage] = useState('')
+  // The change is done, but its model list may be out of date for a minute; not a failure.
+  const [notice, setNotice] = useState('')
   const [readError, setReadError] = useState('')
 
   // Closing unmounts the dialog: its generation ends and the key goes. A change still unanswered
@@ -186,6 +194,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
     clearTimeout(pause.current)
     setStatus(undefined)
     setMessage('')
+    setNotice('')
     setReadError('')
     setPhase('idle')
     if (changing.current) {
@@ -210,6 +219,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
     const mine = generation.current
     setPhase(action === 'save' ? 'saving' : 'removing')
     setMessage('')
+    setNotice('')
     changing.current = true
     try {
       const next = await request(action, status.revision, value)
@@ -220,11 +230,19 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       }
       changing.current = false
       // Confirmed once the change's effects are recorded, such as the model list marked stale.
-      await onChanged(next.configured)
+      const marked = await onChanged(next.configured)
       // A dialog closed or rekeyed meanwhile has moved on; this confirmation doesn't close it.
-      if (mine === generation.current) {
-        onClose()
+      if (mine !== generation.current) {
+        return
       }
+      if (marked === false) {
+        // The change is done, but the server couldn't mark the model list; the dialog says so.
+        setStatus(next)
+        setPhase('idle')
+        setNotice(listNotMarked(action))
+        return
+      }
+      onClose()
     } catch (error) {
       if (mine !== generation.current) {
         void notify.current(undefined, true)
@@ -251,6 +269,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
     status,
     phase,
     message,
+    notice,
     readError,
     editKey,
     save: () => void change('save'),

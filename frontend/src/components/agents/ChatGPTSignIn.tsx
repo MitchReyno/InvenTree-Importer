@@ -5,9 +5,10 @@ import { ChatGPTSignInDialog } from './ChatGPTSignInDialog'
 type Props = {
   /**
    * The VM confirmed the ChatGPT account after a sign-in in the dialog; the dialog closes once
-   * what it returns settles.
+   * what it returns settles, or, answering false, stays open to say the model list may be out of
+   * date.
    */
-  onConfirmed: () => void | Promise<void>
+  onConfirmed: () => void | Promise<boolean | void>
   /** The sign-in may have changed; the card reads its status again. */
   onChanged: () => void
 }
@@ -19,6 +20,8 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
   const [openings, setOpenings] = useState(0)
   // A confirmation still settling holds the dialog's account controls, so no newer change starts.
   const [settling, setSettling] = useState<number | null>(null)
+  // An opening whose confirmed account the server couldn't mark the model list for.
+  const [unmarked, setUnmarked] = useState<number | null>(null)
 
   function open() {
     setOpenings(openings + 1)
@@ -27,10 +30,19 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
 
   function confirmed(of: number) {
     setSettling(of)
-    void Promise.resolve(onConfirmed()).finally(() => {
-      setSettling((held) => (held === of ? null : held))
+    void Promise.resolve(onConfirmed()).then(
+      (marked) => settled(of, marked !== false),
+      () => settled(of, true),
+    )
+  }
+
+  function settled(of: number, marked: boolean) {
+    setSettling((held) => (held === of ? null : held))
+    if (marked) {
       setOpening((shown) => (shown === of ? null : shown))
-    })
+    } else {
+      setUnmarked(of)
+    }
   }
 
   return (
@@ -40,6 +52,7 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
         <ChatGPTSignInDialog
           key={opening}
           settling={settling === opening}
+          listNotMarked={unmarked === opening}
           onChanged={onChanged}
           onConfirmed={() => confirmed(opening)}
           onClose={() => setOpening(null)}

@@ -12,9 +12,11 @@ import { builtinCatalog, catalogModel, CLAUDE_MODELS, providerCatalog } from '#/
  * The model list states the fixture page can open on, chosen with `?models=` in its address:
  * `current` (the default), `reading` (Codex's first read), `failed` (Claude's read failed after
  * yesterday's), `builtin` (never read), `stale` (Claude's list from an earlier sign-in) and
- * `gone` (a saved model and a saved effort the current list no longer takes).
+ * `gone` (a saved model and a saved effort the current list no longer takes) and `refused`
+ * (the current list, with a sign-in dialog's request to mark it refused).
  */
-export type FixtureListState = 'current' | 'reading' | 'failed' | 'builtin' | 'stale' | 'gone'
+export type FixtureListState =
+  'current' | 'reading' | 'failed' | 'builtin' | 'stale' | 'gone' | 'refused'
 
 const STATES: readonly FixtureListState[] = [
   'current',
@@ -23,6 +25,7 @@ const STATES: readonly FixtureListState[] = [
   'builtin',
   'stale',
   'gone',
+  'refused',
 ]
 
 export function fixtureListState(): FixtureListState {
@@ -80,6 +83,7 @@ function claudeList(state: FixtureListState): AgentProviderCatalogDto {
     case 'current':
     case 'reading':
     case 'gone':
+    case 'refused':
       return providerCatalog(CLAUDE_MODELS, read)
   }
 }
@@ -94,6 +98,7 @@ function codexList(state: FixtureListState): AgentProviderCatalogDto {
     case 'failed':
     case 'stale':
     case 'gone':
+    case 'refused':
       return providerCatalog(CODEX_MODELS, {
         read_at: today(9, 12),
         attempted_at: today(9, 12),
@@ -167,6 +172,9 @@ export function fakeModelCatalog(state: FixtureListState) {
       return { claude: lists.claude, codex: lists.codex }
     },
     refreshModelCatalog: async ({ provider, invalidate }: AgentModelCatalogRefreshDto) => {
+      if (state === 'refused' && invalidate) {
+        throw new Error('fixture_refuses_invalidation')
+      }
       const listed = lists[provider]
       const stale = invalidate === true && !listed.builtin
       lists[provider] = { ...listed, state: stale ? 'stale_sign_in' : 'reading' }

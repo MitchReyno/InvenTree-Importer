@@ -91,8 +91,10 @@ function client() {
     ),
     // The server answers each provider's list for its saved sign-in method.
     modelCatalog: vi.fn(async () => {
-      const saved = api.saveSettings.mock.results.at(-1) ?? api.settings.mock.results.at(-1)
-      return builtinModelCatalog(await (saved?.value ?? initial))
+      // The newest save, else what the settings read answers, without counting as a read.
+      const saved =
+        api.saveSettings.mock.results.at(-1)?.value ?? api.settings.getMockImplementation()?.()
+      return builtinModelCatalog(await (saved ?? initial))
     }),
   }
   return api

@@ -126,6 +126,26 @@ it('stays open with its key and Disconnect held until the confirmed account is r
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
+it('stays open to say the model list may be out of date when it couldn’t be marked', async () => {
+  const confirmed = vi.fn(async () => false)
+  send.mockResolvedValueOnce(signedOut()).mockResolvedValueOnce(challenge())
+  render(<ChatGPTSignIn onConfirmed={confirmed} onChanged={onChanged} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByText('TEST-CODE')).toBeVisible()
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  await wait(6000)
+  expect(confirmed).toHaveBeenCalledTimes(1)
+  expect(
+    screen.getByText('Codex’s model list may be out of date for up to a minute.'),
+  ).toBeVisible()
+  expect(screen.getByRole('dialog')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Disconnect ChatGPT' })).toBeEnabled()
+})
+
 it('an account already signed in is shown, not closed', async () => {
   send.mockResolvedValueOnce(Response.json({ state: 'connected' }))
   openDialog()

@@ -4,7 +4,7 @@ import { ClaudeTokenDialog } from './ClaudeTokenDialog'
 
 type Props = {
   /** The VM confirmed a change, or one may have happened; the card reads its status again. */
-  onChanged: (configured: boolean | undefined, late?: boolean) => void | Promise<void>
+  onChanged: (configured: boolean | undefined, late?: boolean) => void | Promise<boolean | void>
 }
 
 /** "Subscription token…" on the Claude card, and the dialog it opens. */

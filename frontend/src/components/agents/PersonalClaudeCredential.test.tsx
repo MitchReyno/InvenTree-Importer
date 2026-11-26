@@ -264,3 +264,21 @@ it('a confirmation still settling when the dialog is closed never closes it once
   await act(async () => settle())
   expect(screen.getByRole('dialog', { name: 'Claude subscription token' })).toBeVisible()
 })
+
+it('stays open to say the model list may be out of date when it couldn’t be marked', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
+  onChanged.mockResolvedValue(false as never)
+  openDialog()
+  await enterKey()
+  fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: TOKEN } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save token' }))
+  expect(
+    await screen.findByText(
+      'Token saved. Claude’s model list may be out of date for up to a minute.',
+    ),
+  ).toBeVisible()
+  expect(screen.getByRole('dialog', { name: 'Claude subscription token' })).toBeVisible()
+  expect(onChanged).toHaveBeenCalledExactlyOnceWith(true)
+})

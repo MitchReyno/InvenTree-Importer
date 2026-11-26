@@ -157,10 +157,11 @@ export function AgentsSection({
   }, [subsection, ready, routeFromScroll, beforeScroll])
 
   /**
-   * A sign-in change the VM confirmed: the provider's subscription list is marked as from an
-   * earlier sign-in first, then the card shows the change. A newer change made meanwhile wins, so
-   * an older continuation never publishes over it; a late answer to a closed dialog never
-   * displaces a newer one.
+   * A sign-in change the VM confirmed: the server is asked to mark the provider's subscription list
+   * as from an earlier sign-in first, then the card shows the change. A newer change made
+   * meanwhile wins, so an older continuation never publishes over it; a late answer to a closed
+   * dialog never displaces a newer one. Answers whether the server marked the list, so the dialog
+   * can say when the list may be out of date for up to a minute.
    */
   async function afterSignInChange(
     provider: AgentProviderId,
@@ -178,10 +179,12 @@ export function AgentsSection({
       }))
     }
     const mine = newest()
-    await catalog.signInChanged(provider, 'subscription')
+    const marked = await catalog.signInChanged(provider, 'subscription')
     if (newest() === mine) {
       publish()
     }
+
+    return marked
   }
 
   /** Reads a confirmed save changes: Start fresh's eligibility, and which list each sign-in has. */
@@ -301,9 +304,9 @@ export function AgentsSection({
                     providerStatus.signInChanged('codex', 'signed_in'),
                   )
                 }
-                onChanged={() =>
+                onChanged={() => {
                   void afterSignInChange('codex', {}, () => providerStatus.signInChanged('codex'))
-                }
+                }}
               />
             ),
           }}

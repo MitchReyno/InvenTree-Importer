@@ -12,10 +12,18 @@ type Props = {
   onClose: () => void
   /** The confirmed account is being recorded; nothing can change it until that settles. */
   settling?: boolean
+  /** The server couldn't mark Codex's model list as from an earlier sign-in. */
+  listNotMarked?: boolean
 }
 
 /** The ChatGPT sign-in dialog: the management key, then the device sign-in. */
-export function ChatGPTSignInDialog({ onConfirmed, onChanged, onClose, settling = false }: Props) {
+export function ChatGPTSignInDialog({
+  onConfirmed,
+  onChanged,
+  onClose,
+  settling = false,
+  listNotMarked = false,
+}: Props) {
   const signIn = useChatGPTSignIn({ onConfirmed, onChanged })
   const { busy, shown, shownMessage, request, editKey } = signIn
   const blocked = signIn.blocked || settling
@@ -88,6 +96,9 @@ export function ChatGPTSignInDialog({ onConfirmed, onChanged, onClose, settling 
           onChange={(event) => editKey(event.target.value)}
         />
         {account()}
+        {listNotMarked && (
+          <p role="status">Codex’s model list may be out of date for up to a minute.</p>
+        )}
         {shownMessage && <Alert role="alert">{shownMessage}</Alert>}
       </Body>
     </Dialog>
