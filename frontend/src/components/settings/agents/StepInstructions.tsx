@@ -81,12 +81,13 @@ export function StepInstructions({
     keys,
   })
   const [open, setOpen] = useState(false)
-  const [cut, setCut] = useState(false)
+  // Which of two live regions holds the cut message, so a cut repeated in a row is a new
+  // announcement rather than the same text again.
+  const [cutIn, setCutIn] = useState<0 | 1 | null>(null)
   const box = useRef<HTMLTextAreaElement | null>(null)
-  // Set when the box closes under the operator's focus, so the step's button takes it back.
-  const returnFocus = useRef(false)
-  // Set by Save, whose button goes once the save settles, so focus goes back into the box.
-  const refocusBox = useRef(false)
+  const button = useRef<HTMLButtonElement | null>(null)
+  // Set by Save until the save is confirmed or the edit dropped: Save's button goes then.
+  const focusAfterSave = useRef(false)
   const id = useId()
   const label = `Instructions for ${STAGE_LABEL[stage]}`
   const value = form.watch('text')
@@ -101,20 +102,24 @@ export function StepInstructions({
     onChange: () => markEdited('text'),
   })
 
-  // Syncs DOM focus with a settled save: Save's button is gone, so focus that fell to the page goes
-  // back into the box. Focus the operator moved elsewhere meanwhile stays where it is.
+  // Syncs DOM focus with a confirmed save, once: Save's button is gone, so focus that fell to the
+  // page goes back into the box, or to the step's button when the save removed the box. Focus
+  // the operator moved elsewhere meanwhile stays where it is.
   useEffect(() => {
-    if (!refocusBox.current || text.busy) {
+    if (!focusAfterSave.current || text.dirty) {
       return
     }
-    refocusBox.current = false
-    if (box.current && focusLost()) {
-      box.current.focus()
+    // A cleared box waits for the read that removes it, so focus lands on the step's button.
+    if (shown && form.getValues('text') === '') {
+      return
     }
-  }, [text.busy, text.state])
+    focusAfterSave.current = false
+    if (focusLost()) {
+      ;(box.current ?? button.current)?.focus()
+    }
+  }, [text.dirty, shown, form])
 
   function openBox() {
-    returnFocus.current = false
     flushSync(() => setOpen(true))
     box.current?.focus()
   }
@@ -122,7 +127,7 @@ export function StepInstructions({
   /** Typing stops at the limit: an input that would pass it is undone where it was made. */
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
     const target = event.target
-    setCut(false)
+    setCutIn(null)
     if (characters(target.value) > STEP_INSTRUCTIONS_MAX_CHARACTERS) {
       const added = target.value.length - value.length
       const caret = Math.max((target.selectionStart ?? target.value.length) - added, 0)
@@ -149,25 +154,12 @@ export function StepInstructions({
     form.setValue('text', next.text)
     target.setSelectionRange(next.caret, next.caret)
     markEdited('text')
-    // Cleared first, so a second cut in a row is announced again.
-    flushSync(() => setCut(false))
-    setCut(true)
+    setCutIn((region) => (region === 0 ? 1 : 0))
   }
 
   if (!shown) {
     return (
-      <Button
-        ref={(element) => {
-          if (element && returnFocus.current && focusLost()) {
-            returnFocus.current = false
-            element.focus()
-          }
-        }}
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={openBox}
-      >
+      <Button ref={button} type="button" variant="ghost" size="sm" onClick={openBox}>
         <span aria-hidden="true">＋ </span>
         {label}
       </Button>
@@ -198,7 +190,8 @@ export function StepInstructions({
           <Small id={`${id}-help`}>
             Read by new {STAGE_LABEL[stage]} sessions, after the app’s own rules.
           </Small>{' '}
-          <Cut role="status">{cut ? CUT_MESSAGE : ''}</Cut>
+          <Cut role="status">{cutIn === 0 ? CUT_MESSAGE : ''}</Cut>
+          <Cut role="status">{cutIn === 1 ? CUT_MESSAGE : ''}</Cut>
         </span>
         <Count id={`${id}-count`} $near={near}>
           {count.toLocaleString()} / {STEP_INSTRUCTIONS_MAX_CHARACTERS.toLocaleString()}
@@ -212,27 +205,22 @@ export function StepInstructions({
         onSave={() => {
           // Saving an empty box removes the instructions, and the step shows its button again.
           if (form.getValues('text') === '') {
-            returnFocus.current = true
             setOpen(false)
-          } else {
-            refocusBox.current = true
           }
+          focusAfterSave.current = true
           text.save()
         }}
         onRetry={text.retry}
         onReload={text.reload}
         onDiscard={() => {
-          returnFocus.current = true
+          focusAfterSave.current = false
           flushSync(() => {
             setOpen(false)
-            setCut(false)
+            setCutIn(null)
             text.discard()
           })
-          // The box stays for saved instructions; focus goes back into it.
-          if (box.current?.isConnected) {
-            returnFocus.current = false
-            box.current.focus()
-          }
+          // Into the box when it stays for saved instructions, else to the step's button.
+          ;(box.current ?? button.current)?.focus()
         }}
         dirty={text.dirty}
       />

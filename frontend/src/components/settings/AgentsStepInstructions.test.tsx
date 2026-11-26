@@ -78,6 +78,14 @@ async function renderAgents(api: Api) {
 
 const step = (name: string) => screen.getByRole('group', { name })
 
+/** What a step's live regions say about a paste cut, across both of them. */
+function cutMessage(name: string) {
+  return within(step(name))
+    .queryAllByRole('status')
+    .map((region) => region.textContent)
+    .filter((text) => text?.startsWith('1,000 characters'))
+}
+
 function count(name: string) {
   return within(step(name)).getByText(/ \/ 1,000$/)
 }
@@ -160,9 +168,9 @@ test('a paste past the limit is cut at 1,000 with an announced message', async (
   expect(box).toHaveValue(`${'a'.repeat(950)}${'b'.repeat(50)}`)
   expect(count('Images')).toHaveTextContent('1,000 / 1,000')
   expect(count('Images')).toHaveStyle({ color: 'var(--warn)' })
-  expect(within(step('Images')).getByRole('status')).toHaveTextContent(
+  expect(cutMessage('Images')).toEqual([
     '1,000 characters is the most a step can hold. The pasted text was cut at 1,000.',
-  )
+  ])
   await user.click(within(step('Images')).getByRole('button', { name: 'Save' }))
   await waitFor(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
@@ -179,7 +187,7 @@ test('a paste that fits goes in as it is, with no message', async () => {
   const box = await openBox(user, 'Research')
   await user.paste(RESEARCH)
   expect(box).toHaveValue(RESEARCH)
-  expect(within(step('Research')).getByRole('status')).toHaveTextContent('')
+  expect(cutMessage('Research')).toEqual([])
 })
 
 test('Discard drops the edit; clearing and saving removes the instructions', async () => {
@@ -233,7 +241,7 @@ test('a paste while a save is in flight changes nothing', async () => {
   await waitFor(() => expect(box).toHaveAttribute('readonly'))
   fireEvent.paste(box, { clipboardData: { getData: () => 'x'.repeat(2000) } })
   expect(box).toHaveValue(RESEARCH)
-  expect(within(step('Research')).getByRole('status')).toHaveTextContent('')
+  expect(cutMessage('Research')).toEqual([])
 })
 
 test('focus goes back to the step when its box closes, and into the box when it stays', async () => {
@@ -261,19 +269,26 @@ test('focus goes back to the step when its box closes, and into the box when it 
   )
 })
 
-test('a second cut paste in a row is announced again', async () => {
+test('a second cut paste in a row is announced in the other live region', async () => {
   const user = userEvent.setup()
   await renderAgents(client(settings({ stage_instructions: { images: 'a'.repeat(999) } })))
   const box = within(step('Images')).getByRole('textbox', { name: 'Instructions for Images' })
-  const status = within(step('Images')).getByRole('status')
-  const messages: string[] = []
-  const observer = new MutationObserver(() => messages.push(status.textContent ?? ''))
-  observer.observe(status, { childList: true, characterData: true, subtree: true })
+
+  const regions = () =>
+    within(step('Images'))
+      .getAllByRole('status')
+      .filter((region) => region.tagName === 'SMALL')
+      .map((region) => region.textContent)
+
   await user.click(box)
   await user.paste('bb')
+  const first = regions()
   await user.paste('cc')
-  observer.disconnect()
-  expect(messages.filter((text) => text.startsWith('1,000 characters'))).toHaveLength(2)
+  const second = regions()
+  expect(first.filter(Boolean)).toHaveLength(1)
+  expect(second.filter(Boolean)).toHaveLength(1)
+  // The message moved to the region that was empty, so it is announced again.
+  expect(second.findIndex(Boolean)).not.toBe(first.findIndex(Boolean))
   expect(box).toHaveValue(`${'a'.repeat(999)}b`)
 })
 
@@ -298,8 +313,27 @@ test('after a save focus goes back into the box, unless the operator moved it', 
   const examine = within(step('Examine')).getByRole('button', { name: 'Instructions for Examine' })
   examine.focus()
   answer({ ...settings(), revision: '9' })
-  expect(
-    await within(step('Research')).findByRole('button', { name: 'Instructions for Research' }),
-  ).toBeVisible()
+  const button = await within(step('Research')).findByRole('button', {
+    name: 'Instructions for Research',
+  })
   expect(examine).toHaveFocus()
+  // Nothing left armed: a later render doesn't take focus either.
+  examine.blur()
+  await user.click(within(step('Images')).getByRole('button', { name: 'Instructions for Images' }))
+  expect(button).not.toHaveFocus()
+})
+
+test('a save confirmed on its automatic resend still returns focus into the box', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  api.saveSettings.mockRejectedValueOnce(new Error('offline'))
+  await renderAgents(api)
+  const box = await openBox(user, 'Research')
+  await user.type(box, RESEARCH)
+  await user.click(within(step('Research')).getByRole('button', { name: 'Save' }))
+  await within(step('Research')).findByText(/^Saved\. New Research sessions/, undefined, {
+    timeout: 4000,
+  })
+  expect(api.saveSettings).toHaveBeenCalledTimes(2)
+  await waitFor(() => expect(box).toHaveFocus())
 })
