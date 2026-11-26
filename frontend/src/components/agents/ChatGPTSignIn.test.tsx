@@ -9,8 +9,8 @@ import { resetRunnerQueue } from './useChatGPTSignIn'
 import { deferred } from '#/test/deferred'
 
 let send: Mock<typeof fetch>
-let onConfirmed: Mock<() => void>
-let onChanged: Mock<() => void>
+let onConfirmed: Mock<() => void | Promise<boolean | void>>
+let onChanged: Mock<() => void | Promise<boolean | void>>
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -158,7 +158,7 @@ it('a disconnect whose model list couldn’t be marked says the list may be out 
   send
     .mockResolvedValueOnce(Response.json({ state: 'connected' }))
     .mockResolvedValueOnce(signedOut())
-  onChanged.mockResolvedValue(false as never)
+  onChanged.mockResolvedValue(false)
   openDialog()
   await enterKey()
   fireEvent.click(await screen.findByRole('button', { name: 'Disconnect ChatGPT' }))
@@ -170,7 +170,7 @@ it('a disconnect whose model list couldn’t be marked says the list may be out 
 
 it('holds its key and controls while a disconnect is recorded, then says the list may be out of date', async () => {
   const recording = deferred<boolean>()
-  onChanged.mockReturnValue(recording.promise as never)
+  onChanged.mockReturnValue(recording.promise)
   send
     .mockResolvedValueOnce(Response.json({ state: 'connected' }))
     .mockResolvedValueOnce(signedOut())

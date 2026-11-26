@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { deferred } from '#/test/deferred'
 import { PersonalClaudeCredential } from './PersonalClaudeCredential'
 import { KEY_PAUSE_MS } from './usePersonalClaudeCredential'
 
 const TOKEN = 'sk-ant-oat01-abcdefghijklmnop'
 
 let send: Mock<typeof fetch>
-let onChanged: Mock<(configured: boolean | undefined) => void>
+let onChanged: Mock<(configured: boolean | undefined) => void | Promise<boolean | void>>
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -269,7 +270,7 @@ it('stays open to say the model list may be out of date when it couldn’t be ma
   send
     .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
     .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
-  onChanged.mockResolvedValue(false as never)
+  onChanged.mockResolvedValue(false)
   openDialog()
   await enterKey()
   fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: TOKEN } })
@@ -290,7 +291,7 @@ it('clears the saved token as soon as the VM stores it, even if the key is edite
     .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
     .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
   const recording = new Promise<boolean>(() => {})
-  onChanged.mockReturnValue(recording as never)
+  onChanged.mockReturnValue(recording)
   openDialog()
   await enterKey()
   fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: TOKEN } })
@@ -301,4 +302,23 @@ it('clears the saved token as soon as the VM stores it, even if the key is edite
     target: { value: 'another' },
   })
   expect(screen.getByLabelText('Subscription token')).toHaveValue('')
+})
+
+it('keeps a replacement typed while the VM was storing the token', async () => {
+  const stored = deferred<Response>()
+
+  send
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+    .mockReturnValueOnce(stored.promise)
+  onChanged.mockReturnValue(new Promise<boolean>(() => {}))
+  openDialog()
+  await enterKey()
+  fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: TOKEN } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save token' }))
+  const replacement = 'sk-ant-oat01-zyxwvutsrqponmlk'
+  fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: replacement } })
+  await act(async () => stored.resolve(Response.json({ configured: true, revision: 'two' })))
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  expect(onChanged).toHaveBeenCalledExactlyOnceWith(true)
+  expect(screen.getByLabelText('Subscription token')).toHaveValue(replacement)
 })
