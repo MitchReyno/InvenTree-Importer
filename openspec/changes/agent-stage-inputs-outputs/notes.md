@@ -130,6 +130,7 @@ The guide table's rows can't be changed or deleted, but a row could still be add
 ### Open items
 
 - **Full-catalogue vocabulary.** The vocabulary is the batch's observed catalogue records (at most 100 read observations), not InvenTree's whole catalogue. Reading the full catalogue needs an InvenTree reader in the API process, since the session worker has none; until then Research mostly proposes new categories and reports gaps.
+- **The ask picture wording.** The base keeps BI-019's ask guidance as approved, which asks for a caption "naming what to look at and why it is shown", while a figure has separate `caption` and `why` fields. The `ask` tool's schema names both; a later profile may say so in the base.
 - **The session page doesn't list vocabulary entries.** The brief on the session page (PR-H) shows the entries it knows; a Research brief's vocabulary entries are left out of the opened card, and its collapsed line doesn't count them.
 
 ## Task 5 (PR-E1) status

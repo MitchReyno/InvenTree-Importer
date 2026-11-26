@@ -129,7 +129,13 @@ function decodeVocabularyToken(token: string): VocabularyCursor | null {
     isDigest(cursor.filter) &&
     isDigest(cursor.list) &&
     offsetShaped
-  return shaped ? (cursor as unknown as VocabularyCursor) : null
+  if (!shaped) {
+    return null
+  }
+  // Only the spelling the tool issues: base64url has other spellings of the same bytes.
+  return vocabularyToken(cursor as unknown as VocabularyCursor) === token
+    ? (cursor as unknown as VocabularyCursor)
+    : null
 }
 
 /** The token a call continues, refused unless it came with the same kind and search. */
