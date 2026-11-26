@@ -126,7 +126,7 @@
   - [x] 4.2.3 Effort: options in the provider's order with labels, "Default · Low" for Codex and plain "Default" for Claude, disabled "No effort levels", the reset notice and one autosave for the model and effort, a saved unaccepted effort kept with its warning, and the provider card's default pair;
   - [x] 4.2.4 the Processing pill showing for a not-offered model, linking to the step row, and hidden for the built-in or unread list.
 - [x] 4.3 GREEN: the query, the picker groups, `EffortSelect`, the states and the pill; retire `AGENT_MODEL_SUGGESTIONS`, with the server's settings tests showing the unsaved defaults and first-save fallback unchanged.
-- [ ] 4.4 Update `frontend/ARCHITECTURE.md` and the Settings fixture. Run the frontend checks, capture the states and record the demo video.
+- [x] 4.4 Update `frontend/ARCHITECTURE.md` and the Settings fixture. Run the frontend checks, capture the states and record the demo video.
 
 ## 5. Instructions for each step
 
