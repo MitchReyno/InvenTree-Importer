@@ -16,7 +16,7 @@ const membersOf = (lot: string) => `COALESCE((
 
 /**
  * Whether the note `id` names was replaced: a photo note by a later note of the same photo, a
- * group or batch note by a later version of it.
+ * group or batch note by a later version of it, a group note by its group's ungrouping.
  */
 export const replacedNoteSql = (id: string) => `(
   EXISTS (SELECT 1 FROM public.media_evidence_note n
@@ -26,7 +26,13 @@ export const replacedNoteSql = (id: string) => `(
   OR EXISTS (SELECT 1 FROM public.capture_instruction n
              JOIN public.capture_instruction later ON later.batch_id=n.batch_id
                AND later.group_id IS NOT DISTINCT FROM n.group_id AND later.version>n.version
-             WHERE n.id=${id}))`
+             WHERE n.id=${id})
+  -- A group note goes with its group when the group is ungrouped.
+  OR EXISTS (SELECT 1 FROM public.capture_instruction n
+             WHERE n.id=${id} AND n.group_id IS NOT NULL
+               AND (SELECT h.retired FROM public.media_group_history h
+                    WHERE h.batch_id=n.batch_id AND h.group_id=n.group_id
+                    ORDER BY h.revision DESC LIMIT 1)))`
 
 /**
  * Keeps the lots a `/7` identity rests on as it saw them, its own and each whose observation set

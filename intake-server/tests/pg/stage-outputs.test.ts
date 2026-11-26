@@ -3099,7 +3099,11 @@ test('replacing a photo’s note an identity relies on stales it', async (t) => 
   )
 })
 
-test('replacing a group note an identity relies on stales it', async (t) => {
+/** An identity relying on a group note, the note then changed by `change` before Research runs. */
+async function groupNoteCase(
+  t: Parameters<typeof formedBatch>[0],
+  change: (fixture: Fixture, batchId: string, groupId: string) => Promise<void>,
+) {
   let instructionId = ''
   let groupId = ''
   const batch = await formedBatch(t, {
@@ -3171,16 +3175,67 @@ test('replacing a group note an identity relies on stales it', async (t) => {
   )
   assert.equal(published.ok, true, JSON.stringify(published))
   const research = await stageJob(batch, '16 mhz crystal', 'research')
-  await fixture.db.pool.query(
-    'INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id) VALUES($1,$2,$3,2,$4,$5)',
-    [randomUUID(), batchId, groupId, 'Crystals are 18 MHz', fixture.identity.actor],
-  )
+  await change(fixture, batchId, groupId)
   const facts = await transaction(fixture.runner.pool, (client) =>
     proposalCurrentnessFacts(client, batchId, [String(published.id)]),
   )
   assert.notEqual(facts.get(String(published.id))?.stale, null)
   assert.equal(
     await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+}
+
+test('replacing a group note an identity relies on stales it', (t) =>
+  groupNoteCase(t, async (fixture, batchId, groupId) => {
+    await fixture.db.pool.query(
+      'INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id) VALUES($1,$2,$3,2,$4,$5)',
+      [randomUUID(), batchId, groupId, 'Crystals are 18 MHz', fixture.identity.actor],
+    )
+  }))
+
+test('ungrouping the photos of a group note an identity relies on stales it', (t) =>
+  groupNoteCase(t, async (fixture, batchId, groupId) => {
+    const media = await fixture.db.pool.query<{ revision: string }>(
+      'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+      [batchId],
+    )
+    await editMedia(fixture.db.pool, fixture.config, batchId, randomUUID(), {
+      expected_revision: media.rows[0].revision,
+      change: { kind: 'ungroup', group_id: groupId },
+    })
+  }))
+
+test('each lot’s identity cites its own photo’s note, so replacing one stales only that lot', async (t) => {
+  const batch = await formedBatch(t, {
+    stageInputs: true,
+    beforeExamine: async (fixture, batchId) => {
+      await photoWithNote(fixture, batchId, 'Bag', '10k resistor')
+    },
+  })
+  const { fixture, batchId } = batch
+  const resistor = await stageJob(batch, '10k resistor', 'research')
+  const crystal = await stageJob(batch, '16 mhz crystal', 'research')
+  const [resistorIdentity] = (await inputOf(fixture, resistor.attemptId)).manifest
+    .pinned_proposal_ids
+  const [crystalIdentity] = (await inputOf(fixture, crystal.attemptId)).manifest.pinned_proposal_ids
+  const bag = await fixture.db.pool.query<{ evidence_id: string; revision: string }>(
+    `SELECT e.id AS evidence_id, b.revision::text FROM media_evidence e
+     JOIN media_batch b ON b.batch_id=e.batch_id WHERE e.batch_id=$1 AND e.label='Bag'`,
+    [batchId],
+  )
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: bag.rows[0].revision,
+    change: { kind: 'evidence_note', evidence_id: bag.rows[0].evidence_id, text: '12k resistor' },
+  })
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [resistorIdentity, crystalIdentity]),
+  )
+  assert.notEqual(facts.get(resistorIdentity)?.stale, null)
+  assert.equal(facts.get(crystalIdentity)?.stale, null)
+  assert.equal(
+    await runSessionTurn(batch.deps, resistor.attemptId, new AbortController().signal),
     'cancelled',
   )
 })

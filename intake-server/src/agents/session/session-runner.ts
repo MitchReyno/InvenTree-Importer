@@ -884,9 +884,11 @@ export async function runSessionTurn(
         manifest.schema_version === 'bench-intake-input/7' &&
         manifest.subject_id !== null &&
         (await lotRetired(client, manifest.subject_id))
+      // A retired lot's session is settled for good, started or not: its lot never returns.
       if (
-        row.turnCount === 0n &&
-        (retiredLot || !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids)).current)
+        retiredLot ||
+        (row.turnCount === 0n &&
+          !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids)).current)
       ) {
         await supersedeJobAttempts(client, row.jobId)
         await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])
@@ -900,9 +902,6 @@ export async function runSessionTurn(
         manifest.schema_version === 'bench-intake-input/7' &&
         (manifest.stage === 'research' || manifest.stage === 'images')
       ) {
-        if (retiredLot) {
-          return 'waiting' as const
-        }
         const pin = await claimPinnedIdentity(client, manifest.pinned_proposal_ids)
         if (!pin.current) {
           // The repair staled the identity and told the lead; views hear of it once.

@@ -149,7 +149,10 @@ export async function syntheticLeadTurn(
     (media.context?.evidenceNotes ?? []).map((entry) => [entry.evidenceId, entry.note]),
   )
 
-  const seen = new Map<string, { observationIds: string[]; photos: number; quantity?: string }>()
+  const seen = new Map<
+    string,
+    { observationIds: string[]; evidenceIds: string[]; photos: number; quantity?: string }
+  >()
   const observedAt = new Map<string, string>()
   // Each observation's marking as it was read; the lowercased key only groups them.
   const readAs = new Map<string, string>()
@@ -191,8 +194,9 @@ export async function syntheticLeadTurn(
         continue
       }
       const key = keyOf(entry.marking)
-      const group = seen.get(key) ?? { observationIds: [], photos: 0 }
+      const group = seen.get(key) ?? { observationIds: [], evidenceIds: [], photos: 0 }
       group.observationIds.push(String(recorded.id))
+      group.evidenceIds.push(item.evidenceId)
       readAs.set(String(recorded.id), entry.marking)
       observedAt.set(String(recorded.id), memory.revision)
       group.photos += 1
@@ -210,6 +214,7 @@ export async function syntheticLeadTurn(
     quantity?: string
     basis?: string
     observationIds: string[]
+    evidenceIds: string[]
   }[] = []
   for (const [key, group] of seen) {
     const existing = memory.lots[key]
@@ -238,6 +243,7 @@ export async function syntheticLeadTurn(
       quantity: group.quantity,
       basis: basis || undefined,
       observationIds: group.observationIds,
+      evidenceIds: group.evidenceIds,
     })
   }
 
@@ -248,12 +254,15 @@ export async function syntheticLeadTurn(
     evidence.map((item) => noteOf.get(item.evidenceId)).find(Boolean) ?? [...noteOf.values()][0]
   if (note && formedNew.length) {
     const { lots } = await readBatchLots(call, manifest)
-    const source = {
+
+    const sourceOf = (cited: { id: string; text: string }) => ({
       kind: 'note',
-      note_id: note.id,
-      text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
-    }
-    for (const { lotId, marking, quantity, basis, observationIds } of formedNew) {
+      note_id: cited.id,
+      text_sha256: sha256(Buffer.from(cited.text, 'utf8')).toString('hex'),
+    })
+
+    const source = sourceOf(note)
+    for (const { lotId, marking, quantity, basis, observationIds, evidenceIds } of formedNew) {
       const version = lots.find((lot) => lot.id === lotId)?.observation_set_version
       const lotSources = [
         ...(version ? [{ kind: 'observation_set', lot_id: lotId, version }] : []),
@@ -266,10 +275,19 @@ export async function syntheticLeadTurn(
       ]
       if (stageInput) {
         const published = await call('propose', {
-          proposal: examineIdentity(lotId, marking, observationIds, readAs, source, lotSources, {
-            quantity,
-            basis,
-          }),
+          // A `/7` identity cites the note of the lot's own photo, when it was sealed.
+          proposal: examineIdentity(
+            lotId,
+            marking,
+            observationIds,
+            readAs,
+            sourceOf(evidenceIds.map((id) => noteOf.get(id)).find(Boolean) ?? note),
+            lotSources,
+            {
+              quantity,
+              basis,
+            },
+          ),
         })
         // A refused identity fails the turn rather than leaving the lot without one unseen.
         if (!published.ok) {
