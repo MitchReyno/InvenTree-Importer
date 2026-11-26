@@ -8680,6 +8680,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "native-agent/2";
             /** @constant */
@@ -8798,6 +8799,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "native-agent/2";
             /** @constant */
@@ -9173,6 +9175,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "shared-vm-agent/1";
             /** @constant */
@@ -9291,6 +9294,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "shared-vm-agent/1";
             /** @constant */
@@ -9666,6 +9670,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "shared-vm-agent/2";
             /** @constant */
@@ -9784,6 +9789,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "shared-vm-agent/2";
             /** @constant */
@@ -10159,6 +10165,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "shared-vm-agent/3";
             /** @constant */
@@ -10277,6 +10284,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "shared-vm-agent/3";
             /** @constant */
@@ -10652,6 +10660,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "synthetic-session/1";
             /** @constant */
@@ -10764,6 +10773,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "synthetic-session/1";
             /** @constant */
@@ -27149,6 +27159,11 @@ export interface components {
             };
             session_concurrency: number;
             new_batch_instructions: string;
+            stage_instructions: {
+                examine?: string;
+                research?: string;
+                images?: string;
+            };
             part_description_style: string;
             auto_tags_default: boolean;
             web: {
@@ -27199,6 +27214,11 @@ export interface components {
             };
             session_concurrency: number;
             new_batch_instructions: string;
+            stage_instructions: {
+                examine?: string;
+                research?: string;
+                images?: string;
+            };
             part_description_style: string;
             auto_tags_default: boolean;
             web: {
@@ -27255,6 +27275,11 @@ export interface components {
             };
             session_concurrency: number;
             new_batch_instructions: string;
+            stage_instructions: {
+                examine?: string;
+                research?: string;
+                images?: string;
+            };
             part_description_style: string;
             auto_tags_default: boolean;
             web: {
@@ -35056,6 +35081,13 @@ export interface components {
                     created_at: string;
                 } | {
                     /** @constant */
+                    kind: "step_guidance";
+                    /** @constant */
+                    source: "human";
+                    stage: "examine" | "research" | "images";
+                    text: string;
+                } | {
+                    /** @constant */
                     kind: "answer";
                     /** @constant */
                     source: "human";
@@ -40666,6 +40698,13 @@ export interface components {
                     created_at: string;
                 } | {
                     /** @constant */
+                    kind: "step_guidance";
+                    /** @constant */
+                    source: "human";
+                    stage: "examine" | "research" | "images";
+                    text: string;
+                } | {
+                    /** @constant */
                     kind: "answer";
                     /** @constant */
                     source: "human";
@@ -43188,6 +43227,13 @@ export interface components {
                 created_at: string;
             } | {
                 /** @constant */
+                kind: "step_guidance";
+                /** @constant */
+                source: "human";
+                stage: "examine" | "research" | "images";
+                text: string;
+            } | {
+                /** @constant */
                 kind: "answer";
                 /** @constant */
                 source: "human";
@@ -44953,6 +44999,13 @@ export interface components {
                     created_at: string;
                 } | {
                     /** @constant */
+                    kind: "step_guidance";
+                    /** @constant */
+                    source: "human";
+                    stage: "examine" | "research" | "images";
+                    text: string;
+                } | {
+                    /** @constant */
                     kind: "answer";
                     /** @constant */
                     source: "human";
@@ -46705,6 +46758,13 @@ export interface components {
                 text_sha256: string;
                 actor_id: string;
                 created_at: string;
+            } | {
+                /** @constant */
+                kind: "step_guidance";
+                /** @constant */
+                source: "human";
+                stage: "examine" | "research" | "images";
+                text: string;
             } | {
                 /** @constant */
                 kind: "answer";
@@ -48467,6 +48527,13 @@ export interface components {
                 text_sha256: string;
                 actor_id: string;
                 created_at: string;
+            } | {
+                /** @constant */
+                kind: "step_guidance";
+                /** @constant */
+                source: "human";
+                stage: "examine" | "research" | "images";
+                text: string;
             } | {
                 /** @constant */
                 kind: "answer";
@@ -50257,6 +50324,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "synthetic-session/1";
             /** @constant */
@@ -50364,6 +50432,13 @@ export interface components {
                         text_sha256: string;
                         actor_id: string;
                         created_at: string;
+                    } | {
+                        /** @constant */
+                        kind: "step_guidance";
+                        /** @constant */
+                        source: "human";
+                        stage: "examine" | "research" | "images";
+                        text: string;
                     } | {
                         /** @constant */
                         kind: "answer";
@@ -52136,6 +52211,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "synthetic-session/1";
             /** @constant */
@@ -52243,6 +52319,13 @@ export interface components {
                         text_sha256: string;
                         actor_id: string;
                         created_at: string;
+                    } | {
+                        /** @constant */
+                        kind: "step_guidance";
+                        /** @constant */
+                        source: "human";
+                        stage: "examine" | "research" | "images";
+                        text: string;
                     } | {
                         /** @constant */
                         kind: "answer";
@@ -54314,6 +54397,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "shared-vm-agent/4";
             /** @constant */
@@ -54427,6 +54511,13 @@ export interface components {
                         text_sha256: string;
                         actor_id: string;
                         created_at: string;
+                    } | {
+                        /** @constant */
+                        kind: "step_guidance";
+                        /** @constant */
+                        source: "human";
+                        stage: "examine" | "research" | "images";
+                        text: string;
                     } | {
                         /** @constant */
                         kind: "answer";
@@ -56199,6 +56290,7 @@ export interface components {
                 prefer_datasheets: boolean;
             };
             part_description_style?: string;
+            stage_instructions?: string;
             /** @constant */
             profile_id: "shared-vm-agent/4";
             /** @constant */
@@ -56312,6 +56404,13 @@ export interface components {
                         text_sha256: string;
                         actor_id: string;
                         created_at: string;
+                    } | {
+                        /** @constant */
+                        kind: "step_guidance";
+                        /** @constant */
+                        source: "human";
+                        stage: "examine" | "research" | "images";
+                        text: string;
                     } | {
                         /** @constant */
                         kind: "answer";

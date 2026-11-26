@@ -75,3 +75,25 @@ test('a lot edit shows the quantity the operator left', () => {
     'Lot edit ATmega328P · quantity 480',
   )
 })
+
+test('the step instructions a session was queued with show under their own heading', () => {
+  const guidance: BriefEntryDto = {
+    kind: 'step_guidance',
+    source: 'human',
+    stage: 'research',
+    text: 'Open the manufacturer’s own datasheet first.',
+  }
+  render(<BriefContent item={historyBrief([guidance])} />)
+
+  expect(screen.getByRole('heading', { name: 'Operator guidance for this step' })).toBeVisible()
+  expect(screen.getByRole('list', { name: 'Operator guidance for this step' })).toHaveTextContent(
+    'Research instructions Open the manufacturer’s own datasheet first.',
+  )
+  // Kept apart from the operator's other facts.
+  expect(screen.queryByRole('list', { name: 'Your facts' })).toBeNull()
+})
+
+test('a brief without step instructions has no guidance heading', () => {
+  render(<BriefContent item={historyBrief()} />)
+  expect(screen.queryByRole('heading', { name: 'Operator guidance for this step' })).toBeNull()
+})

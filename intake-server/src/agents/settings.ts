@@ -3,7 +3,9 @@ import type { Pool, PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import {
   DEFAULT_MODEL_BEFORE_SAVE,
+  AGENT_INSTRUCTION_STAGES,
   AGENT_SETTINGS_STAGES,
+  STEP_INSTRUCTIONS_MAX_CHARACTERS,
   validate,
   type AgentProviderId,
   type AgentProviderSettingsDto,
@@ -48,6 +50,7 @@ export function unsavedAgentSettings(): AgentSettingsDto {
     providers: { claude: providerOff('claude'), codex: providerOff('codex') },
     default_provider: null,
     stage_selections: {},
+    stage_instructions: {},
     session_concurrency: DEFAULT_SESSION_CONCURRENCY,
     new_batch_instructions: '',
     part_description_style: '',
@@ -118,6 +121,7 @@ export async function readAgentSettings(
     providers,
     default_provider: row.defaultProvider,
     stage_selections: row.stageSelections,
+    stage_instructions: row.stageInstructions,
     session_concurrency: row.sessionConcurrency,
     new_batch_instructions: row.newBatchInstructions,
     part_description_style: row.partDescriptionStyle,
@@ -126,12 +130,27 @@ export async function readAgentSettings(
   }
 }
 
+function stepInstructions(input: AgentSettingsUpdateDto) {
+  return AGENT_INSTRUCTION_STAGES.flatMap((stage) => {
+    const text = input.stage_instructions[stage]
+    return text === undefined ? [] : [text]
+  })
+}
+
 function storedText(input: AgentSettingsUpdateDto) {
   return [
     input.new_batch_instructions,
     input.part_description_style,
+    ...stepInstructions(input),
     ...PROVIDERS.map((provider) => input.providers[provider].default_model),
   ]
+}
+
+/** Each step's instructions within the limit, counted in characters as the editor counts them. */
+function stepInstructionsFit(input: AgentSettingsUpdateDto) {
+  return stepInstructions(input).every(
+    (text) => [...text].length <= STEP_INSTRUCTIONS_MAX_CHARACTERS,
+  )
 }
 
 /** Refuses settings that could seal an attempt on a provider that is off or an invalid model. */
@@ -144,6 +163,7 @@ function checkAgentSettings(input: AgentSettingsUpdateDto) {
     // stored, and an unpaired surrogate would be changed on the way in.
     PROVIDERS.some((provider) => input.providers[provider].default_model.length > 128) ||
     storedText(input).some((text) => !storableText(text)) ||
+    !stepInstructionsFit(input) ||
     on.some((provider) => !MODEL_ID.test(input.providers[provider].default_model)) ||
     (on.length > 0 ? !defaultOn : input.default_provider !== null) ||
     AGENT_SETTINGS_STAGES.some((stage) => {
@@ -342,6 +362,7 @@ async function writeSettings(
   const fields = {
     defaultProvider: input.default_provider,
     stageSelections: input.stage_selections,
+    stageInstructions: input.stage_instructions,
     sessionConcurrency: input.session_concurrency,
     newBatchInstructions: input.new_batch_instructions,
     partDescriptionStyle: input.part_description_style,

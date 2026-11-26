@@ -7,6 +7,7 @@ import { ResearchReceiptSource } from './research.ts'
 import { mappedReference } from './effects.ts'
 import { valueEvidence } from './value-evidence.ts'
 import { MediaLitViewRecipe, MediaViewGeometry, MediaViewMarks } from './media.ts'
+import { StepInstructionsText } from './step-instructions.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -140,6 +141,11 @@ export const inputV6Shared = {
   ),
   /** The saved Part description style, sealed at queue time; absent when none was saved. */
   part_description_style: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+  /**
+   * The operator's saved instructions for this input's step, sealed at queue time; absent when
+   * none were saved, for a step that takes none, and on earlier attempts.
+   */
+  stage_instructions: Type.Optional(StepInstructionsText),
 }
 /** Each profile seals its own tool profile; only `shared-vm-agent/3` has the web tools. */
 const sessionTools = Type.Literal('native-session-tools/1')

@@ -120,6 +120,7 @@ export async function prepareSessionAttempt(
       agent,
       settingsRevision: settings.revision,
       partDescriptionStyle: settings.part_description_style || undefined,
+      stageInstructions: stepInstructionsFor(settings, job.stage),
       // Only profiles with web access seal the saved values; every other profile seals both off.
       web: webAccess(profileId) === 'available' ? { ...settings.web } : WEB_OFF,
     }
@@ -149,6 +150,14 @@ export async function prepareSessionAttempt(
     fail('processing_channel_unconfigured', 503)
   }
   return manifest
+}
+
+/** The saved instructions of the job's step, for the steps that take them; none for Inventory. */
+function stepInstructionsFor(settings: AgentSettingsDto, stage: SessionJob['stage']) {
+  if (stage !== 'examine' && stage !== 'research' && stage !== 'images') {
+    return undefined
+  }
+  return settings.stage_instructions[stage]
 }
 
 /**

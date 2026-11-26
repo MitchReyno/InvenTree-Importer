@@ -27776,6 +27776,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "native-agent/2",
                 "type": "string"
@@ -28344,6 +28349,11 @@
                 "minLength": 1,
                 "maxLength": 500,
                 "type": "string"
+              },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
               },
               "profile_id": {
                 "const": "native-agent/2",
@@ -30119,6 +30129,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "shared-vm-agent/1",
                 "type": "string"
@@ -30687,6 +30702,11 @@
                 "minLength": 1,
                 "maxLength": 500,
                 "type": "string"
+              },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
               },
               "profile_id": {
                 "const": "shared-vm-agent/1",
@@ -32462,6 +32482,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "shared-vm-agent/2",
                 "type": "string"
@@ -33030,6 +33055,11 @@
                 "minLength": 1,
                 "maxLength": 500,
                 "type": "string"
+              },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
               },
               "profile_id": {
                 "const": "shared-vm-agent/2",
@@ -34804,6 +34834,11 @@
                 "minLength": 1,
                 "maxLength": 500,
                 "type": "string"
+              },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
               },
               "profile_id": {
                 "const": "shared-vm-agent/3",
@@ -35374,6 +35409,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "shared-vm-agent/3",
                 "type": "string"
@@ -37148,6 +37188,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "synthetic-session/1",
                 "type": "string"
@@ -37672,6 +37717,11 @@
                 "minLength": 1,
                 "maxLength": 500,
                 "type": "string"
+              },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
               },
               "profile_id": {
                 "const": "synthetic-session/1",
@@ -127525,6 +127575,7 @@
           "stage_selections",
           "session_concurrency",
           "new_batch_instructions",
+          "stage_instructions",
           "part_description_style",
           "auto_tags_default",
           "web"
@@ -127761,6 +127812,27 @@
             "maxLength": 8192,
             "type": "string"
           },
+          "stage_instructions": {
+            "additionalProperties": false,
+            "type": "object",
+            "properties": {
+              "examine": {
+                "minLength": 1,
+                "maxLength": 2000,
+                "type": "string"
+              },
+              "research": {
+                "minLength": 1,
+                "maxLength": 2000,
+                "type": "string"
+              },
+              "images": {
+                "minLength": 1,
+                "maxLength": 2000,
+                "type": "string"
+              }
+            }
+          },
           "part_description_style": {
             "maxLength": 500,
             "type": "string"
@@ -127797,6 +127869,7 @@
           "stage_selections",
           "session_concurrency",
           "new_batch_instructions",
+          "stage_instructions",
           "part_description_style",
           "auto_tags_default",
           "web"
@@ -128037,6 +128110,27 @@
             "maxLength": 8192,
             "type": "string"
           },
+          "stage_instructions": {
+            "additionalProperties": false,
+            "type": "object",
+            "properties": {
+              "examine": {
+                "minLength": 1,
+                "maxLength": 2000,
+                "type": "string"
+              },
+              "research": {
+                "minLength": 1,
+                "maxLength": 2000,
+                "type": "string"
+              },
+              "images": {
+                "minLength": 1,
+                "maxLength": 2000,
+                "type": "string"
+              }
+            }
+          },
           "part_description_style": {
             "maxLength": 500,
             "type": "string"
@@ -128098,6 +128192,7 @@
               "stage_selections",
               "session_concurrency",
               "new_batch_instructions",
+              "stage_instructions",
               "part_description_style",
               "auto_tags_default",
               "web"
@@ -128333,6 +128428,27 @@
               "new_batch_instructions": {
                 "maxLength": 8192,
                 "type": "string"
+              },
+              "stage_instructions": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "examine": {
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "type": "string"
+                  },
+                  "research": {
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "type": "string"
+                  },
+                  "images": {
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "type": "string"
+                  }
+                }
               },
               "part_description_style": {
                 "maxLength": 500,
@@ -175478,6 +175594,47 @@
                       "required": [
                         "kind",
                         "source",
+                        "stage",
+                        "text"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "step_guidance",
+                          "type": "string"
+                        },
+                        "source": {
+                          "const": "human",
+                          "type": "string"
+                        },
+                        "stage": {
+                          "anyOf": [
+                            {
+                              "const": "examine",
+                              "type": "string"
+                            },
+                            {
+                              "const": "research",
+                              "type": "string"
+                            },
+                            {
+                              "const": "images",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "source",
                         "question_id",
                         "answer_id",
                         "subject_id",
@@ -208119,6 +208276,47 @@
                           "required": [
                             "kind",
                             "source",
+                            "stage",
+                            "text"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "step_guidance",
+                              "type": "string"
+                            },
+                            "source": {
+                              "const": "human",
+                              "type": "string"
+                            },
+                            "stage": {
+                              "anyOf": [
+                                {
+                                  "const": "examine",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "research",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "images",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "source",
                             "question_id",
                             "answer_id",
                             "subject_id",
@@ -223619,6 +223817,47 @@
                   "required": [
                     "kind",
                     "source",
+                    "stage",
+                    "text"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "step_guidance",
+                      "type": "string"
+                    },
+                    "source": {
+                      "const": "human",
+                      "type": "string"
+                    },
+                    "stage": {
+                      "anyOf": [
+                        {
+                          "const": "examine",
+                          "type": "string"
+                        },
+                        {
+                          "const": "research",
+                          "type": "string"
+                        },
+                        {
+                          "const": "images",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "source",
                     "question_id",
                     "answer_id",
                     "subject_id",
@@ -233854,6 +234093,47 @@
                         "required": [
                           "kind",
                           "source",
+                          "stage",
+                          "text"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "step_guidance",
+                            "type": "string"
+                          },
+                          "source": {
+                            "const": "human",
+                            "type": "string"
+                          },
+                          "stage": {
+                            "anyOf": [
+                              {
+                                "const": "examine",
+                                "type": "string"
+                              },
+                              {
+                                "const": "research",
+                                "type": "string"
+                              },
+                              {
+                                "const": "images",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "text": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 1000
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "source",
                           "question_id",
                           "answer_id",
                           "subject_id",
@@ -243953,6 +244233,47 @@
                       "minLength": 1,
                       "maxLength": 64,
                       "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "source",
+                    "stage",
+                    "text"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "step_guidance",
+                      "type": "string"
+                    },
+                    "source": {
+                      "const": "human",
+                      "type": "string"
+                    },
+                    "stage": {
+                      "anyOf": [
+                        {
+                          "const": "examine",
+                          "type": "string"
+                        },
+                        {
+                          "const": "research",
+                          "type": "string"
+                        },
+                        {
+                          "const": "images",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
                     }
                   }
                 },
@@ -254183,6 +254504,47 @@
                       "minLength": 1,
                       "maxLength": 64,
                       "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "source",
+                    "stage",
+                    "text"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "step_guidance",
+                      "type": "string"
+                    },
+                    "source": {
+                      "const": "human",
+                      "type": "string"
+                    },
+                    "stage": {
+                      "anyOf": [
+                        {
+                          "const": "examine",
+                          "type": "string"
+                        },
+                        {
+                          "const": "research",
+                          "type": "string"
+                        },
+                        {
+                          "const": "images",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
                     }
                   }
                 },
@@ -264479,6 +264841,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "synthetic-session/1",
                 "type": "string"
@@ -265058,6 +265425,47 @@
                                     "minLength": 1,
                                     "maxLength": 64,
                                     "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "source",
+                                  "stage",
+                                  "text"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "step_guidance",
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "const": "human",
+                                    "type": "string"
+                                  },
+                                  "stage": {
+                                    "anyOf": [
+                                      {
+                                        "const": "examine",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "research",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "images",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
                                   }
                                 }
                               },
@@ -275248,6 +275656,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "synthetic-session/1",
                 "type": "string"
@@ -275827,6 +276240,47 @@
                                     "minLength": 1,
                                     "maxLength": 64,
                                     "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "source",
+                                  "stage",
+                                  "text"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "step_guidance",
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "const": "human",
+                                    "type": "string"
+                                  },
+                                  "stage": {
+                                    "anyOf": [
+                                      {
+                                        "const": "examine",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "research",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "images",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
                                   }
                                 }
                               },
@@ -287418,6 +287872,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "shared-vm-agent/4",
                 "type": "string"
@@ -288041,6 +288500,47 @@
                                     "minLength": 1,
                                     "maxLength": 64,
                                     "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "source",
+                                  "stage",
+                                  "text"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "step_guidance",
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "const": "human",
+                                    "type": "string"
+                                  },
+                                  "stage": {
+                                    "anyOf": [
+                                      {
+                                        "const": "examine",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "research",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "images",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
                                   }
                                 }
                               },
@@ -298231,6 +298731,11 @@
                 "maxLength": 500,
                 "type": "string"
               },
+              "stage_instructions": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
               "profile_id": {
                 "const": "shared-vm-agent/4",
                 "type": "string"
@@ -298854,6 +299359,47 @@
                                     "minLength": 1,
                                     "maxLength": 64,
                                     "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "source",
+                                  "stage",
+                                  "text"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "step_guidance",
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "const": "human",
+                                    "type": "string"
+                                  },
+                                  "stage": {
+                                    "anyOf": [
+                                      {
+                                        "const": "examine",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "research",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "images",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
                                   }
                                 }
                               },

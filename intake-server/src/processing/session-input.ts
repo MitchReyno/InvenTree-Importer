@@ -35,6 +35,8 @@ export type SessionInputProfile =
       settingsRevision: string
       /** Sealed with the attempt, so a later save can't change what a queued session reads. */
       partDescriptionStyle?: string
+      /** The operator's instructions for the attempt's own step, sealed with it the same way. */
+      stageInstructions?: string
       /** Sealed with the attempt; off for every profile but `shared-vm-agent/3`. */
       web?: { public_pages: boolean; prefer_datasheets: boolean }
     }
@@ -79,6 +81,9 @@ export function sessionLotInputManifest(
     settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
     ...(profile.id !== 'synthetic-session/1' && profile.partDescriptionStyle
       ? { part_description_style: profile.partDescriptionStyle }
+      : {}),
+    ...(profile.id !== 'synthetic-session/1' && profile.stageInstructions
+      ? { stage_instructions: profile.stageInstructions }
       : {}),
     ...(profile.id !== 'synthetic-session/1' && profile.web ? { web: { ...profile.web } } : {}),
     pinned_proposal_ids: [...pinnedProposalIds].sort(),
@@ -174,12 +179,13 @@ export function stageInputManifest(
 
 /**
  * What a session's brief draws on from its input: the versions it may fetch (originals only for
- * the Examine lead), the media notes, its pinned identities and its web policy.
+ * the Examine lead), the media notes, its pinned identities, its web policy and its step's
+ * instructions, so the current view of a brief keeps the guidance its input sealed.
  */
 export function briefScope(
   input: Pick<
     ProcessingInputV6Dto,
-    'stage' | 'subject_id' | 'media' | 'pinned_proposal_ids' | 'web'
+    'stage' | 'subject_id' | 'media' | 'pinned_proposal_ids' | 'web' | 'stage_instructions'
   >,
 ): BriefScope {
   const media = decodeMediaInputs(
@@ -204,6 +210,7 @@ export function briefScope(
     mediaContext: media.context,
     pinnedProposalIds: input.pinned_proposal_ids,
     web: input.web ?? { public_pages: false, prefer_datasheets: false },
+    stepGuidance: input.stage_instructions,
   }
 }
 
@@ -264,6 +271,9 @@ export function sessionLeadInputManifest(
     settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
     ...(profile.id !== 'synthetic-session/1' && profile.partDescriptionStyle
       ? { part_description_style: profile.partDescriptionStyle }
+      : {}),
+    ...(profile.id !== 'synthetic-session/1' && profile.stageInstructions
+      ? { stage_instructions: profile.stageInstructions }
       : {}),
     ...(profile.id !== 'synthetic-session/1' && profile.web ? { web: { ...profile.web } } : {}),
     pinned_proposal_ids: [],

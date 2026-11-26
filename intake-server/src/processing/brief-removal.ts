@@ -102,6 +102,7 @@ function deliverable(entry: BriefEntryDto, removed: Removed): BriefEntryDto | nu
     case 'part':
     case 'question':
     case 'setting_note':
+    case 'step_guidance':
     case 'vocabulary':
       return entry
   }
