@@ -3424,3 +3424,29 @@ test('choosing another Part for a lot’s draft Part stales its identity', async
     'cancelled',
   )
 })
+
+test('Examine linking an identified lot to another Part stales its identity', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const led = await batch.lot('led 0603 red')
+  const research = await stageJob(batch, 'led 0603 red', 'research')
+  const [identityId] = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
+  const relinked = await result(
+    session.propose_lot(await running(fixture, leadAttempt), {
+      base_revision: (await snapshotOf(fixture, batchId)).revision,
+      lot_id: led.id,
+      observation_ids: led.evidence_observation_ids!,
+      part: { label: 'Amber LED' },
+    }),
+  )
+  assert.equal(relinked.ok, true, JSON.stringify(relinked))
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [identityId]),
+  )
+  assert.equal(facts.get(identityId)?.stale, 'source_superseded')
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+})

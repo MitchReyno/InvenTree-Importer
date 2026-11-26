@@ -1360,7 +1360,13 @@ function choiceText(choice: CaptureSnapshotDto['parts'][number]['choice'] | unde
     return null
   }
   const value = 'value' in choice ? (choice.value as { pk?: unknown } | undefined) : undefined
-  return value && typeof value.pk === 'string' ? `${choice.mode} ${value.pk}` : choice.mode
+  if (value && typeof value.pk === 'string') {
+    return `${choice.mode} ${value.pk}`
+  }
+  // A Part to create is named by what identifies it.
+  const spec = 'spec' in choice ? (choice.spec as { mpn?: unknown; name?: unknown }) : undefined
+  const named = [spec?.name, spec?.mpn].filter((item) => typeof item === 'string').join(' · ')
+  return [...(named ? `${choice.mode} ${named}` : choice.mode)].slice(0, 512).join('')
 }
 
 /** Tells what relied on the identity of each lot linked to a Part whose choice changed. */
@@ -1588,9 +1594,10 @@ export function captureRepository(pool: Pool, config: Binding) {
       return command('capture_edit', id, key, input, async (c) => {
         const locked = await lockCaptureForEdit(c, config, id, input.expected_revision)
         const applied = await locked.apply(input)
-        // A different Part chosen for a draft Part corrects the identity of every lot linked to it.
-        if (input.change.kind === 'part' && input.change.choice !== undefined) {
-          await tellPartChoice(c, id, locked.snapshot, applied, input.change.id, key)
+        // A different Part chosen for a draft Part, by the Part editor or a record edit such as
+        // its MPN, corrects the identity of every lot linked to it.
+        for (const part of applied.parts) {
+          await tellPartChoice(c, id, locked.snapshot, applied, part.id, key)
         }
         // An operator correction of a lot's identity or quantity reaches every relying session.
         if (input.change.kind === 'lot') {

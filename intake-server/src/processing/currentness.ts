@@ -358,7 +358,7 @@ export async function fieldsSuperseded(
     batchId: string
     subjectId: string | null
     fields: readonly ProcessingFieldDto[]
-    reason: 'answer_received' | 'operator_correction'
+    reason: 'answer_received' | 'operator_correction' | 'source_superseded'
     message: string
     key: string
     except?: string

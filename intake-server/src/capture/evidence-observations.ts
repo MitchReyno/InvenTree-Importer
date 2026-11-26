@@ -200,6 +200,7 @@ interface LockedLot {
   origin: 'agent' | 'operator'
   operatorEdited: boolean
   changedRevision: bigint
+  partSubjectId: string | null
   retired: boolean
 }
 
@@ -215,6 +216,7 @@ async function lockLots(client: PoolClient, batchId: string, ids: readonly strin
         origin: captureLots.origin,
         operatorEdited: captureLots.operatorEdited,
         changedRevision: captureLots.changedRevision,
+        partSubjectId: captureLots.partSubjectId,
       })
       .from(captureLots)
       .where(and(eq(captureLots.batchId, batchId), inArray(captureLots.id, [...ids])))
@@ -695,6 +697,10 @@ export async function proposeLot(
         })
         .where(eq(captureLots.id, lotId)),
     )
+    // Relinking an identified lot to another Part changes what it is.
+    if (partSubjectId !== undefined && partSubjectId !== target.partSubjectId) {
+      await partRelinked(client, writer, lotId, target.partSubjectId, partSubjectId, next)
+    }
     if (args.label) {
       await executeDatabaseQuery(
         db
@@ -1059,8 +1065,8 @@ async function markSameItem(
       fail('same_item_different_lots', 409)
     }
     const root = target.sameItemAs ?? target.id
-    // Marking it the same as the group it is already in changes nothing.
-    if (row.sameItemAs === root) {
+    // Marking it the same as the group it is already in, either way round, changes nothing.
+    if (row.sameItemAs === root || root === row.id) {
       return
     }
     if (root !== row.id) {
@@ -1090,6 +1096,44 @@ async function markSameItem(
     await setReexamine(client, row.lotId, true)
     await recordReexamine(client, batchId, row.lotId, revision, 'same_item_changed', row.id)
   }
+}
+
+/**
+ * The lead session linked a `/7` lot to another Part: what relied on the lot's identity is stale
+ * and told, the session named as the source. Earlier inputs keep today's behaviour.
+ */
+async function partRelinked(
+  client: PoolClient,
+  writer: { batchId: string; sessionId: string },
+  lotId: string,
+  from: string | null,
+  to: string | null,
+  revision: bigint,
+) {
+  const input = await client.query<{ version: string }>(
+    `SELECT convert_from(i.manifest_bytes,'UTF8')::jsonb->>'schema_version' AS version
+     FROM public.processing_attempt a JOIN public.processing_input i ON i.id=a.input_id
+     WHERE a.id=$1`,
+    [writer.sessionId],
+  )
+  if (input.rows[0]?.version !== 'bench-intake-input/7') {
+    return
+  }
+  // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
+  const { fieldsSuperseded } = await import('#/processing/currentness.ts')
+  await fieldsSuperseded(client, {
+    batchId: writer.batchId,
+    subjectId: lotId,
+    fields: ['identity'],
+    reason: 'source_superseded',
+    message: 'Examine linked this lot to another Part.',
+    key: `relink:${revision}:${lotId}`,
+    changes: [{ kind: 'field', subject_id: lotId, field: 'part', from, to }],
+    context: {
+      origin: { by: 'session', attemptId: writer.sessionId },
+      briefRevision: revision.toString(),
+    },
+  })
 }
 
 /**
