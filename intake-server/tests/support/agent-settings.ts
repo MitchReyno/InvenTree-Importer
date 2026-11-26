@@ -46,6 +46,7 @@ export function singleProvider({
     } as AgentSettingsUpdateDto['providers'],
     default_provider: selection.provider,
     stage_selections: {},
+    stage_instructions: {},
     session_concurrency,
     new_batch_instructions: '',
     part_description_style: '',

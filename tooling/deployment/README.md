@@ -159,6 +159,8 @@ A runner image that changes the guest needs the image refreshed, and the provide
 
 An attempt sealed with an effort (the agent settings save one per step and per provider) needs a runner image from a build with migration `0042`: an older guest refuses its manifest, and the turn fails before the CLI starts. Apply the migration and refresh the API and coordinator roles' grants before starting the new build's API and session worker. Attempts on Default carry no effort and run on either image.
 
+Likewise, an attempt sealed with a step's instructions (saved in Settings › Agents for Examine, Research or Images) needs a runner image from a build with migration `0045`: an older guest refuses its manifest, and the turn fails before the CLI starts. Apply the migration and refresh the API role's grants before starting the new build's API and session worker, and refresh the runner image. Attempts of a step without instructions run on either image.
+
 ### Model lists from the guest
 
 The session worker reads each signed-in provider's model list in the guest, without a turn, and serves it at `GET /api/v1/agents/models`. The read is served on a private catalogue socket, and the subscription relay carries two connections for it beside the status one, so a read of several seconds holds neither a status read nor the worker's sign-in check.

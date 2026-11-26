@@ -39,6 +39,7 @@ function bothProviders(expected_revision: string): AgentSettingsUpdateDto {
     },
     default_provider: 'claude',
     stage_selections: { research: { provider: 'codex', model: 'gpt-6-luna' } },
+    stage_instructions: {},
     session_concurrency: 2,
     new_batch_instructions: 'Count reels by their labels.',
     part_description_style: 'Type, key values, package, then variant',
@@ -351,6 +352,8 @@ test('migration 0032 carries an existing selection over to its provider, on', as
       },
       default_provider: 'codex',
       stage_selections: {},
+      // Added by 0045: a row saved before it has no step instructions.
+      stage_instructions: {},
       session_concurrency: 2,
       new_batch_instructions: '',
       part_description_style: '',

@@ -9,6 +9,7 @@ import {
   EvidenceRegion,
 } from './evidence-observations.ts'
 import { SessionProposal } from './processing.ts'
+import { StepInstructionsText } from './step-instructions.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -93,6 +94,17 @@ export const BriefSettingNoteEntry = object({
   text_sha256: Digest,
   actor_id: Id,
   created_at: Type.String({ minLength: 1, maxLength: 64 }),
+})
+
+/**
+ * The operator's saved instructions for this step, as the input sealed them at queue time: their
+ * guidance for this step, followed after the app's own rules and the stage pack.
+ */
+export const BriefStepGuidanceEntry = object({
+  kind: Type.Literal('step_guidance'),
+  ...human,
+  stage: BriefStage,
+  text: StepInstructionsText,
 })
 
 /** The operator's answer to a question, with each step's prompt and the value given. */
@@ -288,6 +300,7 @@ export const BriefEntry = Type.Union([
   BriefInstructionEntry,
   BriefNoteEntry,
   BriefSettingNoteEntry,
+  BriefStepGuidanceEntry,
   BriefAnswerEntry,
   BriefCorrectionEntry,
   BriefLotEditEntry,

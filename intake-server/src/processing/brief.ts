@@ -59,6 +59,8 @@ export interface BriefScope {
   /** The identity proposals a Research session was pinned to. */
   pinnedProposalIds: readonly string[]
   web: { public_pages: boolean; prefer_datasheets: boolean }
+  /** The operator's instructions for this step, as the session's input sealed them. */
+  stepGuidance?: string
   /**
    * A job whose attempts the caller supersedes in the same transaction after sealing, as a
    * replacement does: its open questions are sealed as the supersession leaves them.
@@ -415,6 +417,14 @@ function inScope(subjects: ReadonlySet<string> | null, subjectId: string | null)
   return subjects === null || subjectId === null || subjects.has(subjectId)
 }
 
+/** The operator's guidance for this step, first among their facts, when the input sealed any. */
+function stepGuidanceEntries(scope: BriefScope): BriefEntryDto[] {
+  if (!scope.stepGuidance) {
+    return []
+  }
+  return [{ kind: 'step_guidance', source: 'human', stage: scope.stage, text: scope.stepGuidance }]
+}
+
 /** Notes the operator wrote: on the batch, the lot or its Part, and on its evidence and groups. */
 function noteEntries(
   snapshot: CaptureSnapshotDto,
@@ -735,6 +745,7 @@ export function projectBrief(
       })),
     ],
     human: [
+      ...stepGuidanceEntries(scope),
       ...noteEntries(snapshot, scope, subjects),
       ...answerEntries(questions, facts.answers),
       ...corrections,
