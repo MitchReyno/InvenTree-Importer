@@ -154,6 +154,20 @@ it('an account already signed in is shown, not closed', async () => {
   expect(onConfirmed).not.toHaveBeenCalled()
 })
 
+it('a disconnect whose model list couldn’t be marked says the list may be out of date', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+    .mockResolvedValueOnce(signedOut())
+  onChanged.mockResolvedValue(false as never)
+  openDialog()
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Disconnect ChatGPT' }))
+  expect(
+    await screen.findByText('Codex’s model list may be out of date for up to a minute.'),
+  ).toBeVisible()
+  expect(sent().at(-1)).toEqual({ action: 'disconnect' })
+})
+
 it('closing mid-sign-in makes one final poll, cancels the pending login and has the card read again', async () => {
   await startSignIn()
   send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())

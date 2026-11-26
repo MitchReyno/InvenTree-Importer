@@ -9,8 +9,11 @@ type Props = {
    * date.
    */
   onConfirmed: () => void | Promise<boolean | void>
-  /** The sign-in may have changed; the card reads its status again. */
-  onChanged: () => void
+  /**
+   * The sign-in may have changed; the card reads its status again. After a confirmed disconnect,
+   * answering false keeps the dialog saying the model list may be out of date.
+   */
+  onChanged: () => void | Promise<boolean | void>
 }
 
 /** "Sign in to ChatGPT…" on the Codex card, and the dialog it opens. */
@@ -20,8 +23,8 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
   const [openings, setOpenings] = useState(0)
   // A confirmation still settling holds the dialog's account controls, so no newer change starts.
   const [settling, setSettling] = useState<number | null>(null)
-  // An opening whose confirmed account the server couldn't mark the model list for.
-  const [unmarked, setUnmarked] = useState<number | null>(null)
+  // Openings whose confirmed account the server couldn't mark the model list for.
+  const [unmarked, setUnmarked] = useState<ReadonlySet<number>>(new Set())
 
   function open() {
     setOpenings(openings + 1)
@@ -41,7 +44,7 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
     if (marked) {
       setOpening((shown) => (shown === of ? null : shown))
     } else {
-      setUnmarked(of)
+      setUnmarked((openings) => new Set(openings).add(of))
     }
   }
 
@@ -52,7 +55,7 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
         <ChatGPTSignInDialog
           key={opening}
           settling={settling === opening}
-          listNotMarked={unmarked === opening}
+          listNotMarked={unmarked.has(opening)}
           onChanged={onChanged}
           onConfirmed={() => confirmed(opening)}
           onClose={() => setOpening(null)}

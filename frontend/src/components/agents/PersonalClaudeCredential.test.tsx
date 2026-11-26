@@ -281,4 +281,6 @@ it('stays open to say the model list may be out of date when it couldn’t be ma
   ).toBeVisible()
   expect(screen.getByRole('dialog', { name: 'Claude subscription token' })).toBeVisible()
   expect(onChanged).toHaveBeenCalledExactlyOnceWith(true)
+  // The token it sent is cleared, so it can't be sent twice.
+  expect(screen.getByLabelText('Subscription token')).toHaveValue('')
 })

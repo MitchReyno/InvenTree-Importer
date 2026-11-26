@@ -164,8 +164,11 @@ function startedLogin(start: Promise<Account>): Promise<LoginToFinish> {
 type Options = {
   /** The VM confirmed the ChatGPT account after a sign-in: the dialog closes by itself. */
   onConfirmed: () => void
-  /** The sign-in may have changed, for the VM's status to report. */
-  onChanged: () => void
+  /**
+   * The sign-in may have changed, for the VM's status to report. For a disconnect the VM
+   * confirmed, answering false says the model list couldn't be marked as out of date.
+   */
+  onChanged: () => void | Promise<boolean | void>
 }
 
 /**
@@ -193,6 +196,8 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
   const [account, setAccount] = useState<Account>()
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  // A disconnect the VM confirmed whose model list the server couldn't mark as out of date.
+  const [listNotMarked, setListNotMarked] = useState(false)
   // A status call can end the login, so a replayed poll adopts the call still running for it.
   const statusCall = useRef<{ id: string; call: Promise<Account> } | null>(null)
   const polling = account?.state === 'pending'
@@ -249,10 +254,10 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
       outstanding = Promise.resolve('unknown')
     }
     if (outstanding) {
-      callbacks.current.onChanged()
+      void callbacks.current.onChanged()
       void finishLogin(ending.key, outstanding)
         .catch(() => undefined)
-        .finally(() => callbacks.current.onChanged())
+        .finally(() => void callbacks.current.onChanged())
     }
     endGeneration(ending)
   }
@@ -301,7 +306,7 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
     if (next.state === 'connected') {
       callbacks.current.onConfirmed()
     } else {
-      callbacks.current.onChanged()
+      void callbacks.current.onChanged()
     }
   }
 
@@ -329,8 +334,14 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
       setEpoch((value) => value + 1)
       setAccount(next)
       setMessage('')
-      if (action !== 'status') {
-        callbacks.current.onChanged()
+      if (action === 'disconnect') {
+        void Promise.resolve(callbacks.current.onChanged()).then((marked) => {
+          if (marked === false && !mine.ended) {
+            setListNotMarked(true)
+          }
+        })
+      } else if (action !== 'status') {
+        void callbacks.current.onChanged()
       }
     } catch (error) {
       if (!mine.ended) {
@@ -341,7 +352,7 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
         }
         if (action !== 'status' && sent && !answered) {
           // It may have applied before its answer was lost, so the card reads the VM again.
-          callbacks.current.onChanged()
+          void callbacks.current.onChanged()
         }
         setAccount(undefined)
         setMessage(FAILED)
@@ -365,6 +376,7 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
     setEpoch((current) => current + 1)
     setAccount(undefined)
     setMessage('')
+    setListNotMarked(false)
     setBusy(false)
     if (value) {
       pause.current = setTimeout(() => {
@@ -382,6 +394,7 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
   })
 
   return {
+    listNotMarked,
     busy,
     blocked,
     shown,

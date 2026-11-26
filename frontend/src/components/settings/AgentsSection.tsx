@@ -304,9 +304,9 @@ export function AgentsSection({
                     providerStatus.signInChanged('codex', 'signed_in'),
                   )
                 }
-                onChanged={() => {
-                  void afterSignInChange('codex', {}, () => providerStatus.signInChanged('codex'))
-                }}
+                onChanged={() =>
+                  afterSignInChange('codex', {}, () => providerStatus.signInChanged('codex'))
+                }
               />
             ),
           }}

@@ -8,7 +8,7 @@ type Props = {
   /** The VM confirmed the ChatGPT account after a sign-in in the dialog. */
   onConfirmed: () => void
   /** The sign-in may have changed; the card reads its status again. */
-  onChanged: () => void
+  onChanged: () => void | Promise<boolean | void>
   onClose: () => void
   /** The confirmed account is being recorded; nothing can change it until that settles. */
   settling?: boolean
@@ -96,7 +96,7 @@ export function ChatGPTSignInDialog({
           onChange={(event) => editKey(event.target.value)}
         />
         {account()}
-        {listNotMarked && (
+        {(listNotMarked || signIn.listNotMarked) && (
           <p role="status">Codex’s model list may be out of date for up to a minute.</p>
         )}
         {shownMessage && <Alert role="alert">{shownMessage}</Alert>}
