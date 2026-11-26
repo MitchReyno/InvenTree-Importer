@@ -148,6 +148,9 @@ A sealed brief keeps its bytes, but nothing of evidence removed since reaches th
 - Count-only, region-only and membership notices to a `/7` session carry the reading-correction reason text; their typed changes say what happened.
 - An Examine republication that changes only a lot's estimate doesn't tell or stale what relied on its quantity.
 - The record-edit route to a Part choice change shares the Part editor's path; its own regression (which needs InvenTree references) is open.
+- A Part choice change names the choice by mode and Part or draft name; a `set_mpn` edit that keeps the name is told with the same value before and after (the manufacturer MPN isn't named), though what relied on it is staled.
+- Any change to a draft Part's choice, tags or description included, stales the identities of its linked lots; comparing only identity-bearing fields is for PR-C/PR-D.
+- Re-recording an observation with the same reading, region and count advances its revision, which the claim and Review check then treats as a change.
 - Released views survive a worker restart in the PG test by rebuilding the tool context on the same attempt; a process-tier test that stops and restarts the worker is open.
 - The figure preview beside an existing question is tested to queue its renders and store nothing, with no renderer running, so it answers `preview_not_ready`; a rendered preview is covered by BI-019's figure tests.
 
