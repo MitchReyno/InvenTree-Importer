@@ -21,6 +21,8 @@ import {
   type SessionStageProposeArgsDto,
   type SessionReadBriefBatchArgsDto,
   type SessionReadLotArgsDto,
+  type SessionReadGuideArgsDto,
+  type SessionReadVocabularyArgsDto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
   webPageUrlAccepted,
@@ -76,6 +78,7 @@ import {
 } from './question-dedupe.ts'
 import { releasedPages } from './photo-release.ts'
 import { readBriefPage, retainBriefView, stagePrincipal, type BriefRead } from './brief-read.ts'
+import { readGuide, readVocabulary } from './stage-reads.ts'
 import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
@@ -1367,7 +1370,7 @@ function requireOwnObservationSet(
   ) {
     refuse(
       'validation_failed',
-      'An identity relies on its lot’s observation set; read your brief again and cite its current observation set.',
+      'An identity relies on identity and on its lot’s observation set: name identity in relies_on.fields and cite the current observation set from your brief.',
     )
   }
 }
@@ -2064,6 +2067,24 @@ export function sessionTools(context: SessionToolContext) {
           result: await ok(client, principal, { revision: read.page.revision, brief: read.page }),
           read,
         }
+      }),
+
+    read_guide: (token: string, args: unknown) =>
+      withSession(context, token, { capture: false }, async (client, principal) => {
+        const input = validated<SessionReadGuideArgsDto>('SessionReadGuideArgs', args)
+        const stage = stagePrincipal(principal)
+        return ok(client, principal, await readGuide(client, stage.manifest, input))
+      }),
+
+    read_vocabulary: (token: string, args: unknown) =>
+      withSession(context, token, { capture: false }, async (client, principal) => {
+        const input = validated<SessionReadVocabularyArgsDto>('SessionReadVocabularyArgs', args)
+        const stage = stagePrincipal(principal)
+        if (stage.manifest.stage !== 'research') {
+          refuse('tool_not_allowed', 'Only Research sessions look up the catalogue vocabulary.')
+        }
+        const vocabulary = await readVocabulary(client, context.config, principal.batchId, input)
+        return ok(client, principal, vocabulary)
       }),
 
     record_observation: (token: string, args: unknown) =>

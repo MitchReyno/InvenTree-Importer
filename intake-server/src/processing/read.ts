@@ -467,6 +467,7 @@ function jobManifestQualification(
   const profileId = decodeJobInput(bytes, digest).profile_id
   return profileId === 'native-agent/1' ||
     profileId === 'native-agent/2' ||
+    profileId === 'shared-vm-agent/4' ||
     profileId === 'shared-vm-agent/3' ||
     profileId === 'shared-vm-agent/2' ||
     profileId === 'shared-vm-agent/1'
@@ -548,6 +549,7 @@ function configuredRunnerStatus(
   }
   return config.profileId === 'native-agent/1' ||
     config.profileId === 'native-agent/2' ||
+    config.profileId === 'shared-vm-agent/4' ||
     config.profileId === 'shared-vm-agent/3' ||
     config.profileId === 'shared-vm-agent/1'
     ? 'native_unverified'

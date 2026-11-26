@@ -10,8 +10,8 @@ export { STAGE_TOOL_PROFILE }
 export type SessionInputVersion = 'bench-intake-input/6' | 'bench-intake-input/7'
 
 /**
- * Each stage pack's digest by profile, as migration `0039` stores it. A `/7` input seals its
- * stage's, and the claim checks the stored pack against it. Earlier profiles have none.
+ * Each stage pack's digest by profile, as migrations `0039` and `0044` store them. A `/7` input
+ * seals its stage's, and the claim checks the stored pack against it. Earlier profiles have none.
  */
 export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, string>>> = {
   'synthetic-session/1': {
@@ -19,6 +19,36 @@ export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, 
     research: 'b1c4f826f3cbc86ccd900365f6a72a570db98ded905ef2ec53a971b60547bec9',
     images: 'e4cfa08e54a09b24d895529b36493784e55bff9865fe9b4ec3cfc5caad2b4580',
   },
+  'shared-vm-agent/4': {
+    examine: 'c79a5f93edf83b36831f508bb6fcb8c6f68f81095337148bbd2d9214538fb39a',
+    research: '366198c468933bfe2f076124b9d36d5b79d0e4b3b57d4824f2f32caa012f0af3',
+    images: '1266b1d819acb73ceddb251f18acd7886d94b61773f5ed54d6206e67e94b397b',
+  },
+}
+
+/**
+ * Each stage guide's digest by profile: the SHA-256 of the canonical ordered list of its sections'
+ * names, titles and text digests. The guide table (migration `0044`) holds only each
+ * section's own digest; this is what pins the whole guide. `read_guide` serves a
+ * guide only while its stored sections still give this digest, so a section added, removed or
+ * reordered after the profile was sealed is refused, not served.
+ */
+export const stageGuides: Partial<Record<SessionProfileId, Record<BriefStageDto, string>>> = {
+  'synthetic-session/1': {
+    examine: 'cfdeafe362dee7b4ee6cedaaf8388fa05e370a90a67fa241433ff9439561b5dd',
+    research: '3ed23a67403d9b721b0e35d172f0ff1dd32aca65043c9837c03edd42cff34862',
+    images: '20d21ee40894dadd277cfad8b5abdb350bc00c03edbc6d78bc3e3f578774fe1d',
+  },
+  'shared-vm-agent/4': {
+    examine: '8fb04931d06f06541200bbdcb7dee7f37ce1b07745f1eb546eb7c2d7fce74abe',
+    research: '6d25c09c1973f22087114a1e6f7edb6a6218de7e6149d27993658ed5d0288bee',
+    images: 'b41231f10a0f1b358d27f26746a46ce6aab0ee37a466c0ce8e82ced8446d6031',
+  },
+}
+
+/** Profiles that run only the `/7` pipeline; they never seal a `/6` input. */
+export function stageOnlyProfile(profileId: string) {
+  return profileId === 'shared-vm-agent/4'
 }
 
 /**
@@ -33,12 +63,15 @@ export function expectedToolProfile(profileId: SessionProfileId, version: Sessio
 
 /**
  * The version a batch with no lead follows: `/7` only under the test-only switch, for
- * `synthetic-session/1` on its local route. Every other configuration keeps `/6`.
+ * `synthetic-session/1` on its local route or the stage profile `shared-vm-agent/4`, which
+ * configuration can't select yet. Every other configuration keeps `/6`.
  */
 export function configuredInputVersion(
   config: Pick<ProcessingConfig, 'profileId' | 'stageInputs'>,
 ): SessionInputVersion {
-  return config.profileId === 'synthetic-session/1' && config.stageInputs === 'local'
+  const stageProfile =
+    config.profileId === 'synthetic-session/1' || config.profileId === 'shared-vm-agent/4'
+  return stageProfile && config.stageInputs === 'local'
     ? 'bench-intake-input/7'
     : 'bench-intake-input/6'
 }

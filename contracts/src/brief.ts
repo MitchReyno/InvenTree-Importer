@@ -1,6 +1,7 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { Digest, Id, IsoTime, Quantity, Revision } from './scalars.ts'
+import { Digest, Id, IsoTime, PositivePk, Quantity, Revision } from './scalars.ts'
 import { CaptureDefaults, CaptureQuantity, LotExclusion } from './capture.ts'
+import { InventoryMapping } from './effects.ts'
 import { note } from './capture-primitives.ts'
 import {
   CaptureEvidenceObservation,
@@ -15,7 +16,7 @@ const object = <T extends TProperties>(properties: T) =>
 /**
  * A `/7` session's brief: what it is given before it starts, sealed into its input. The shared
  * sections come first, then its stage's. Each section exists from the start; a section whose data
- * a later change supplies (Match state, the vocabulary) is empty until then.
+ * a later change supplies (Match state) is empty until then.
  */
 export const BRIEF_SHARED_SECTIONS = ['batch', 'human', 'asked', 'evidence', 'match'] as const
 export const BRIEF_STAGE_SECTIONS = {
@@ -258,6 +259,31 @@ export const BriefKeepOutEntry = object({
   markings: EvidenceReadings.properties.markings,
 })
 
+/** The catalogue models a Research session can cite from its vocabulary. */
+export const VOCABULARY_KINDS = [
+  'category',
+  'parameter_template',
+  'category_parameter',
+  'company',
+] as const
+export const VocabularyKind = Type.Union(VOCABULARY_KINDS.map((kind) => Type.Literal(kind)))
+
+/**
+ * Research: a catalogue record the batch has observed, with the reference a proposal cites for
+ * it. A category, parameter template, category mapping or company; never a Part or location.
+ */
+export const BriefVocabularyEntry = object({
+  kind: Type.Literal('vocabulary'),
+  reference: object({
+    observation_id: Id,
+    target_context_id: Id,
+    model: VocabularyKind,
+    pk: PositivePk,
+  }),
+  label: Type.String({ minLength: 1, maxLength: 256 }),
+  mapping: Type.Optional(InventoryMapping),
+})
+
 export const BriefEntry = Type.Union([
   BriefBatchEntry,
   BriefInstructionEntry,
@@ -272,6 +298,7 @@ export const BriefEntry = Type.Union([
   BriefLotEntry,
   BriefPartEntry,
   BriefIdentityEntry,
+  BriefVocabularyEntry,
   BriefKeepOutEntry,
 ])
 
@@ -358,6 +385,30 @@ export const SessionReadLotArgs = object({ lot_id: Id, ...briefRead })
 /** `read_batch` for a `/7` Examine lead, which pages its brief; earlier leads take no arguments. */
 export const SessionReadBriefBatchArgs = object({ ...briefRead })
 
+/** A stage guide section's name, as the guide table stores it. */
+export const GUIDE_SECTION_NAME = Type.String({ pattern: '^[a-z][a-z0-9-]{0,47}$' })
+
+/** `read_guide`: a section of the stage's guide by name, or none to list the sections. */
+export const SessionReadGuideArgs = object({
+  section: Type.Optional(GUIDE_SECTION_NAME),
+})
+
+/** The most entries one `read_vocabulary` page returns. */
+export const VOCABULARY_PAGE_MAX_ENTRIES = 50
+
+/** The longest `read_vocabulary` search, matched against labels regardless of case. */
+export const VOCABULARY_SEARCH_MAX_CHARACTERS = 100
+
+/**
+ * `read_vocabulary`: the batch's catalogue records, optionally of one kind and matching a search,
+ * a page at a time. A page token continues the same kind and search.
+ */
+export const SessionReadVocabularyArgs = object({
+  kind: Type.Optional(VocabularyKind),
+  search: Type.Optional(Type.String({ minLength: 1, maxLength: VOCABULARY_SEARCH_MAX_CHARACTERS })),
+  page_token: Type.Optional(BriefPageToken),
+})
+
 export const briefSchemas = {
   SessionBrief,
   SealedBrief,
@@ -365,6 +416,8 @@ export const briefSchemas = {
   SessionBriefPage,
   SessionReadLotArgs,
   SessionReadBriefBatchArgs,
+  SessionReadGuideArgs,
+  SessionReadVocabularyArgs,
 }
 
 export type BriefStageDto = Static<typeof BriefStage>
@@ -377,4 +430,8 @@ export type SealedBriefDto = Static<typeof SealedBrief>
 export type BriefPageDto = Static<typeof BriefPage>
 export type SessionBriefPageDto = Static<typeof SessionBriefPage>
 export type SessionReadLotArgsDto = Static<typeof SessionReadLotArgs>
+export type SessionReadGuideArgsDto = Static<typeof SessionReadGuideArgs>
+export type SessionReadVocabularyArgsDto = Static<typeof SessionReadVocabularyArgs>
+export type BriefVocabularyEntryDto = Static<typeof BriefVocabularyEntry>
+export type VocabularyKindDto = Static<typeof VocabularyKind>
 export type SessionReadBriefBatchArgsDto = Static<typeof SessionReadBriefBatchArgs>

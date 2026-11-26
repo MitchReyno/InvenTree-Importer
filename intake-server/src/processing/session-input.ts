@@ -20,11 +20,17 @@ import {
   type RetainedMediaDescriptor,
 } from './model.ts'
 import { sessionProfiles, type SessionProfileId } from './session-policy.ts'
+import { stageOnlyProfile } from './stage-policy.ts'
 
 /** The profile, selection and sealed settings a session input records. */
 export type SessionInputProfile =
   | {
-      id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2' | 'shared-vm-agent/3'
+      id:
+        | 'native-agent/2'
+        | 'shared-vm-agent/1'
+        | 'shared-vm-agent/2'
+        | 'shared-vm-agent/3'
+        | 'shared-vm-agent/4'
       agent: AgentSelectionDto
       settingsRevision: string
       /** Sealed with the attempt, so a later save can't change what a queued session reads. */
@@ -47,7 +53,7 @@ export function sessionLotInputManifest(
   media: RetainedMediaDescriptor,
   profile: SessionInputProfile,
   pinnedProposalIds: readonly string[] = [],
-): ProcessingInputV6Dto {
+): SessionInputFields {
   const fields = mediaInputManifest(snapshot, subjectId, stage, [], null, media, {
     allowCreate: true,
   })
@@ -77,8 +83,46 @@ export function sessionLotInputManifest(
     ...(profile.id !== 'synthetic-session/1' && profile.web ? { web: { ...profile.web } } : {}),
     pinned_proposal_ids: [...pinnedProposalIds].sort(),
   }
+  return checkedSessionFields(manifest)
+}
+
+type WithoutProfile<T> = T extends unknown
+  ? Omit<
+      T,
+      'profile_id' | 'instruction_version' | 'tool_profile_version' | 'agent' | 'settings_revision'
+    >
+  : never
+
+/**
+ * A stage-only profile's session fields: the base of a `/7` input, not a `/6` input. They are
+ * checked only as part of the whole `/7` input (`stageInputManifest`).
+ */
+export type StageOnlyInputFields = WithoutProfile<ProcessingInputV6Dto> & {
+  profile_id: 'shared-vm-agent/4'
+  instruction_version: 'shared-vm-agent/4'
+  tool_profile_version: typeof STAGE_TOOL_PROFILE
+  agent: AgentSelectionDto
+  settings_revision: string
+}
+
+/** What the input builders return: a checked `/6` input, or a stage-only profile's base. */
+export type SessionInputFields = ProcessingInputV6Dto | StageOnlyInputFields
+
+/** Checks a session's `/6` fields, except a stage-only profile's, which have no `/6` input. */
+function checkedSessionFields(manifest: { profile_id: string }): SessionInputFields {
+  if (stageOnlyProfile(manifest.profile_id)) {
+    return manifest as StageOnlyInputFields
+  }
   validate('ProcessingInputV6', manifest)
   return manifest as ProcessingInputV6Dto
+}
+
+/** Builder fields as a `/6` input, which a stage-only profile's never are. */
+export function sessionInputV6(fields: SessionInputFields): ProcessingInputV6Dto {
+  if (stageOnlyProfile(fields.profile_id)) {
+    return fail('unsupported_processing_profile', 422)
+  }
+  return fields as ProcessingInputV6Dto
 }
 
 /** Whether a decoded input is a session's (`/6` or `/7`) rather than an earlier runner's. */
@@ -110,7 +154,7 @@ export function decodeJobInput(bytes: Buffer, digest: Buffer) {
 
 /** A `/7` input: the `/6` fields, the stage pack's digest and the sealed brief. */
 export function stageInputManifest(
-  base: ProcessingInputV6Dto,
+  base: SessionInputFields,
   stagePackDigest: string,
   brief: SealedBriefDto,
   /** A lot's Match outcome and stage mode; the lead has none. */
@@ -171,7 +215,7 @@ export function sessionLeadInputManifest(
   snapshot: CaptureSnapshotDto,
   media: RetainedMediaDescriptor,
   profile: SessionInputProfile,
-): ProcessingInputV6Dto {
+): SessionInputFields {
   const decoded = decodeMediaInputs(
     Buffer.from(media.manifest, 'utf8'),
     Buffer.from(media.sha256, 'hex'),
@@ -224,6 +268,5 @@ export function sessionLeadInputManifest(
     ...(profile.id !== 'synthetic-session/1' && profile.web ? { web: { ...profile.web } } : {}),
     pinned_proposal_ids: [],
   }
-  validate('ProcessingInputV6', manifest)
-  return manifest as ProcessingInputV6Dto
+  return checkedSessionFields(manifest)
 }

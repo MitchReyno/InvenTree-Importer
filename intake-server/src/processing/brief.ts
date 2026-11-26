@@ -31,6 +31,7 @@ import { isSessionMessage, retainedQuestionSpec, retainedSessionQuestion } from 
 import { fail, sealed, unseal } from './model.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { effectiveJobStates, staleOpenQuestion } from './job-state.ts'
+import { catalogueVocabulary } from './vocabulary.ts'
 
 /** A lot edit's id carries this many hex digits of its facts' digest: enough to tell states apart. */
 const LOT_EDIT_ID_HEX = 16
@@ -121,6 +122,8 @@ export interface BriefFacts {
   reexamineReasons: ReexamineReason[]
   labels: Map<string, string>
   identities: StoredIdentity[]
+  /** The target context whose catalogue observations a proposal can cite. */
+  targetContextId: string
 }
 
 /** The view of a stored question: a runner's or a `/1` session ask reads as one step. */
@@ -407,6 +410,7 @@ export async function readBriefFacts(
     unkeptCorrections,
     reexamineReasons,
     labels,
+    targetContextId: config.targetContextId,
     identities,
   }
 }
@@ -778,8 +782,10 @@ export function projectBrief(
       stale: identity.stale,
       proposal: identity.proposal,
     })),
-    // The catalogue vocabulary arrives with the stage packs; empty until then.
-    vocabulary: [],
+    vocabulary:
+      scope.stage === 'research'
+        ? catalogueVocabulary(snapshot.observations, facts.targetContextId)
+        : [],
     keep_out:
       scope.stage === 'images' && scope.lotId
         ? keepOutEntries(scope.lotId, scopedObservations, allObservations)

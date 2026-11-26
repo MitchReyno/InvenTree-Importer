@@ -568,7 +568,7 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 | `propose_images` | The cropper agent's report | Publishes `images/1` | Proposal id |
 | `match_logo` | `chip-logo-identification/match.py` and `straighten.py` | Ranks the logo set against a region and returns the candidate sheet | Ranked ids, scores, sheet image |
 | `read_guide` | The skills' instruction text | Returns a named section of the stage's guide, such as cropping rules, logo look-alikes or research traps | Text, sealed with the profile |
-| `read_lot`, `read_vocabulary` | New | Read the lot brief or the catalogue vocabulary | Structured JSON |
+| `read_lot`, `read_vocabulary` | New | Read the lot brief, or look up the catalogue vocabulary by kind and a search, in pages | Structured JSON |
 
 **No agent search tool.** Inventory search is the Match step's, not an agent tool. Agents see candidates in their brief, and add keys through match notes, so every search is recorded and repeatable.
 
@@ -635,7 +635,6 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 ## 2.10 Open questions
 
 - The light-adjustment bounds that keep information-carrying colours intact, such as resistor bands and body colour.
-- How Research references an existing category when the vocabulary is large: paging `read_vocabulary` versus a search parameter.
 - The InvenTree search strategy and its limits: which endpoints, fuzzy versus exact MPN normalisation, and paging.
 - Whether a search result is cached per batch, and how long a decision stays valid before pass 3.
 - Whether the batch-level "add stock to each exact match" question needs a setting to skip asking for exact matches.

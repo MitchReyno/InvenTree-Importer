@@ -165,7 +165,6 @@ The work is eleven PRs after the plan. Tasks › "Parallel work" sets out exactl
 Open, recorded in the doc's open questions (2.10):
 
 - the light-adjustment bounds;
-- vocabulary paging versus search;
 - the InvenTree search strategy and normalisation;
 - how long search results are cached and how long a decision stays valid;
 - an auto-accept setting for exact matches.
@@ -174,4 +173,5 @@ Assumed:
 
 - **Strong keys:** an MPN or type with a manufacturer, an NSN, a label IPN or SKU, or a candidate Part's stock with the label's batch code; the generated import reference is looked up in this app's execution records, for duplicates only.
 - **The brief budget** is 48 KiB.
+- **Vocabulary lookup** (settled in PR-G1): `read_vocabulary` takes a kind filter and a search and pages its results; see [notes.md](notes.md).
 - **Per-stage instruction text:** decided in the design: base text in the profile row and per-stage packs in an immutable `processing_stage_instructions` table, digest-sealed in the input.

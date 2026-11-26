@@ -90,6 +90,47 @@ const batchColumns = {
 }
 
 /** Every lookup is actor AND fixed target/context scoped, including archived reads. */
+/** A batch's retained inventory read observations, oldest first, as the snapshot carries them. */
+async function batchObservations(client: PoolClient, batchId: string) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: captureObservations.id,
+        model: captureObservations.model,
+        pk: captureObservations.pk,
+        target_context_id: captureObservations.targetContextId,
+        label: captureObservations.label,
+        observed_at: captureObservations.observedAt,
+        mapping: captureObservations.mapping,
+      })
+      .from(captureObservations)
+      .where(eq(captureObservations.batchId, batchId))
+      .orderBy(asc(captureObservations.observedAt), asc(captureObservations.id)),
+  )
+  return rows.map(({ mapping, ...row }) => ({
+    ...row,
+    ...(mapping ? { mapping } : {}),
+    observed_at: row.observed_at.toISOString(),
+  }))
+}
+
+/**
+ * A batch's read observations alone, in one query after its scope check, for readers that need
+ * only them; each is checked as the snapshot would check it.
+ */
+export async function observationsInTransaction(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+): Promise<CaptureObservationDto[]> {
+  await batch(client, config, batchId)
+  const observations = await batchObservations(client, batchId)
+  for (const observation of observations) {
+    validate('CaptureObservation', observation)
+  }
+  return observations as CaptureObservationDto[]
+}
+
 async function batch(
   client: PoolClient,
   config: Binding,
@@ -202,21 +243,7 @@ async function snapshot(
       .where(eq(captureNotes.batchId, id))
       .orderBy(captureNotes.createdAt, captureNotes.id),
   )
-  const observations = await executeDatabaseQuery(
-    queryDatabase(client)
-      .select({
-        id: captureObservations.id,
-        model: captureObservations.model,
-        pk: captureObservations.pk,
-        target_context_id: captureObservations.targetContextId,
-        label: captureObservations.label,
-        observed_at: captureObservations.observedAt,
-        mapping: captureObservations.mapping,
-      })
-      .from(captureObservations)
-      .where(eq(captureObservations.batchId, id))
-      .orderBy(asc(captureObservations.observedAt), asc(captureObservations.id)),
-  )
+  const observations = await batchObservations(client, id)
   const streamRows = await executeDatabaseQuery(
     queryDatabase(client)
       .select({ head: streams.head })
@@ -301,11 +328,7 @@ async function snapshot(
     }),
     notes: notes.map((n) => ({ ...n, created_at: n.created_at.toISOString(), producer: 'human' })),
     ...(evidence.observations.length ? { evidence_observations: evidence.observations } : {}),
-    observations: observations.map(({ mapping, ...o }) => ({
-      ...o,
-      ...(mapping ? { mapping } : {}),
-      observed_at: o.observed_at.toISOString(),
-    })),
+    observations,
     cursor: { stream_id: b.stream_id, sequence: cursor },
   }
   validate('CaptureSnapshot', result)
