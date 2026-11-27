@@ -29,7 +29,10 @@ export const AgentCatalogModel = object({
 })
 export const AgentCatalogModels = Type.Array(AgentCatalogModel, { maxItems: MAX_CATALOG_MODELS })
 
-/** Why the last read failed; a fixed code, never the provider's text. */
+/**
+ * Why the last read failed; a fixed code, never the provider's text. `not_listed`: the provider
+ * answered but lists no models for this sign-in, as the pinned Claude CLI does for a setup token.
+ */
 export const CATALOG_FAILURES = [
   'timeout',
   'guest_outdated',
@@ -37,19 +40,22 @@ export const CATALOG_FAILURES = [
   'signed_out',
   'malformed',
   'unavailable',
+  'not_listed',
 ] as const
 
 /**
  * `current`: the list was read under the current sign-in. `reading`: a read is requested or
  * running. `failed`: the last read failed; the list is the last good one. `stale_sign_in`: the
- * list is from an earlier sign-in, so nothing should be warned about from it. `never_read`: no
- * list is stored, and `models` is the built-in list.
+ * list is from an earlier sign-in, so nothing should be warned about from it. `not_listed`: the
+ * last read found the provider lists no models for this sign-in, and `models` is the built-in
+ * list. `never_read`: no list is stored, and `models` is the built-in list.
  */
 export const CATALOG_STATES = [
   'current',
   'reading',
   'failed',
   'stale_sign_in',
+  'not_listed',
   'never_read',
 ] as const
 

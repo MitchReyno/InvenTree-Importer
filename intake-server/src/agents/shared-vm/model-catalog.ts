@@ -55,8 +55,9 @@ function hasExactly(value: Record<string, unknown>, keys: string[]) {
   return present.length === keys.length && [...keys].sort().every((key, i) => present[i] === key)
 }
 
+/** A guest's failure code. `not_listed` is the worker's own finding from a read, never the guest's. */
 function isFailure(value: unknown): value is AgentCatalogFailure {
-  return CATALOG_FAILURES.includes(value as AgentCatalogFailure)
+  return value !== 'not_listed' && CATALOG_FAILURES.includes(value as AgentCatalogFailure)
 }
 
 /** The coordinator's view of a guest answer; anything outside these shapes is refused. */

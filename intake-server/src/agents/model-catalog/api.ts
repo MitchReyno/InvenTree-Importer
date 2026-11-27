@@ -40,16 +40,23 @@ function iso(time: Date | null) {
   return time === null ? null : time.toISOString()
 }
 
-/** Whether the last attempt failed after the stored list was read. */
+/** Whether the last attempt failed: a publish clears `failure`, so one that is set is the last's. */
 function lastAttemptFailed(row: CatalogRow) {
-  if (row.failure === null || row.attemptedAt === null) {
-    return false
-  }
-  return row.readAt === null || row.attemptedAt.getTime() > row.readAt.getTime()
+  return row.failure !== null && row.attemptedAt !== null
+}
+
+/** Whether the last attempt found the provider lists no models for this sign-in. */
+function notListed(row: CatalogRow | undefined) {
+  return row !== undefined && lastAttemptFailed(row) && row.failure === 'not_listed'
 }
 
 function catalogState(row: CatalogRow | undefined): AgentProviderCatalogDto['state'] {
   const reading = row?.refreshRequestedAt != null || row?.readingSince != null
+  // The provider's own answer under the current sign-in, so it stands over any stored list, and a
+  // reread shows the built-in list until it lands.
+  if (notListed(row)) {
+    return reading ? 'reading' : 'not_listed'
+  }
   if (!row?.models) {
     return reading ? 'reading' : 'never_read'
   }
@@ -64,13 +71,16 @@ function catalogState(row: CatalogRow | undefined): AgentProviderCatalogDto['sta
   return lastAttemptFailed(row) ? 'failed' : 'current'
 }
 
-/** One provider's answer: the stored list, or the built-in one while none is stored. */
+/**
+ * One provider's answer: the stored list, or the built-in one while none is stored or the provider
+ * lists none for this sign-in.
+ */
 export function providerCatalog(
   provider: CatalogProvider,
   authentication: CatalogAuthentication,
   row: CatalogRow | undefined,
 ): AgentProviderCatalogDto {
-  const stored = row?.models ?? null
+  const stored = notListed(row) ? null : (row?.models ?? null)
   return {
     state: catalogState(row),
     authentication,
