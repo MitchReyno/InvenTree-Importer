@@ -134,7 +134,7 @@ Each step in Settings › Agents gets optional instructions of up to 1,000 chara
     - PR-E (the live check) in #297: Codex's model list read in the agent VM matched the pinned CLI's list on the host, and a Claude and a Codex session each sent the chosen effort;
     - PR-G in #300: the pinned CLI lists only its aliases for a setup token, which can't tell it the account, so Settings shows Claude's built-in list with that reason, by Mitch's decision. After the merge, a free guest read got the alias list and the merged worker's reader classed it as not listed; Settings on the merged stack hasn't been checked yet.
   - Remaining: PR-F (step instructions in multi-lot groups), which waits for BI-022's PR-I.
-- Size: L — settings and sealed-input fields, effort passed by both session adapters, a model catalogue read in the guest with its own connection, table, schedule and API, the pickers and their states, and the step instruction editor, in five PRs after the plan plus a live check; the multi-lot part waits for BI-022 PR-I.
+- Size: L — settings and sealed-input fields, effort passed by both session adapters, a model catalogue read in the guest with its own connection, table, schedule and API, the pickers and their states, and the step instruction editor, in six PRs after the plan (PR-A to PR-D, PR-F and the setup-token fix PR-G) plus a live check (PR-E); the multi-lot part waits for BI-022 PR-I.
 - Prerequisites: [BI-022](#bi-022--agent-stage-inputs-and-outputs) (`agent-stage-inputs-outputs`) PR-A (#275, sealed briefs), before the step instructions PR only.
 - OpenSpec: [agent-model-catalog-and-step-instructions](../openspec/changes/agent-model-catalog-and-step-instructions/)
 
