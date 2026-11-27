@@ -15,6 +15,7 @@ import {
 import {
   coveredOf,
   decisionModes,
+  questionCoveredOf,
   nextStep,
   type MatchResult,
   type MatchStanding,
@@ -205,9 +206,15 @@ test('settling follows the rules: equivalent results keep, a lost target asks, a
   })
   assert.deepEqual(nextStep(weak, none), { kind: 'clear' })
   // A question already open on the same candidates is kept.
-  assert.deepEqual(nextStep(found, { ...none, openQuestion: { kind: 'candidates', covered } }), {
-    kind: 'keep_question',
-  })
+  assert.deepEqual(
+    nextStep(found, {
+      ...none,
+      openQuestion: { kind: 'candidates', covered: questionCoveredOf(found) },
+    }),
+    {
+      kind: 'keep_question',
+    },
+  )
 })
 
 test('a lost target stays asked about, weak operator keys ask, and a new identity re-clears', () => {
@@ -217,7 +224,7 @@ test('a lost target stays asked about, weak operator keys ask, and a new identit
   const asking: MatchStanding = {
     identity: { kind: 'examine', proposal_id: PROPOSAL },
     recorded: { outcome: added },
-    openQuestion: { kind: 'target_lost', covered: coveredOf(result()) },
+    openQuestion: { kind: 'target_lost', covered: questionCoveredOf(result()) },
   }
   assert.deepEqual(nextStep(result(), asking), { kind: 'keep_question' })
   const operator = { kind: 'operator' as const, revision: '2' }

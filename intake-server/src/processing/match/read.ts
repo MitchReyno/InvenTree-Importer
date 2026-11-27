@@ -11,8 +11,8 @@ import {
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { sha256 } from '#/db/authority.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
-import type { ProcessingConfig } from '../attempts.ts'
-import { batchInputVersion } from '../stage-policy.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { batchInputVersion } from '#/processing/stage-policy.ts'
 import { searchable } from './keys.ts'
 import type { MatchResult } from './outcome.ts'
 import {

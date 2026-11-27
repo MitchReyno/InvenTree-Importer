@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Pool } from 'pg'
 import type { MatchReader } from '#/inventory/match-reads.ts'
 import { matchSearch } from './search.ts'
-import type { ProcessingConfig } from '../attempts.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { settlePendingSearches, type MatchSearch } from './settle.ts'
 
 /** How often the API looks for committed search requests to run. */

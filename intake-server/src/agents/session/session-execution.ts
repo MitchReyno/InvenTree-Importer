@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, notExists, notInArray, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, not, notExists, notInArray, sql } from 'drizzle-orm'
 import { deliverableInboxItem } from '#/agents/tools/inbox.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
@@ -10,7 +10,8 @@ import { commands } from '#/db/schema.ts'
 import { captureBatches } from '#/capture/schema.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { fail } from '#/processing/model.ts'
-import { processingAttempts } from '#/processing/schema.ts'
+import { processingAttempts, processingJobs } from '#/processing/schema.ts'
+import { matchHolds } from '#/processing/match/held.ts'
 import { sessionCommandQueue, sessionHandlerVersion } from '#/processing/session-policy.ts'
 import {
   agentBatchPauses,
@@ -158,6 +159,7 @@ export async function wakePendingSessions(
       .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
       .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
       .innerJoin(captureBatches, eq(captureBatches.id, processingAttempts.batchId))
+      .innerJoin(processingJobs, eq(processingJobs.id, processingAttempts.jobId))
       .where(
         and(
           eq(captureBatches.archived, false),
@@ -165,6 +167,8 @@ export async function wakePendingSessions(
           scope,
           eq(agentSessions.sessionState, 'queued'),
           notInArray(processingAttempts.state, ['cancelled', 'superseded']),
+          // A lot stage Match holds would only wait at its claim; it takes no place in this scan.
+          not(matchHolds(db)),
         ),
       )
       // Oldest first, the same order slot claims use, so workflows do not wait on newer ones.

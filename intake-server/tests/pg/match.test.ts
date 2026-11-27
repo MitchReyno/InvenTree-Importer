@@ -935,3 +935,69 @@ test('a decision stands for a new operator identity, recorded again so old work 
   assert.notEqual(requeued.attemptId, research.attemptId)
   assert.equal(requeued.match?.outcome?.revision, renewed.outcome?.revision)
 })
+
+test('a part number that lengthens when upper-cased is still searched, and the sweep moves on', async (t) => {
+  const { fixture, reader } = await matchFixture(t)
+  const { capture, a } = await operatorLots(fixture, 'ß'.repeat(51))
+  assert.deepEqual(await settleMatch(fixture, reader), ['clear', 'clear'])
+  assert.equal(
+    (await readMatch(fixture, capture.batch.id)).lots.find((lot) => lot.lot_id === a.id)!.state,
+    'clear',
+  )
+})
+
+test('a question asked of an Examine identity since made stale waits for the next identity', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const fake = await inventoryFake(fixture.db.pool)
+  t.after(() => fake.close())
+  await fake.seedMatch(RES_0144)
+  const binding = { targetId: fixture.config.targetId, contextId: fixture.config.targetContextId }
+  const transport = inventoryTransport({
+    kind: 'protected-read-only',
+    origin: fake.origin,
+    ...binding,
+    protectedOrigins: [fake.origin],
+    credential: 'fake-only',
+  })
+  const reader = matchReader({
+    matchList: (operation, timeoutMs) => transport.matchList(binding, operation, timeoutMs),
+    read: (operation) => transport.read(binding, operation),
+    targetContextId: fixture.config.targetContextId,
+  })
+  const crystal = await batch.lot('16 mhz crystal')
+  const [identity] = await batch.identities(crystal.id)
+  const value = await fixture.db.pool.query<{ value: Record<string, unknown> }>(
+    "SELECT convert_from(value_bytes,'UTF8')::jsonb AS value FROM processing_proposal WHERE id=$1",
+    [identity.id],
+  )
+  // Examine names the MPN and maker, which InvenTree holds as RES-0144.
+  const withMpn = {
+    ...value.rows[0].value,
+    candidates: [{ mpn: MPN, manufacturer: 'Yageo', confidence: 'high' }],
+  }
+  await withClients(async (open) => {
+    const lead = await open(batch.deps.toolUrl, await running(fixture, batch.leadAttempt))
+    const published = await call(lead, 'propose', { proposal: withMpn })
+    assert.equal(published.ok, true, JSON.stringify(published))
+  })
+  await settleMatch(fixture, reader)
+  const question = openQuestion(await readMatch(fixture, batchId), crystal.id)!
+  assert.equal(question.kind, 'candidates')
+  // Capture moves on under the identity (as a regroup does): it is stale before any republish.
+  const [current] = (await batch.identities(crystal.id)).filter((row) => row.stale === null)
+  await fixture.db.pool.query(
+    "INSERT INTO processing_proposal_stale(proposal_id,reason) VALUES ($1,'lot_regrouped')",
+    [current.id],
+  )
+  const refused = await fixture.http(
+    `/batches/${batchId}/match/questions/${question.id}/answers`,
+    answer(question, 'add_stock_1'),
+  )
+  assert.equal((refused.value as { code: string }).code, 'match_waiting')
+  const snapshot = (await fixture.http(`/batches/${batchId}`)).value as CaptureSnapshotDto
+  assert.equal(
+    snapshot.parts.some((part) => part.choice.mode === 'set'),
+    false,
+  )
+})

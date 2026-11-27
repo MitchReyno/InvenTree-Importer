@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import type { MatchKeyDto } from '@invimport/contracts'
-import type { ProcessingConfig } from '../attempts.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { companiesAgree, mpnKey, strongKey } from './keys.ts'
 import { decodeRequest, type MatchRequest } from './state.ts'
 
@@ -80,8 +80,11 @@ export interface CompetingLot {
 
 const MAX_MATCHED_BY = 16
 
-/** At most this many other lots' latest requests are compared with each search. */
-const COMPETING_LOT_SCAN = 500
+/**
+ * At most this many other lots are compared with each search; with more, the search reports
+ * itself incomplete rather than finding no competing lot.
+ */
+const COMPETING_LOT_SCAN = 10_000
 
 /** Whether two strong keys name the same Part. */
 function sameKey(left: MatchKeyDto, right: MatchKeyDto) {
@@ -137,7 +140,7 @@ export async function competingLots(
   client: PoolClient,
   config: ProcessingConfig,
   request: MatchRequest,
-): Promise<CompetingLot[]> {
+): Promise<CompetingLot[] | 'incomplete'> {
   const strong = request.keys.filter(strongKey)
   if (!strong.length) {
     return []
@@ -164,10 +167,20 @@ export async function competingLots(
        -- An Examine identity since made stale no longer says what the other lot is.
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale st
                        WHERE st.proposal_id::text=convert_from(m.identity_bytes,'UTF8')::jsonb->>'proposal_id')
-     ORDER BY m.updated_at DESC, l.id
+     ORDER BY l.id
      LIMIT $5`,
-    [request.batch_id, config.actorId, config.targetId, config.targetContextId, COMPETING_LOT_SCAN],
+    [
+      request.batch_id,
+      config.actorId,
+      config.targetId,
+      config.targetContextId,
+      COMPETING_LOT_SCAN + 1,
+    ],
   )
+  // Every other lot is compared, or the search can't say none competes.
+  if (rows.rows.length > COMPETING_LOT_SCAN) {
+    return 'incomplete'
+  }
   const found: CompetingLot[] = []
   for (const row of rows.rows) {
     const keys = decodeRequest(row.request_bytes).keys.filter(strongKey)

@@ -84,6 +84,24 @@ export function coveredOf(result: Pick<MatchResult, 'candidates' | 'contribution
   return canonicalRecord(items.sort())
 }
 
+/**
+ * What an open question shows, as canonical text: what a decision covers, and every gap of each
+ * Part, so a repeat search that finds a Part has lost its supplier Part asks afresh.
+ */
+export function questionCoveredOf(result: Pick<MatchResult, 'candidates' | 'contribution'>) {
+  const gaps = result.candidates.map((candidate) =>
+    candidate.kind === 'part'
+      ? `${candidate.part.pk}:${candidate.missing
+          .map((missing) =>
+            missing.kind === 'parameter' ? `parameter:${missing.template}` : missing.kind,
+          )
+          .sort()
+          .join(',')}:${candidate.parameters_known}`
+      : candidate.lot_id,
+  )
+  return canonicalRecord([coveredOf(result), ...gaps.sort()])
+}
+
 /** The stage modes a decision sets, given the Part it targets. */
 export function decisionModes(
   decision: MatchDecisionDto,
@@ -150,6 +168,7 @@ export interface MatchStanding {
   recorded?: { outcome: MatchOutcomeDto }
   /** The identity the outcome in force was recorded under. */
   outcomeIdentity?: MatchIdentityDto
+  /** The open question, with what it shows (`questionCoveredOf`). */
   openQuestion?: { kind: MatchQuestionKindDto; covered: string }
   identity: MatchIdentityDto
 }
@@ -189,8 +208,10 @@ export function nextStep(result: MatchResult, standing: MatchStanding): MatchSte
   }
   const covered = coveredOf(result)
 
+  const shown = questionCoveredOf(result)
+
   const asking = (questionKind: MatchQuestionKindDto): MatchStep => {
-    if (standing.openQuestion?.kind === questionKind && standing.openQuestion.covered === covered) {
+    if (standing.openQuestion?.kind === questionKind && standing.openQuestion.covered === shown) {
       return { kind: 'keep_question' }
     }
     return { kind: 'question', questionKind }

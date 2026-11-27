@@ -13,8 +13,14 @@ import type {
 import { MAX_MATCH_CANDIDATES, MAX_MATCH_CANDIDATE_STOCK } from '@invimport/contracts'
 import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
-import type { MatchManufacturerPart, MatchPart, MatchReader } from '#/inventory/match-reads.ts'
-import type { ProcessingConfig } from '../attempts.ts'
+import type {
+  MatchCategory,
+  MatchManufacturerPart,
+  MatchPart,
+  MatchReader,
+  MatchRecordResult,
+} from '#/inventory/match-reads.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { companiesAgree, mpnKey, searchable, strongKey } from './keys.ts'
 import { competingLots, contributionApprovals } from './local-reads.ts'
 import { verdictOf, type MatchResult } from './outcome.ts'
@@ -27,6 +33,8 @@ const SEARCH_PAGE = 100
  * so the search settles as unavailable rather than as no match.
  */
 const SEARCH_MAX_ROWS = 500
+/** The transport's bound on a text filter, in code points. */
+const MATCH_FILTER_MAX_CHARACTERS = 100
 /** The contract quotes at most 16 reasons per candidate. */
 const MAX_MATCHED_BY = 16
 /** Category depth walked for inherited parameter mappings. */
@@ -110,7 +118,10 @@ function add(
  */
 function mpnSpellings(mpn: string) {
   const compact = mpn.replace(/\s+/g, '')
-  return [...new Set([mpn, compact, compact.toUpperCase()])]
+  // Upper-casing can lengthen text (ß becomes SS); a spelling past the filter's bound isn't asked.
+  return [...new Set([mpn, compact, compact.toUpperCase()])].filter(
+    (spelling) => [...spelling].length <= MATCH_FILTER_MAX_CHARACTERS,
+  )
 }
 
 /** The Parts InvenTree holds under one strong key, and how each matched. */
@@ -175,7 +186,8 @@ async function searchKey(
         reader.list({ kind: 'list_stock', ...page, nsn_tag: `nsn:${key.nsn}` }, budgeted(deadline)),
       )
       for (const stock of found.rows) {
-        const part = stock.part_detail ?? (await single(reader.part(stock.part)))
+        const part =
+          stock.part_detail ?? (await single(withinBudget(reader.part(stock.part), deadline)))
         if (part) {
           add(hits, part, key, 'nsn_stock_tag', true)
         }
@@ -221,6 +233,19 @@ async function searchKey(
   }
 }
 
+/** A single read within the search's remaining budget; past it, the search is unavailable. */
+async function withinBudget<T>(read: Promise<T>, deadline: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Unavailable()), budgeted(deadline))
+  })
+  try {
+    return await Promise.race([read, expiry])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function single<T>(
   read: Promise<{ kind: 'found'; value: T } | { kind: 'not_found' } | { kind: 'unavailable' }>,
 ) {
@@ -254,8 +279,10 @@ async function missingParameters(reader: MatchReader, part: MatchPart, deadline:
   const chain = new Set<string>()
   let next: string | null = part.category
   while (next && chain.size < MAX_CATEGORY_DEPTH) {
-    budgeted(deadline)
-    const category = await reader.category(next)
+    const category: MatchRecordResult<MatchCategory> = await withinBudget(
+      reader.category(next),
+      deadline,
+    )
     if (category.kind !== 'found') {
       return { known: false, missing: [] }
     }
@@ -298,7 +325,7 @@ async function candidate(
   supplierPk: string | undefined,
   deadline: number,
 ): Promise<MatchPartCandidateDto> {
-  const part = (await single(reader.part(hit.part.pk))) ?? hit.part
+  const part = (await single(withinBudget(reader.part(hit.part.pk), deadline))) ?? hit.part
   const missing: MatchMissingDto[] = []
   const attachments = await everyRow((page) =>
     reader.list({ kind: 'list_part_attachments', part: part.pk, ...page }, budgeted(deadline)),
@@ -489,6 +516,9 @@ export function matchSearch(pool: Pool, config: ProcessingConfig, reader: MatchR
         candidates.push(await candidate(reader, hit, request.keys, supplierPk, deadline))
       }
       const lots = await transaction(pool, (client) => competingLots(client, config, request))
+      if (lots === 'incomplete') {
+        throw new Unavailable()
+      }
       for (const lot of lots) {
         if (candidates.length >= MAX_MATCH_CANDIDATES) {
           break

@@ -19,9 +19,9 @@ import {
 } from '#/capture/repository.ts'
 import { requireCurrentTargetContext } from '#/capture/target-context.ts'
 import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
-import type { ProcessingConfig } from '../attempts.ts'
-import { fail } from '../model.ts'
-import { commandScope } from '../scope.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { fail } from '#/processing/model.ts'
+import { commandScope } from '#/processing/scope.ts'
 import { coveredOf, decisionModes } from './outcome.ts'
 import { MATCH_STEP_ID, questionOptions, type MatchOptionEffect } from './questions.ts'
 import { processingMatchAnswers, processingMatchQuestions } from './schema.ts'
@@ -32,7 +32,8 @@ import {
   recordOutcome,
   tellOutcome,
 } from './settle.ts'
-import { lockMatch, readMatch, searchPending, type MatchRow } from './state.ts'
+import { decodeIdentity, lockMatch, readMatch, searchPending, type MatchRow } from './state.ts'
+import { pinnedIdentityCurrent } from '#/processing/stable-identity.ts'
 import { decodeQuestionContent, type StoredQuestion } from './stored-question.ts'
 
 type QuestionRow = typeof processingMatchQuestions.$inferSelect
@@ -105,13 +106,27 @@ function stillAnswerable(row: MatchRow | undefined, planned: Planned) {
  * one whose lot has a newer search pending, or whose last search couldn't run, can be answered
  * again once a search settles.
  */
-function requireAnswerable(row: MatchRow | undefined, planned: Planned, retired: boolean) {
+async function requireAnswerable(
+  client: PoolClient,
+  row: MatchRow | undefined,
+  planned: Planned,
+  retired: boolean,
+) {
   if (retired || !stillAnswerable(row, planned)) {
     fail('stale_question', 409)
   }
   // A newer search pending, or one that couldn't read InvenTree, leaves the question's candidates
   // unconfirmed: it can be answered once a search settles them again.
   if (searchPending(row!) || row!.state !== 'question') {
+    fail('match_waiting', 409)
+  }
+  // Asked of an Examine identity no longer current (its lot regrouped, say): the next identity
+  // is searched again before anything is decided for the lot.
+  const identity = decodeIdentity(row!)
+  if (
+    identity.kind === 'examine' &&
+    !(await pinnedIdentityCurrent(client, [identity.proposal_id]))
+  ) {
     fail('match_waiting', 409)
   }
 }
@@ -266,7 +281,8 @@ async function applyAnswers(
     peek.snapshot.lots.filter((lot) => lot.retired === true).map((lot) => lot.id),
   )
   for (const item of planned) {
-    requireAnswerable(
+    await requireAnswerable(
+      client,
       await readMatch(client, item.question.lotId),
       item,
       retired.has(item.question.lotId),
@@ -304,7 +320,7 @@ async function applyAnswers(
   )
   for (const item of byLot) {
     const row = await lockMatch(client, item.question.lotId)
-    requireAnswerable(row, item, retired.has(item.question.lotId))
+    await requireAnswerable(client, row, item, retired.has(item.question.lotId))
     await settleAnswer(
       client,
       config,

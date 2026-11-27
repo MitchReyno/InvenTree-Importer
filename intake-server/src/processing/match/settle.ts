@@ -8,16 +8,17 @@ import { appendEvent, sha256 } from '#/db/authority.ts'
 import { captureInTransaction, lockCaptureForInputs } from '#/capture/repository.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
-import type { ProcessingConfig } from '../attempts.ts'
-import { notifyRevision } from '../currentness.ts'
-import { reserveProcessingMedia } from '../media.ts'
-import { ProcessingError } from '../model.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { notifyRevision } from '#/processing/currentness.ts'
+import { reserveProcessingMedia } from '#/processing/media.ts'
+import { ProcessingError } from '#/processing/model.ts'
 import { CaptureError } from '#/capture/model.ts'
-import { configuredInputVersion } from '../stage-policy.ts'
+import { configuredInputVersion } from '#/processing/stage-policy.ts'
 import {
   coveredOf,
   nextStep,
   outcomeRecord,
+  questionCoveredOf,
   type MatchResult,
   type MatchStanding,
 } from './outcome.ts'
@@ -87,7 +88,7 @@ export async function standingOf(client: PoolClient, row: MatchRow): Promise<Mat
     ...(recorded ? { recorded: { outcome: recorded } } : {}),
     ...(outcomeIdentity ? { outcomeIdentity } : {}),
     ...(question && content
-      ? { openQuestion: { kind: question.kind, covered: coveredOf(content) } }
+      ? { openQuestion: { kind: question.kind, covered: questionCoveredOf(content) } }
       : {}),
   }
 }

@@ -8,11 +8,11 @@ import type {
 import { resolveSelection } from '#/agents/resolve-selection.ts'
 import { readAgentSettings } from '#/agents/settings.ts'
 import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
-import type { ProcessingConfig } from '../attempts.ts'
-import { checkJobCapacity, queueJob, supersedeJobAttempts } from '../jobs.ts'
-import { sealedMatchFor, type MatchStage } from '../match-outcome.ts'
-import { decodeSessionInput } from '../session-input.ts'
-import { isSessionProfile } from '../session-policy.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { checkJobCapacity, queueJob, supersedeJobAttempts } from '#/processing/jobs.ts'
+import { sealedMatchFor, type MatchStage } from '#/processing/match-outcome.ts'
+import { decodeSessionInput } from '#/processing/session-input.ts'
+import { isSessionProfile } from '#/processing/session-policy.ts'
 
 const STAGES: readonly MatchStage[] = ['research', 'images']
 /** Attempt states that end a stage's work; anything else is still the stage's current work. */

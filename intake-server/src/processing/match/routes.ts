@@ -8,8 +8,8 @@ import {
   type MatchCheckDto,
 } from '@invimport/contracts'
 import { commandKey } from '#/api/request.ts'
-import type { ProcessingConfig } from '../attempts.ts'
-import { fail } from '../model.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { fail } from '#/processing/model.ts'
 import { answerMatchBatch, answerMatchQuestion } from './answers.ts'
 import { checkMatches, reopenMatch } from './commands.ts'
 import { readBatchMatch } from './read.ts'

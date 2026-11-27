@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import type { SealedMatchDto } from '@invimport/contracts'
-import type { MatchStage } from '../match-outcome.ts'
+import type { MatchStage } from '#/processing/match-outcome.ts'
 import { currentOutcome, readMatch, searchPending } from './state.ts'
 
 /** Why Match holds a lot's stage, or that it allows it. */
