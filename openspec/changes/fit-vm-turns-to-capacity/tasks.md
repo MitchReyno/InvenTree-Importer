@@ -50,7 +50,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - [x] 2.1 RED: idle-relay tests fail for the expected reason.
 - [x] 2.2 GREEN: the relay offers lanes, starts a guest on `go` and opens its next offer.
 - [x] 2.3 GREEN: the coordinator sniffs TLS, keeps offers, asks for guests on demand for turns and probes, and closes unclaimed launched connections.
-- [ ] 2.4 Verify `concurrent-relay-turns`, `stale-slots`, `provider-status`, `shared-vm-*` process tests and `tooling/tests/dev-vm*.test.cjs`.
+- [x] 2.4 Verify `concurrent-relay-turns`, `stale-slots`, `provider-status`, `shared-vm-*` process tests and `tooling/tests/dev-vm*.test.cjs`.
 
 ## 3. One start at a time
 
