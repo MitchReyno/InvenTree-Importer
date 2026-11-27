@@ -161,7 +161,7 @@
 ## 6. Live catalogue and effort check
 
 - **PR delivery:** PR-E.
-- **Target outcome:** evidence that the real guest reads each signed-in provider's models with no turn, and that a real session turn per provider sent the chosen effort and completed; the effort the provider applied stays unverified. Result so far: Codex's read and both effort turns passed; Claude's read did not (task 6.2).
+- **Target outcome:** evidence that the real guest reads each signed-in provider's models with no turn, and that a real session turn per provider sent the chosen effort and completed; the effort the provider applied stays unverified. Result: Codex's read and both effort turns passed. Claude's read, under a setup token, gets no list by design; PR-G replaced its criterion (task 6.2).
 - **Scope and approach:** with Mitch's go-ahead and his `pnpm dev` with the refreshed guest image: Check again for each provider, the stored row and the Settings page compared with the provider's own list; then one short session per provider at a non-default effort, checking that its turn completed and that its recorded `sent_effort` is the chosen level. Neither pinned CLI reports the effort it applied, so the effective effort is recorded as unverified.
 - **Prerequisites:** PR-A, PR-B and PR-C merged; Mitch's go-ahead for each live step.
 - **Acceptance:** shared-vm-execution "Model lists read without a provider turn"; processing-agent-sessions "Sessions run at the sealed effort".
@@ -170,7 +170,7 @@
 - **Risks and decisions:** the sessions are real provider turns with their cost; the read itself makes no paid call.
 
 - [x] 6.1 Ask Mitch for the go-ahead, naming the reads and the two short sessions. Given on 2026-11-26.
-- [x] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Codex verified live; Claude shows the setup-token state by design. Codex's list matched and no turn started (PR-E). Claude's read stored no list because of the setup token (see `notes.md`); after PR-G, task 8.4's free guest read on 2026-11-27 got the same alias-only reply, which the merged worker records as `not_listed`.
+- [x] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Revised by PR-G for Claude: a setup token gets no list to compare, so Claude's criterion is that the guest's reply is the alias list the worker records as `not_listed` (task 8.4). Codex verified live; Claude shows the setup-token state by design. Codex's list matched and no turn started (PR-E). Claude's guest reply after PR-G's merge was the alias list, and the merged worker's guest reader classed it as not listed; the stored row and Settings weren't observed on the merged stack (see `notes.md`).
 - [x] 6.3 Run one short session per provider at a non-default effort; confirm its turn completed and its `sent_effort` matches, and record the effective effort as unverified. Claude's session finished; Codex's completed its turn and waits for an answer (see `notes.md`); both recorded `sent_effort: low`.
 - [x] 6.4 Record the outcome in `notes.md` and run `pnpm lint:markdown`.
 - [x] 6.5 Attach the evidence to PR-E.
@@ -206,7 +206,7 @@
 - [x] 8.1 RED: the normaliser, guest reader, schedule, API and frontend tests above.
 - [x] 8.2 GREEN: the contracts, migration, worker, API and frontend.
 - [x] 8.3 Update `agents/ARCHITECTURE.md` and the deployment README, and run the contracts tests, the intake unit and PG tiers and the frontend checks.
-- [x] 8.4 After the merge, confirm the state live with a free guest read. Done on 2026-11-27 (see `notes.md`); Settings' view of it needs the running stack on the merged build.
+- [x] 8.4 After the merge, confirm the state live with a free guest read. Done on 2026-11-27: the guest's reply and the merged reader's classification (see `notes.md`). The row and Settings on the merged stack weren't observed.
 
 ## Delivery evidence and lifecycle follow-up
 
