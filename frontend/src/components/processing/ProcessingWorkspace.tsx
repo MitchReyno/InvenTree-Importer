@@ -218,7 +218,7 @@ export function ProcessingWorkspace({
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
   // The pinned answer and each drawer answer are the only drafts besides these two.
-  const answerDirty = drafts.hasOtherSources('instructions', 'correction')
+  const answerDirty = drafts.hasOtherSources('instructions', 'correction', 'images')
   // A save reloads Processing; the other draft is locked until that finishes.
   const [saving, setSaving] = useState<'answer' | 'instructions' | null>(null)
   const pollInterval = useRetainedPollInterval()
@@ -320,6 +320,12 @@ export function ProcessingWorkspace({
   const offline = fresh.phase === 'failed'
   // Edits and instructions are closed in an archived batch, and while only restored data shows.
   const fenced = batch.archived || displayOnly
+  let imagesClosedReason: string | undefined
+  if (batch.archived) {
+    imagesClosedReason = 'Resume the batch to confirm images.'
+  } else if (displayOnly) {
+    imagesClosedReason = 'Updating…'
+  }
   const waitingForRead = displayOnly || !fresh.verified
   const [pinned, setPinned] = useState<PinnedQuestion | null>(null)
   const [busy, setBusy] = useState(false)
@@ -818,7 +824,7 @@ export function ProcessingWorkspace({
 
   /** An answer form other than this source has an unsaved draft. */
   const otherAnswerDirty = (source: string) =>
-    drafts.hasOtherSources('instructions', 'correction', source)
+    drafts.hasOtherSources('instructions', 'correction', 'images', source)
 
   // Drawer answers are the answer sources other than the page's.
   const unsavedInDrawer = otherAnswerDirty('answer')
@@ -1289,7 +1295,9 @@ export function ProcessingWorkspace({
                           ? 'Save or discard the answer first; saving reloads Processing.'
                           : drafts.isDirty('correction')
                             ? 'Save or discard the correction first; saving reloads Processing.'
-                            : undefined
+                            : drafts.isDirty('images')
+                              ? 'Confirm or reset the image choices first; saving reloads Processing.'
+                              : undefined
                       }
                       onDirtyChange={drafts.forSource('instructions')}
                     />
@@ -1337,7 +1345,16 @@ export function ProcessingWorkspace({
                 >
                   {view === 'images' || jobs.length > 0 ? (
                     <>
-                      {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
+                      {view === 'images' && (
+                        <ProcessingImages
+                          batchId={batch.id}
+                          client={media}
+                          processing={client}
+                          lotLabel={(id) => (activeLotIds.has(id) ? subjects.get(id) : undefined)}
+                          closedReason={imagesClosedReason}
+                          onDirtyChange={drafts.forSource('images')}
+                        />
+                      )}
                       {view === 'inventory' && (
                         <ProcessingInventory
                           batch={batch}

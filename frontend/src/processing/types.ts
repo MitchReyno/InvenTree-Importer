@@ -11,6 +11,7 @@ import type {
   ProcessingAnswerDto,
   ProcessingAnswerReceiptDto,
   ProcessingCancellationDto,
+  ProcessingImagesReviewDto,
   ProcessingReceiptDto,
   ProcessingSnapshotDto,
   ProcessingStartDto,
@@ -55,6 +56,8 @@ export interface ProcessingClient {
   history?(batchId: string, jobId: string, before?: string): Promise<SessionHistoryDto>
   /** Session profiles only: the brief a `/7` attempt of a session started from. */
   brief?(batchId: string, jobId: string, attemptId: string): Promise<SessionHistoryBriefDto>
+  /** The Images step's review: each lot's Images proposals and its confirmed images. */
+  images?(batchId: string): Promise<ProcessingImagesReviewDto>
   chat?(
     batchId: string,
     jobId: string,

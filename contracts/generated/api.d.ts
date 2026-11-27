@@ -2074,6 +2074,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/processing/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ProcessingImagesReview */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProcessingImagesReview"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{id}/processing/{jobId}/cancellation": {
         parameters: {
             query?: never;
@@ -3570,6 +3618,69 @@ export interface paths {
             requestBody?: never;
             responses: {
                 /** @description A question figure's rendered view or thumbnail (size view or thumb, index 1 to 5); use a browser resource URL. */
+                200: {
+                    headers: {
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/webp": Blob;
+                    };
+                };
+                /** @description Unchanged since the If-None-Match validator. */
+                304: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/processing/images/{proposalId}/crops/{index}/{size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                proposalId: string;
+                index: number;
+                size: "view" | "thumb";
+            };
+            cookie?: never;
+        };
+        /** @description The app's rendering of an Images proposal's crop recipe (size view or thumb, index 1 to 10); use a browser resource URL. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                    proposalId: string;
+                    index: number;
+                    size: "view" | "thumb";
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The app's rendering of an Images proposal's crop recipe (size view or thumb, index 1 to 10); use a browser resource URL. */
                 200: {
                     headers: {
                         ETag?: string;
@@ -27160,6 +27271,30 @@ export interface components {
                     width: number;
                     height: number;
                 } | null;
+            } | {
+                /** @constant */
+                version: "bench-intake-view/2";
+                source_version_id: string;
+                source_digest: string;
+                page: number;
+                page_width: number;
+                page_height: number;
+                view: {
+                    region: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    quarter_turns: number;
+                    straighten_millidegrees: number;
+                };
+                light: {
+                    white_balance: boolean;
+                    contrast_clip_permille: number | null;
+                    gamma_thousandths: number | null;
+                    sharpen: boolean;
+                };
             }) | null;
             pages: {
                 page: number;
@@ -27226,6 +27361,30 @@ export interface components {
                             width: number;
                             height: number;
                         } | null;
+                    } | {
+                        /** @constant */
+                        version: "bench-intake-view/2";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        page_width: number;
+                        page_height: number;
+                        view: {
+                            region: {
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                            };
+                            quarter_turns: number;
+                            straighten_millidegrees: number;
+                        };
+                        light: {
+                            white_balance: boolean;
+                            contrast_clip_permille: number | null;
+                            gamma_thousandths: number | null;
+                            sharpen: boolean;
+                        };
                     }) | null;
                     pages: {
                         page: number;
@@ -27308,6 +27467,30 @@ export interface components {
                         width: number;
                         height: number;
                     } | null;
+                } | {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
                 };
                 state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
                 version_id: string | null;
@@ -27359,6 +27542,30 @@ export interface components {
                         width: number;
                         height: number;
                     } | null;
+                } | {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
                 }) | null;
                 pages: {
                     page: number;
@@ -27458,6 +27665,60 @@ export interface components {
                 mode: "selected" | "declined" | "unset";
                 version_id: string | null;
                 destination: "lot_attachment" | "part_attachment";
+            } | {
+                /** @constant */
+                kind: "select_images";
+                subject_id: string;
+                part_image: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                } | null;
+                stock_images: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                }[];
             };
         };
         MediaRemovalImpact: {
@@ -27965,14 +28226,14 @@ export interface components {
             usable: boolean | null;
         };
         AgentProviderCatalog: {
-            state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+            state: "current" | "reading" | "failed" | "stale_sign_in" | "not_listed" | "never_read";
             authentication: "api_key" | "subscription";
             source: "cli" | "api" | null;
             read_in: "vm" | "host" | null;
             cli_version: string | null;
             read_at: string | null;
             attempted_at: string | null;
-            failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+            failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable" | "not_listed") | null;
             builtin: boolean;
             models: {
                 id: string;
@@ -27986,14 +28247,14 @@ export interface components {
         };
         AgentModelCatalog: {
             claude: {
-                state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+                state: "current" | "reading" | "failed" | "stale_sign_in" | "not_listed" | "never_read";
                 authentication: "api_key" | "subscription";
                 source: "cli" | "api" | null;
                 read_in: "vm" | "host" | null;
                 cli_version: string | null;
                 read_at: string | null;
                 attempted_at: string | null;
-                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable" | "not_listed") | null;
                 builtin: boolean;
                 models: {
                     id: string;
@@ -28006,14 +28267,14 @@ export interface components {
                 }[];
             };
             codex: {
-                state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+                state: "current" | "reading" | "failed" | "stale_sign_in" | "not_listed" | "never_read";
                 authentication: "api_key" | "subscription";
                 source: "cli" | "api" | null;
                 read_in: "vm" | "host" | null;
                 cli_version: string | null;
                 read_at: string | null;
                 attempted_at: string | null;
-                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable" | "not_listed") | null;
                 builtin: boolean;
                 models: {
                     id: string;
@@ -40512,6 +40773,171 @@ export interface components {
                 }[];
             };
         };
+        SessionInspectRegionArgs: {
+            evidence_id: string;
+            version_id?: string;
+            page?: number;
+            region?: {
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+            };
+            preview_width?: number;
+            step?: number;
+            object?: {
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+            };
+            boxes?: {
+                name: string;
+                box: {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                };
+            }[];
+        };
+        SessionMatchLogoArgs: {
+            evidence_id: string;
+            version_id?: string;
+            page?: number;
+            view: {
+                region: {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                };
+                quarter_turns: number;
+                straighten_millidegrees: number;
+            };
+            top?: number;
+        };
+        SessionPreviewImagesArgs: {
+            crops: {
+                label: string;
+                recipe: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                };
+            }[];
+        };
+        SessionProposeImagesArgs: {
+            proposal: {
+                /** @constant */
+                schema_version: "images/1";
+                subject_id: string;
+                summary: string;
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                images: {
+                    role: "part_image" | "stock_image" | "extra";
+                    recipe: {
+                        /** @constant */
+                        version: "bench-intake-view/2";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        page_width: number;
+                        page_height: number;
+                        view: {
+                            region: {
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                            };
+                            quarter_turns: number;
+                            straighten_millidegrees: number;
+                        };
+                        light: {
+                            white_balance: boolean;
+                            contrast_clip_permille: number | null;
+                            gamma_thousandths: number | null;
+                            sharpen: boolean;
+                        };
+                    };
+                    flags?: string[];
+                }[];
+            };
+        };
+        SessionToolImage: {
+            width: number;
+            height: number;
+            media_type: "image/png" | "image/jpeg";
+            sha256: string;
+            scale: number;
+        };
         SessionStageAskArgs: {
             /** @constant */
             schema_version: "bench-intake-question/2";
@@ -40924,7 +41350,7 @@ export interface components {
             from: string | null;
             to: string | null;
         };
-        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable";
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable" | "tool_unavailable";
         SessionToolResult: {
             /** @constant */
             ok: true;
@@ -43340,6 +43766,70 @@ export interface components {
                 title: string;
                 text: string;
             };
+            images?: {
+                width: number;
+                height: number;
+                media_type: "image/png" | "image/jpeg";
+                sha256: string;
+                scale: number;
+            }[];
+            grid?: {
+                region: {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                };
+                scale: number;
+                step: number;
+                x_labels: number[];
+                y_labels: number[];
+                boxes: {
+                    name: string;
+                    drawn_label: string | null;
+                    box: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    aspect: number;
+                    margins: {
+                        left: number;
+                        right: number;
+                        top: number;
+                        bottom: number;
+                    } | null;
+                    clips: boolean;
+                    off_centre: ("x" | "y")[];
+                }[];
+            };
+            crops?: ({
+                /** @constant */
+                state: "rendered";
+                label: string;
+                width: number;
+                height: number;
+                flags: ("corner_guard" | "white_balance_held_back")[];
+                white_balance_gains: {
+                    red: number;
+                    green: number;
+                    blue: number;
+                } | null;
+            } | {
+                /** @constant */
+                state: "refused";
+                label: string;
+                /** @constant */
+                reason: "white_balance_hue_guard";
+            })[];
+            candidates?: {
+                id: string;
+                manufacturer: string;
+                family: string;
+                page: string;
+                score: number;
+            }[];
             vocabulary?: {
                 entries: {
                     /** @constant */
@@ -43380,7 +43870,7 @@ export interface components {
         } | {
             /** @constant */
             ok: false;
-            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable";
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable" | "tool_unavailable";
             issues?: {
                 path: string;
                 rule: string;
@@ -62407,6 +62897,283 @@ export interface components {
                 generation: string;
             }[];
         };
+        ProcessingImageCrop: {
+            index: number;
+            role: "part_image" | "stock_image" | "extra";
+            recipe: {
+                /** @constant */
+                version: "bench-intake-view/2";
+                source_version_id: string;
+                source_digest: string;
+                page: number;
+                page_width: number;
+                page_height: number;
+                view: {
+                    region: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    quarter_turns: number;
+                    straighten_millidegrees: number;
+                };
+                light: {
+                    white_balance: boolean;
+                    contrast_clip_permille: number | null;
+                    gamma_thousandths: number | null;
+                    sharpen: boolean;
+                };
+            };
+            flags: string[];
+            state: "preparing" | "ready" | "failed" | "removed";
+            evidence_id: string;
+            evidence_label: string;
+            document: boolean;
+        };
+        ProcessingImagesProposal: {
+            proposal_id: string;
+            job_id: string;
+            lot_id: string;
+            summary: string;
+            created_at: string;
+            stale: boolean;
+            crops: {
+                index: number;
+                role: "part_image" | "stock_image" | "extra";
+                recipe: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                };
+                flags: string[];
+                state: "preparing" | "ready" | "failed" | "removed";
+                evidence_id: string;
+                evidence_label: string;
+                document: boolean;
+            }[];
+        };
+        ProcessingImageSelectionItem: {
+            version_id: string;
+            recipe: {
+                /** @constant */
+                version: "bench-intake-view/2";
+                source_version_id: string;
+                source_digest: string;
+                page: number;
+                page_width: number;
+                page_height: number;
+                view: {
+                    region: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    quarter_turns: number;
+                    straighten_millidegrees: number;
+                };
+                light: {
+                    white_balance: boolean;
+                    contrast_clip_permille: number | null;
+                    gamma_thousandths: number | null;
+                    sharpen: boolean;
+                };
+            };
+            state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+        };
+        ProcessingImageSelection: {
+            lot_id: string;
+            /** Format: int64 */
+            revision: string;
+            part_image: {
+                version_id: string;
+                recipe: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                };
+                state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+            } | null;
+            stock_images: {
+                version_id: string;
+                recipe: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                };
+                state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+            }[];
+        };
+        ProcessingImagesReview: {
+            /** Format: int64 */
+            media_revision: string;
+            proposals: {
+                proposal_id: string;
+                job_id: string;
+                lot_id: string;
+                summary: string;
+                created_at: string;
+                stale: boolean;
+                crops: {
+                    index: number;
+                    role: "part_image" | "stock_image" | "extra";
+                    recipe: {
+                        /** @constant */
+                        version: "bench-intake-view/2";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        page_width: number;
+                        page_height: number;
+                        view: {
+                            region: {
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                            };
+                            quarter_turns: number;
+                            straighten_millidegrees: number;
+                        };
+                        light: {
+                            white_balance: boolean;
+                            contrast_clip_permille: number | null;
+                            gamma_thousandths: number | null;
+                            sharpen: boolean;
+                        };
+                    };
+                    flags: string[];
+                    state: "preparing" | "ready" | "failed" | "removed";
+                    evidence_id: string;
+                    evidence_label: string;
+                    document: boolean;
+                }[];
+            }[];
+            selections: {
+                lot_id: string;
+                /** Format: int64 */
+                revision: string;
+                part_image: {
+                    version_id: string;
+                    recipe: {
+                        /** @constant */
+                        version: "bench-intake-view/2";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        page_width: number;
+                        page_height: number;
+                        view: {
+                            region: {
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                            };
+                            quarter_turns: number;
+                            straighten_millidegrees: number;
+                        };
+                        light: {
+                            white_balance: boolean;
+                            contrast_clip_permille: number | null;
+                            gamma_thousandths: number | null;
+                            sharpen: boolean;
+                        };
+                    };
+                    state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+                } | null;
+                stock_images: {
+                    version_id: string;
+                    recipe: {
+                        /** @constant */
+                        version: "bench-intake-view/2";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        page_width: number;
+                        page_height: number;
+                        view: {
+                            region: {
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                            };
+                            quarter_turns: number;
+                            straighten_millidegrees: number;
+                        };
+                        light: {
+                            white_balance: boolean;
+                            contrast_clip_permille: number | null;
+                            gamma_thousandths: number | null;
+                            sharpen: boolean;
+                        };
+                    };
+                    state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+                }[];
+            }[];
+        };
     };
     responses: never;
     parameters: never;
@@ -62654,6 +63421,11 @@ export type SessionReadInboxArgs = components['schemas']['SessionReadInboxArgs']
 export type SessionFetchEvidenceArgs = components['schemas']['SessionFetchEvidenceArgs']
 export type SessionProposeArgs = components['schemas']['SessionProposeArgs']
 export type SessionStageProposeArgs = components['schemas']['SessionStageProposeArgs']
+export type SessionInspectRegionArgs = components['schemas']['SessionInspectRegionArgs']
+export type SessionMatchLogoArgs = components['schemas']['SessionMatchLogoArgs']
+export type SessionPreviewImagesArgs = components['schemas']['SessionPreviewImagesArgs']
+export type SessionProposeImagesArgs = components['schemas']['SessionProposeImagesArgs']
+export type SessionToolImage = components['schemas']['SessionToolImage']
 export type SessionStageAskArgs = components['schemas']['SessionStageAskArgs']
 export type SessionRevisionV2 = components['schemas']['SessionRevisionV2']
 export type RevisionChange = components['schemas']['RevisionChange']
@@ -62701,3 +63473,8 @@ export type MatchAnswerReceipt = components['schemas']['MatchAnswerReceipt']
 export type MatchCheck = components['schemas']['MatchCheck']
 export type MatchReopen = components['schemas']['MatchReopen']
 export type MatchCheckReceipt = components['schemas']['MatchCheckReceipt']
+export type ProcessingImageCrop = components['schemas']['ProcessingImageCrop']
+export type ProcessingImagesProposal = components['schemas']['ProcessingImagesProposal']
+export type ProcessingImageSelectionItem = components['schemas']['ProcessingImageSelectionItem']
+export type ProcessingImageSelection = components['schemas']['ProcessingImageSelection']
+export type ProcessingImagesReview = components['schemas']['ProcessingImagesReview']

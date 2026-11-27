@@ -15,7 +15,8 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     agent_batch_pause,processing_question_replacement,processing_question_figure,processing_figure_render,
     processing_stage_instructions,processing_stage_guide,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal,
     agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis,agent_model_catalog,
-    processing_match,processing_match_search,processing_match_outcome,processing_match_question,processing_match_answer TO ${role};`)
+    processing_proposal_image,processing_match,processing_match_search,processing_match_outcome,
+    processing_match_question,processing_match_answer TO ${role};`)
   if (purpose === 'api') {
     // Match runs its searches and records outcomes, questions and answers in the API; its
     // import reference lookup reads the retained execution journal.
@@ -60,6 +61,8 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       GRANT INSERT ON processing_identity_basis TO ${role};
       -- An ask stores its figures and their render requests; the media consumer renders them.
       GRANT INSERT ON processing_question_figure,processing_figure_render TO ${role};
+      -- An Images proposal stores its crops and their render requests, for the Images step.
+      GRANT INSERT ON processing_proposal_image TO ${role};
       -- A preview asked again is kept a day from then.
       GRANT UPDATE(requested_at) ON processing_figure_render TO ${role};
       GRANT INSERT, UPDATE, DELETE ON agent_slot TO ${role};
@@ -112,7 +115,7 @@ export async function grantAgentWriter(pool: Pool, role: string) {
       processing_question,processing_answer,processing_transition,agent_batch_pause,processing_question_replacement,
       processing_question_figure,processing_figure_render,processing_stage_instructions,processing_stage_guide,processing_input_page,
       agent_session_inbox_withdrawal,
-      agent_session_inbox_release,processing_question_basis,processing_identity_basis,
+      agent_session_inbox_release,processing_question_basis,processing_identity_basis,processing_proposal_image,
       processing_match,processing_match_search,processing_match_outcome,processing_match_question TO ${role};
     -- A stable Examine identity requests its Match search; the API runs it.
     GRANT INSERT, UPDATE(search_generation,identity_bytes,updated_at) ON processing_match TO ${role};

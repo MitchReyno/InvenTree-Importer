@@ -1,5 +1,6 @@
-import { assertMediaRecipe } from '@invimport/contracts/media'
+import { assertMediaLitViewRecipe, assertMediaRecipe } from '@invimport/contracts/media'
 import type {
+  MediaDerivedRecipeDto,
   MediaEvidenceDto,
   MediaRemovedEvidenceDto,
   MediaSnapshotDto,
@@ -54,6 +55,26 @@ export interface MediaRows {
   removals: { evidence_id: string; removed: boolean; revision: string; created_at: Date }[]
 }
 
+/** Checks retained recipe bytes against their digest and parses Capture's or a lit crop's recipe. */
+export function retainedDerivedRecipe(bytes: Buffer, digest: Buffer): MediaDerivedRecipeDto {
+  verifyBytes(bytes, digest)
+  const recipe: unknown = strictJson(bytes.toString('utf8'))
+  if (isLitViewRecipe(recipe)) {
+    assertMediaLitViewRecipe(recipe)
+    return recipe
+  }
+  assertMediaRecipe(recipe)
+  return recipe
+}
+
+function isLitViewRecipe(recipe: unknown) {
+  return (
+    typeof recipe === 'object' &&
+    recipe !== null &&
+    (recipe as { version?: unknown }).version === 'bench-intake-view/2'
+  )
+}
+
 export function decodeMediaRecipe(bytes: Buffer | null, digest: Buffer | null) {
   if (!bytes && !digest) {
     return null
@@ -61,10 +82,7 @@ export function decodeMediaRecipe(bytes: Buffer | null, digest: Buffer | null) {
   if (!bytes || !digest) {
     throw new Error('recipe_authority_missing')
   }
-  verifyBytes(bytes, digest)
-  const recipe = strictJson(bytes.toString('utf8'))
-  assertMediaRecipe(recipe)
-  return recipe
+  return retainedDerivedRecipe(bytes, digest)
 }
 
 function projectVersion(version: VersionRow, pages: PreviewRow[]): MediaVersionDto {

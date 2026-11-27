@@ -111,6 +111,18 @@ function claudeCliEntry(raw: unknown): ClaudeCliEntry | undefined {
   return { value, id: resolved, displayName, efforts: levels }
 }
 
+function asModel(entry: ClaudeCliEntry): AgentCatalogModelDto {
+  return {
+    id: entry.id,
+    name: entry.displayName,
+    older: false,
+    default: false,
+    efforts: entry.efforts,
+    default_effort: null,
+    usable: null,
+  }
+}
+
 /** The entry whose name and efforts stand for its model: the exact one, then a named alias. */
 function representative(entries: ClaudeCliEntry[]) {
   return (
@@ -125,21 +137,30 @@ function representative(entries: ClaudeCliEntry[]) {
  * to, in first-seen order, and `default` marks the model the CLI's default resolves to.
  *
  * A reply naming no model by its exact ID is the CLI's built-in alias list, which it answers when
- * it couldn't reach Anthropic (the offline 2.1.319 reply). It isn't the account's list, so it is
- * refused as `unavailable` and the last good list stays.
+ * it couldn't reach Anthropic or doesn't know the account, as with a setup token. It isn't the
+ * account's list, so it is refused as `aliasesOnly`: `unavailable` unless the caller knows why.
+ * A caller that does gets it only for an alias list whose every entry is valid; one with an entry
+ * left out or invalid is `malformed`, and one with no usable entry at all stays `unavailable`.
  */
-export function claudeCliModels(models: unknown): AgentCatalogModelDto[] {
+export function claudeCliModels(
+  models: unknown,
+  aliasesOnly: AgentCatalogFailure = 'unavailable',
+): AgentCatalogModelDto[] {
+  const entries: ClaudeCliEntry[] = []
   const groups = new Map<string, ClaudeCliEntry[]>()
   let defaultId: string | undefined
   let exactEntries = 0
+  let leftOut = 0
   for (const raw of list(models)) {
     const entry = claudeCliEntry(raw)
     if (!entry) {
+      leftOut++
       continue
     }
     if (entry.value === entry.id) {
       exactEntries++
     }
+    entries.push(entry)
     if (entry.value === 'default') {
       defaultId = entry.id
     }
@@ -147,7 +168,7 @@ export function claudeCliModels(models: unknown): AgentCatalogModelDto[] {
     group.push(entry)
     groups.set(entry.id, group)
   }
-  if (exactEntries === 0) {
+  if (exactEntries === 0 && (aliasesOnly === 'unavailable' || entries.length === 0)) {
     throw new CatalogReadError('unavailable')
   }
   const folded = [...groups.entries()].map(([id, entries]) => {
@@ -163,7 +184,17 @@ export function claudeCliModels(models: unknown): AgentCatalogModelDto[] {
       usable: null,
     }
   })
-  return checkedCatalog(markOlderClaude(folded))
+  const checked = checkedCatalog(markOlderClaude(folded))
+  if (exactEntries === 0) {
+    // Every alias is checked as well as the folded list, so an invalid alias list stays
+    // malformed rather than reading as the CLI's own.
+    if (leftOut > 0) {
+      return malformed()
+    }
+    checkedCatalog(entries.map(asModel))
+    throw new CatalogReadError(aliasesOnly)
+  }
+  return checked
 }
 
 function claudeApiEfforts(capabilities: unknown) {

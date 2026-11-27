@@ -14,6 +14,7 @@ import { replaceSession } from './session-replacement.ts'
 import { submitSessionInbox } from '#/agents/tools/inbox.ts'
 import { readSessionBrief, readSessionHistory } from '#/agents/tools/history.ts'
 import { readBatchActivity } from '#/agents/tools/activity.ts'
+import { readImagesReview } from './images-review.ts'
 import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
@@ -133,6 +134,11 @@ export function registerProcessing(
         readSessionHistory(pool, config, id(request), id(request, 'jobId'), {
           before: request.query.before,
         }),
+    )
+    scope.get(
+      '/api/v1/batches/:id/processing/images',
+      { schema: { response: { 200: schemas.ProcessingImagesReview } } },
+      (request) => readImagesReview(pool, config, id(request)),
     )
     scope.get(
       '/api/v1/batches/:id/processing/:jobId/attempts/:attemptId/brief',

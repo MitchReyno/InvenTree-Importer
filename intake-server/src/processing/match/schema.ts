@@ -2,7 +2,7 @@ import { bigint, customType, pgTable, primaryKey, text, timestamp, uuid } from '
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 
-/** Driver mappings of migration 0047's Match tables; the SQL is the DDL authority. */
+/** Driver mappings of migration 0049's Match tables; the SQL is the DDL authority. */
 export const processingMatches = pgTable('processing_match', {
   lotId: uuid('lot_id').primaryKey(),
   batchId: uuid('batch_id').notNull(),

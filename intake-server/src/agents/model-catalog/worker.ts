@@ -159,7 +159,7 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
     // A sign-in change this round's poll found requested a read, which isn't in `rows` yet.
     const signInChanged = (await polled) === true
     const requested = row?.refreshRequestedAt != null
-    const due = setting.enabled ? catalogReadDue(row, now()) : requested
+    const due = setting.enabled ? catalogReadDue(row, now(), reader.readIn) : requested
     if (firstRead || signInChanged || due) {
       await readKey(key, reader)
     }

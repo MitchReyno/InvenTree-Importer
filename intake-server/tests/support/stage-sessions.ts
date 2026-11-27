@@ -35,9 +35,9 @@ async function connect(url: string, token: string) {
 type Succeeded = Extract<SessionToolResultDto, { ok: true }>
 type Refused = Extract<SessionToolResultDto, { ok: false }>
 
-/** Either result's fields, for assertions; `images` counts the image items the result carried. */
+/** Either result's fields, for assertions; `image_items` counts the image items it carried. */
 export type StageToolResult = Partial<Omit<Succeeded, 'ok'>> &
-  Partial<Omit<Refused, 'ok'>> & { ok: boolean; images: number }
+  Partial<Omit<Refused, 'ok'>> & { ok: boolean; image_items: number }
 
 /** A tool's result as the session reads it. */
 export async function call(
@@ -46,10 +46,10 @@ export async function call(
   args: Record<string, unknown>,
 ): Promise<StageToolResult> {
   const result = await client.callTool({ name, arguments: args })
-  const images = ((result.content ?? []) as { type: string }[]).filter(
+  const imageItems = ((result.content ?? []) as { type: string }[]).filter(
     (item) => item.type === 'image',
   ).length
-  return { ...(result.structuredContent as unknown as StageToolResult), images }
+  return { ...(result.structuredContent as unknown as StageToolResult), image_items: imageItems }
 }
 
 /**

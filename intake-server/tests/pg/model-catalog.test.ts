@@ -227,38 +227,202 @@ test('a failed read keeps the last list and records a fixed code; it is retried 
   assert.equal((await readModelCatalog(fixture.api.pool, fixture.config)).claude.state, 'current')
 })
 
-test("the guest CLI's offline alias list fails the read and keeps the stored list", async (t) => {
-  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
-  t.after(() => fixture.dispose())
-  await claudeOnly(fixture)
-  const recorded = (name: string) =>
-    (
-      JSON.parse(
-        readFileSync(new URL(`../fixtures/model-catalog/${name}`, import.meta.url), 'utf8'),
-      ) as { models: unknown }
-    ).models
-  let raw = recorded('claude-initialize-2.1.319.json')
-  const reader = guestReader(async (_provider, kind) => {
+function recordedClaude(name: string) {
+  return (
+    JSON.parse(
+      readFileSync(new URL(`../fixtures/model-catalog/${name}`, import.meta.url), 'utf8'),
+    ) as { models: unknown }
+  ).models
+}
+
+/** A guest reader answering the recorded `initialize` reply the test names, under rev-a. */
+function recordedGuest(name: { current: string }) {
+  return guestReader(async (_provider, kind) => {
     if (kind === 'generation') {
       return { kind: 'generation', generation: 'rev-a' }
     }
-    return { kind: 'read', read: { generation: 'rev-a', cliVersion: '2.1.319', raw } }
+    return {
+      kind: 'read',
+      read: { generation: 'rev-a', cliVersion: '2.1.319', raw: recordedClaude(name.current) },
+    }
   }, 'claude')
+}
+
+test("a guest setup token's alias-only reply is the built-in list with its reason, read again on the 12-hour schedule", async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const reply = { current: 'claude-initialize-offline-2.1.319.json' }
+  let reads = 0
+  const guest = recordedGuest(reply)
+  const reader: CatalogReader = {
+    ...guest,
+    read: (signal) => {
+      reads++
+      return guest.read(signal)
+    },
+  }
   const time = clock()
   const catalog = worker(fixture, () => reader, time)
   t.after(() => catalog.close())
   await round(catalog)
+
+  const answer = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(answer.claude.state, 'not_listed')
+  assert.equal(answer.claude.failure, 'not_listed')
+  assert.equal(answer.claude.builtin, true)
+  assert.deepEqual(answer.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
+  assert.equal((await claudeRow(fixture))?.models, null)
+
+  // Not the 5-minute retry a failed read gets: the CLI would answer the same.
+  time.advance(CATALOG_RETRY_MS)
+  await round(catalog)
+  assert.equal(reads, 1)
+  time.advance(CATALOG_MAX_AGE_MS - CATALOG_RETRY_MS - 1)
+  await round(catalog)
+  assert.equal(reads, 1)
+  time.advance(1)
+  await round(catalog)
+  assert.equal(reads, 2)
+
+  // Check again still reads at once, and a full list is stored as usual.
+  reply.current = 'claude-initialize-2.1.319.json'
+  await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  await round(catalog)
+  assert.equal(reads, 3)
+  const full = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(full.claude.state, 'current')
+  assert.equal(full.claude.failure, null)
+  assert.equal(full.claude.builtin, false)
+  assert.equal(full.claude.models.length, 13)
+})
+
+test('an alias-only guest reply after a stored list shows the built-in list and keeps the row', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const reply = { current: 'claude-initialize-2.1.319.json' }
+  const time = clock()
+  const catalog = worker(fixture, () => recordedGuest(reply), time)
+  t.after(() => catalog.close())
+  await round(catalog)
   assert.equal((await claudeRow(fixture))?.models?.length, 13)
 
-  // The guest's egress failed: the CLI answers its built-in aliases, none by exact ID.
-  raw = recorded('claude-initialize-offline-2.1.319.json')
-  time.advance(CATALOG_MAX_AGE_MS)
+  // A sign-in change marks the list; the reread under it answers only aliases.
+  reply.current = 'claude-initialize-offline-2.1.319.json'
+  await refreshModelCatalog(fixture.api.pool, fixture.config, {
+    provider: 'claude',
+    invalidate: true,
+  })
+  // The same millisecond as the stored read: the recorded outcome, not the time, decides.
   await round(catalog)
   const answer = await readModelCatalog(fixture.api.pool, fixture.config)
-  assert.equal(answer.claude.state, 'failed')
-  assert.equal(answer.claude.failure, 'unavailable')
-  assert.equal(answer.claude.models.length, 13)
-  assert.equal(answer.claude.read_at, '2026-11-25T22:12:00.000Z')
+  assert.equal(answer.claude.state, 'not_listed')
+  assert.equal(answer.claude.builtin, true)
+  assert.deepEqual(answer.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
+  assert.equal(answer.claude.source, null)
+  assert.equal(answer.claude.read_in, null)
+  const row = await claudeRow(fixture)
+  assert.equal(row?.models?.length, 13)
+  assert.equal(row?.failure, 'not_listed')
+
+  // Check again shows the built-in list as reading, never the superseded list as current.
+  await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  const reading = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(reading.claude.state, 'reading')
+  assert.equal(reading.claude.builtin, true)
+  assert.deepEqual(reading.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
+})
+
+test('Check again after a not-listed answer, with no sign-in change, shows the built-in list reading', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-a')
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  state.answers.push({ generation: 'rev-a', cliVersion: '2.1.319', models: [], notListed: true })
+  await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  await round(catalog)
+  assert.equal(
+    (await readModelCatalog(fixture.api.pool, fixture.config)).claude.state,
+    'not_listed',
+  )
+
+  await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  const reading = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(reading.claude.state, 'reading')
+  assert.equal(reading.claude.builtin, true)
+  assert.equal(reading.claude.failure, 'not_listed')
+  assert.deepEqual(reading.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
+})
+
+test('a not-listed answer sets the first sign-in baseline when the first poll failed', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-a')
+  state.generations.push(new CatalogReadError('vm_unreachable'))
+  state.answers.push({ generation: 'rev-a', cliVersion: '2.1.319', models: [], notListed: true })
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  const row = await claudeRow(fixture)
+  assert.equal(row?.failure, 'not_listed')
+  assert.equal(row?.latestGeneration, 'rev-a')
+
+  state.generation = 'rev-b'
+  time.advance(60_000)
+  await round(catalog)
+  assert.equal(state.reads, 2)
+})
+
+test('a not-listed answer passes the sign-in fence: one from an old token is read again', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-b')
+  // Read under rev-a, but the token is rev-b by the time it would be recorded.
+  state.answers.push({ generation: 'rev-a', cliVersion: '2.1.319', models: [], notListed: true })
+  state.answers.push({ generation: 'rev-b', cliVersion: '2.1.319', models: [], notListed: true })
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  assert.equal(state.reads, 2)
+  const row = await claudeRow(fixture)
+  assert.equal(row?.failure, 'not_listed')
+  // It sets the baseline, so a later token is a sign-in change that asks for a read at once.
+  assert.equal(row?.latestGeneration, 'rev-b')
+  state.generation = 'rev-c'
+  time.advance(60_000)
+  await round(catalog)
+  assert.equal(state.reads, 3)
+})
+
+test("another route's setup-token answer doesn't defer this route's retry", async (t) => {
+  const fixture = await processingFixture({ profileId: 'native-agent/2' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('host-a', 'host')
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  assert.equal(state.reads, 1)
+
+  // The shared VM's last attempt on this key, from before a profile change.
+  await fixture.db.pool.query(
+    `UPDATE agent_model_catalog SET failure='not_listed', attempt_in='vm', attempted_at=$4
+      WHERE actor_id=$1 AND target_id=$2 AND target_context_id=$3 AND provider='claude'`,
+    [fixture.config.actorId, fixture.config.targetId, fixture.config.targetContextId, time.now()],
+  )
+  time.advance(CATALOG_RETRY_MS)
+  await round(catalog)
+  assert.equal(state.reads, 2)
 })
 
 test('the API may only read the table and request a refresh, which can invalidate at once', async (t) => {

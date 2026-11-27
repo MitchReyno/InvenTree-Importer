@@ -17,15 +17,36 @@ import {
   ReadState,
   groundBehindOnField,
 } from '#/components/ui'
+import type { DirtyReport } from '#/navigation/unsaved-changes'
 import { ProcessingImagesSkeleton } from './ProcessingImagesSkeleton'
+import { ImagesReview, type ImagesReviewClient } from './ImagesReview'
 import { batchHref } from '#/navigation/batch-route'
 import { useServerScope, useRetainedPollInterval } from '#/context'
 
-export function ProcessingImages({ batchId, client }: { batchId: string; client?: MediaClient }) {
+type Props = {
+  batchId: string
+  client?: MediaClient
+  /** The Images review read and session chat; absent where this setup has none. */
+  processing?: Partial<ImagesReviewClient>
+  lotLabel?: (lotId: string) => string | undefined
+  /** Why the review sends nothing, such as an archived batch. */
+  closedReason?: string
+  onDirtyChange?: DirtyReport
+}
+
+export function ProcessingImages({
+  batchId,
+  client,
+  processing,
+  lotLabel,
+  closedReason,
+  onDirtyChange,
+}: Props) {
   const scope = useServerScope()
   const interval = useRetainedPollInterval()
+  const mediaKey = serverQueryKey(scope, 'media', batchId)
   const fresh = useFreshRead({
-    queryKey: serverQueryKey(scope, 'media', batchId),
+    queryKey: mediaKey,
     queryFn: () => client!.snapshot(batchId),
     enabled: client !== undefined,
     refetchInterval: interval,
@@ -35,11 +56,28 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
   const labels = query.data
     ? mediaDisplayLabels(query.data.evidence, query.data.removed)
     : undefined
+  const readImages = processing?.images
+  const review = readImages && (
+    <ImagesReview
+      batchId={batchId}
+      processing={{ images: readImages, chat: processing.chat }}
+      media={client ? { client } : undefined}
+      lotLabel={lotLabel}
+      closedReason={closedReason}
+      onDirtyChange={onDirtyChange}
+    />
+  )
   if (!client) {
-    return <Banner tone="plain">Retained media is not configured for this application.</Banner>
+    return (
+      <>
+        {review}
+        <Banner tone="plain">Retained media is not configured for this application.</Banner>
+      </>
+    )
   }
   return (
     <Outputs aria-label="Retained image outputs">
+      {review}
       <TitleRow>
         <Heading>Originals and documentary crops</Heading>
         <HelpButton

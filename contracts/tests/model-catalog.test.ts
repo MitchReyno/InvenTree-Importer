@@ -5,6 +5,7 @@ import { validate, validationIssues } from '../src/index.ts'
 import {
   BUILT_IN_MODEL_CATALOG,
   CATALOG_FAILURES,
+  CATALOG_STATES,
   MAX_CATALOG_EFFORTS,
   MAX_CATALOG_MODELS,
   type AgentCatalogModelDto,
@@ -55,6 +56,14 @@ test('a catalogue with each state and failure code validates', () => {
   for (const failure of CATALOG_FAILURES) {
     validate('AgentModelCatalog', { ...catalog, codex: { ...catalog.codex, failure } })
   }
+})
+
+test('a provider that lists no models for its sign-in answers its own state and code', () => {
+  assert.ok(CATALOG_STATES.includes('not_listed'))
+  validate('AgentModelCatalog', {
+    ...catalog,
+    claude: { ...catalog.claude, state: 'not_listed', failure: 'not_listed', builtin: true },
+  })
 })
 
 test('the built-in lists are valid entries with no effort levels', () => {

@@ -25,6 +25,7 @@
 | 5. Instructions for each step | Contracts, intake server, guest and frontend | BI-022 PR-A (#275) merged | app-settings "Instructions for each step"; processing-agent-sessions "Step instructions sealed into each attempt", all scenarios except "Lots queued on either side of an edit" (task 7) |
 | 6. Live catalogue and effort check | Manual verification | 2, 3, 4 merged; Mitch's go-ahead | shared-vm-execution "Model lists read without a provider turn" against the real providers; processing-agent-sessions "Sessions run at the sealed effort" in a real session |
 | 7. Step instructions in multi-lot groups | Intake server | 5 merged; BI-022 PR-I (multi-lot sessions) merged | processing-agent-sessions "Step instructions sealed into each attempt" (Lots queued on either side of an edit) |
+| 8. Claude's list for a setup token | Contracts, intake server and frontend | 3, 4 merged; the cause found in task 6.2 | app-settings "A provider that lists no models for its sign-in", both scenarios; shared-vm-execution "Model lists read without a provider turn" (Claude with a subscription) |
 
 ## PR delivery map
 
@@ -36,9 +37,10 @@
 | PR-C | The pickers listing the catalogue, the Effort select beside each, the list's states, and the Processing pill; `AGENT_MODEL_SUGGESTIONS` retired | 4 | The UI over PR-A and PR-B, reviewed with captures | PR-A and PR-B merged | `interactive-app` ← `feat/agent-model-catalog-and-step-instructions-pickers`; `feat(agent-model-catalog-and-step-instructions): exact models and effort in agent settings` | Frontend typecheck, lint, tests and build; contracts tests and the intake typecheck, unit and PG tiers (the retired constant's server and test-support readers); captures at 1440 and 390 px; demo video; review; CI |
 | PR-D | Instructions for each step: the setting, the sealed `/6` field and `/7` brief entry, and the editor | 5 | One end-to-end feature, after BI-022's brief exists so both input versions land together | PR-A merged; BI-022 PR-A (#275) merged; rebase on PR-C if it merged first (both edit `StepModels`) | `interactive-app` ← `feat/agent-model-catalog-and-step-instructions-step-instructions`; `feat(agent-model-catalog-and-step-instructions): instructions for each step` | Contracts tests; intake unit, PG and process tiers; frontend checks; demo video; review; CI |
 | PR-F | Step text captured on each queued lot, and groups that only take lots queued with the same text | 7 | It integrates with BI-022's multi-lot claim, which doesn't exist until BI-022's PR-I; kept apart so PR-D isn't held | PR-D merged; BI-022 PR-I merged; before BI-022's PR-G2 activates `/7` (asked of BI-022) | `interactive-app` ← `feat/agent-model-catalog-and-step-instructions-groups`; `feat(agent-model-catalog-and-step-instructions): keep each group's step instructions consistent` | Intake unit, PG and process tiers; review; CI |
+| PR-G | A guest Claude read that answers only aliases recorded as `not_listed`, served as the built-in list with its reason, and retried on the 12-hour schedule | 8 | The fix for the bug task 6.2 found, kept apart from PR-E's record | PR-B, PR-C and PR-E merged | `interactive-app` ← `fix/agent-model-catalog-and-step-instructions-claude-list`; `fix(agent-model-catalog-and-step-instructions): say why a setup token lists no Claude models` | Contracts tests; intake unit and PG tiers; frontend typecheck, lint, tests and build; captures at 1440 and 390 px; review; CI |
 | PR-E | The live checks recorded in `notes.md`, with the evidence on the PR | 6 | A docs-only record of a check that needs Mitch's go-ahead, kept apart so it doesn't hold the code PRs | PR-A, PR-B and PR-C merged; Mitch's go-ahead | `interactive-app` ← `docs/agent-model-catalog-and-step-instructions-live-check`; `docs(agent-model-catalog-and-step-instructions): record the live model and effort check` | `pnpm lint:markdown`; evidence attached; review; CI |
 
-**Order:** PR-A first; PR-B after it; PR-C after both; PR-D whenever PR-A and BI-022's #275 have merged; PR-F after PR-D and BI-022's PR-I; PR-E once PR-A to PR-C have merged.
+**Order:** PR-A first; PR-B after it; PR-C after both; PR-D whenever PR-A and BI-022's #275 have merged; PR-F after PR-D and BI-022's PR-I; PR-E once PR-A to PR-C have merged; PR-G after PR-E.
 
 ## 1. Effort in the settings and the selection
 
@@ -159,20 +161,26 @@
 ## 6. Live catalogue and effort check
 
 - **PR delivery:** PR-E.
-- **Target outcome:** evidence that the real guest reads each signed-in provider's models with no turn, and that a real session turn per provider sent the chosen effort and completed; the effort the provider applied stays unverified. Result so far: Codex's read and both effort turns passed; Claude's read did not (task 6.2).
-- **Scope and approach:** with Mitch's go-ahead and his `pnpm dev` with the refreshed guest image: Check again for each provider, the stored row and the Settings page compared with the provider's own list; then one short session per provider at a non-default effort, checking that its turn completed and that its recorded `sent_effort` is the chosen level. Neither pinned CLI reports the effort it applied, so the effective effort is recorded as unverified.
+- **Target outcome:** evidence that the real guest reads each signed-in provider's models with no turn (for Claude under a setup token as the app passes it, narrowed by PR-G to the reply and its classification), and that a real session turn per provider sent the chosen effort and completed; the effort the provider applied stays unverified. Result: Codex's read and both effort turns passed. Claude's read, under a setup token as the app passes it, gets no list, which PR-G shows by design and for which it replaced the criterion (task 6.2).
+- **Scope and approach:** PR-E's checks ran with Mitch's go-ahead and his `pnpm dev` with the refreshed guest image:
+  - **Codex's list:** Check again, then the stored row and the Settings page compared with the provider's own list.
+  - **Effort:** one short session per provider at a non-default effort, checking that its turn completed and that its recorded `sent_effort` is the chosen level. Neither pinned CLI reports the effort it applied, so the effective effort is recorded as unverified.
+
+  Claude's list, under a setup token as the app passes it, was narrowed by PR-G to task 8.4: a free read through the guest's own reader after PR-G's merge, outside the dev stack and on the guest image already loaded, with the merged worker's reader classing the reply as not listed. The stored row and Settings for it are left to the merged stack.
 - **Prerequisites:** PR-A, PR-B and PR-C merged; Mitch's go-ahead for each live step.
 - **Acceptance:** shared-vm-execution "Model lists read without a provider turn"; processing-agent-sessions "Sessions run at the sealed effort".
 - **TDD approach:** none: a live verification of merged behaviour. Its contract is the checklist below and the evidence on the PR.
-- **Verification:** captures and trimmed outputs on PR-E; `notes.md` records the result and anything unexpected.
+- **Verification:** captures and trimmed outputs on PR-E (#297), and Claude's narrowed check on #301; `notes.md` records the result and anything unexpected.
 - **Risks and decisions:** the sessions are real provider turns with their cost; the read itself makes no paid call.
 
 - [x] 6.1 Ask Mitch for the go-ahead, naming the reads and the two short sessions. Given on 2026-11-26.
-- [ ] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Codex's list matched and no turn started; Claude's read stores no list, an open bug (see `notes.md`), so this stays open.
+- [x] 6.2 Read each provider's list in the real guest and confirm no turn started. Codex verified live; Claude shows the setup-token state by design, verified here only as far as the reader's classification.
+  - **Codex:** the list compared with the provider's own list; it matched, and no turn started (PR-E).
+  - **Claude, revised by PR-G:** a setup token, as the app passes it, gets no list to compare, so the criterion is task 8.4's: the guest's reply is the alias list and the merged worker's reader classes it as not listed. The recording, the stored row and Settings weren't observed (see `notes.md`).
 - [x] 6.3 Run one short session per provider at a non-default effort; confirm its turn completed and its `sent_effort` matches, and record the effective effort as unverified. Claude's session finished; Codex's completed its turn and waits for an answer (see `notes.md`); both recorded `sent_effort: low`.
 - [x] 6.4 Record the outcome in `notes.md` and run `pnpm lint:markdown`.
-- [ ] 6.5 Attach the evidence to PR-E.
-- [ ] 6.6 After the Claude fix, measure `bench-claude-catalog`'s memory and task use during a read that returns the full list.
+- [x] 6.5 Attach the evidence to PR-E.
+- [x] 6.6 After the Claude fix, measure `bench-claude-catalog`'s memory and task use during a read that returns the full list. Not applicable after PR-G: the guest's setup token, passed as the app passes it (without the CLI's undocumented account variable), gets no full list, so no such read runs in the guest. The worker would still store a full list if one arrived. PR-E measured the use during a worker-driven read that failed (see `notes.md`).
 
 ## 7. Step instructions in multi-lot groups
 
@@ -190,6 +198,22 @@
 - [ ] 7.3 GREEN: capture the text at queue time and filter groups by it.
 - [ ] 7.4 Update `agents/ARCHITECTURE.md` and run the intake tiers.
 
+## 8. Claude's list for a setup token
+
+- **PR delivery:** PR-G.
+- **Outcome:** with Claude signed in with a setup token in the agent VM, Settings shows the built-in list with the reason and a pointer to typing an exact ID, rather than a failed read retried every 5 minutes. A later full list is stored as usual.
+- **Scope and approach:** the failure code and state `not_listed` in the contracts; migration `0047` adding the code to the column's check; the guest route's normaliser recording an alias-only reply as `not_listed` (the host keeps `unavailable`); the schedule waiting 12 hours after a `not_listed` attempt; the API answering the state with the built-in list; the picker note and card line. The design is "A setup token's list".
+- **Prerequisites:** tasks 3 and 4 merged; the cause found in task 6.2 (`notes.md`).
+- **Acceptance:** app-settings "A provider that lists no models for its sign-in", both scenarios; shared-vm-execution "Model lists read without a provider turn", Claude with a subscription.
+- **TDD approach:** the guest reader refusing the recorded alias-only reply as `not_listed`, the schedule not due 5 minutes after it, the API answering `not_listed` with the built-in list, and the picker and card wording fail first: today the reply is `unavailable`, retried after 5 minutes and shown as never read.
+- **Verification:** contracts tests; intake unit and PG tiers; frontend checks; captures at 1440 and 390 px; after the merge, a free guest read confirming the guest's reply and the merged reader's classification.
+- **Risks and decisions:** the CLI's offline reply looks the same, so a broken egress also reads as `not_listed` (see `notes.md`). Mitch chose this state over the undocumented account variable.
+
+- [x] 8.1 RED: the normaliser, guest reader, schedule, API and frontend tests above.
+- [x] 8.2 GREEN: the contracts, migration, worker, API and frontend.
+- [x] 8.3 Update `agents/ARCHITECTURE.md` and the deployment README, and run the contracts tests, the intake unit and PG tiers and the frontend checks.
+- [x] 8.4 After the merge, check with a free guest read that the guest's reply is the alias list and that the merged worker's guest reader classes it as not listed. Done on 2026-11-27 (see `notes.md`); the recording, the row and Settings on the merged stack weren't observed.
+
 ## Delivery evidence and lifecycle follow-up
 
 - [x] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`), fix, publish, CI green, merge. Merged as #278 at `2dd1206d`.
@@ -198,7 +222,8 @@
 - [x] PR-C: implement task 4, review the exact head, publish with the captures and the demo, CI green, merge. Merged as #295 at `daf96d40`.
 - [x] PR-D: implement task 5, review the exact head, publish with the demo, CI green, merge. Merged as #296 at `87cce5b2`.
 - [ ] PR-F: implement task 7 once BI-022's PR-I has merged, review the exact head, publish, CI green, merge.
-- [ ] PR-E: run task 6 with Mitch's go-ahead, review the exact head, publish the partial result with its evidence, CI green, merge. 6.5 is required before the merge; 6.2 and 6.6 may stay open for the Claude fix and its approved recheck.
+- [x] PR-E: run task 6 with Mitch's go-ahead, review the exact head, publish the partial result with its evidence, CI green, merge. 6.5 is required before the merge; 6.2 and 6.6 may stay open for the Claude fix and its approved recheck. Merged as #297 at `53ce6711`.
+- [x] PR-G: implement task 8, review the exact head, publish with the captures, CI green, merge. Merged as #300 at `548dd9d0`.
 - [ ] Update BI-023 as PRs merge. It is Done only after PR-A to PR-D and PR-F merge and their acceptance is evidenced; the live check (PR-E) is recorded separately.
 - [ ] Mark R3, R4 and R5 in the design log as Built, with their PRs.
 - [ ] Before syncing: re-run strict validation and `pnpm openspec:overlap --change agent-model-catalog-and-step-instructions`. `polish-ui-styling-and-loading` adds "One searchable model picker" and "Model picker limits and exact IDs" to app-settings; sync it first.

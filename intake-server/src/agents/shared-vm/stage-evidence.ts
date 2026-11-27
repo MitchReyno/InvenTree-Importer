@@ -72,6 +72,23 @@ export async function stageEvidence(
 const PREVIEW_GUIDANCE =
   'These are previews of your figures with their marks drawn in, as files in local_files, in figure order. Open each path with your image/file tool to check what the operator will see. The files exist only for this turn. A preview grants no citation; cite only fetched evidence.'
 
+const TOOL_IMAGE_GUIDANCE =
+  'The image this tool drew is a file in local_files. Open its path with your image/file tool to inspect it. The file exists only for this turn. It grants no citation; cite only fetched evidence.'
+
+// The `ask` tool shows at most five figures; an image tool returns exactly one image.
+const MAX_PREVIEW_IMAGES = 5
+const TOOL_IMAGE_COUNT = 1
+
+interface McpImage {
+  mimeType?: unknown
+  data?: unknown
+}
+
+interface ListedImage {
+  media_type?: unknown
+  sha256?: unknown
+}
+
 /**
  * Exposes an `ask` preview's images to guest scripts in the configured delivery mode. Each image
  * must match the preview entry the trusted host listed for it. Nothing is released: a preview
@@ -86,50 +103,116 @@ export async function stagePreview(
   const reply = JSON.parse(body)
   const result = reply?.result
   const metadata = result?.structuredContent
-  const images = result?.content?.filter((item: { type: string }) => item.type === 'image')
-  if (!images?.length) {
+  const images = imageItems(result)
+  if (!images.length) {
     return body
   }
   const listed = metadata?.preview
-  if (
-    reply?.id !== id ||
-    result?.isError ||
-    metadata?.ok !== true ||
-    metadata.source !== undefined ||
-    !Array.isArray(listed) ||
-    listed.length !== images.length ||
-    images.length > 5
-  ) {
+  if (!listsItsImages(reply, id, listed, images.length) || images.length > MAX_PREVIEW_IMAGES) {
     throw new Error('invalid_preview_file')
   }
-  const files = []
-  for (const [index, image] of images.entries()) {
-    const extension = extensions.get(image.mimeType)
-    const entry = listed[index]
-    if (!extension || typeof image.data !== 'string' || entry?.media_type !== image.mimeType) {
-      throw new Error('invalid_preview_file')
-    }
-    const bytes = Buffer.from(image.data, 'base64')
-    const sha256 = createHash('sha256').update(bytes).digest('hex')
-    if (sha256 !== entry.sha256) {
-      throw new Error('invalid_preview_file')
-    }
-    const path = join(await directory(), randomUUID() + '.' + extension)
-    await writeFile(path, bytes, { flag: 'wx', mode: 0o600 })
-    files.push({
-      figure: entry.figure,
-      path,
-      sha256,
-      byte_length: bytes.length,
-      media_type: image.mimeType,
-    })
-  }
-  metadata.local_files = files
+  const files = await stageListedImages(images, listed, directory, 'invalid_preview_file')
+  metadata.local_files = files.map((file, index) => ({ figure: listed[index].figure, ...file }))
   result.content = [
     { type: 'text', text: JSON.stringify(metadata) },
     ...(delivery === 'file' ? [{ type: 'text', text: PREVIEW_GUIDANCE }] : images),
   ]
   return JSON.stringify(reply)
+}
+
+/**
+ * Exposes the image an image tool (`inspect_region`, `preview_images`, `match_logo`) drew to
+ * guest scripts in the configured delivery mode. The image must match the entry the trusted host
+ * listed in `images`. Nothing is released: these tools grant no citation.
+ */
+export async function stageToolImage(
+  id: string | number,
+  body: string,
+  directory: () => Promise<string>,
+  delivery: EvidenceDelivery = 'file',
+) {
+  const reply = JSON.parse(body)
+  const result = reply?.result
+  const metadata = result?.structuredContent
+  const images = imageItems(result)
+  if (!images.length) {
+    return body
+  }
+  const listed = metadata?.images
+  if (!listsItsImages(reply, id, listed, images.length) || images.length !== TOOL_IMAGE_COUNT) {
+    throw new Error('invalid_tool_image_file')
+  }
+  metadata.local_files = await stageListedImages(
+    images,
+    listed,
+    directory,
+    'invalid_tool_image_file',
+  )
+  result.content = [
+    { type: 'text', text: JSON.stringify(metadata) },
+    ...(delivery === 'file' ? [{ type: 'text', text: TOOL_IMAGE_GUIDANCE }] : images),
+  ]
+  return JSON.stringify(reply)
+}
+
+function imageItems(result: { content?: unknown } | undefined): McpImage[] {
+  if (!Array.isArray(result?.content)) {
+    return []
+  }
+  return result.content.filter((item: { type?: unknown }) => item?.type === 'image')
+}
+
+/** Whether `reply` is this call's successful, uncitable result listing one entry per image. */
+function listsItsImages(
+  reply: { id?: unknown; result?: Record<string, unknown> } | undefined,
+  id: string | number,
+  listed: unknown,
+  imageCount: number,
+) {
+  const result = reply?.result
+  const metadata = result?.structuredContent as Record<string, unknown> | undefined
+  const ownSuccess = reply?.id === id && !result?.isError && metadata?.ok === true
+  const grantsNoCitation = metadata?.source === undefined
+  const listsEach = Array.isArray(listed) && listed.length === imageCount
+  return ownSuccess && grantsNoCitation && listsEach
+}
+
+/**
+ * Checks every image against the entry the trusted host listed for it, then writes each as an
+ * owner-only file of its own. A mismatch anywhere stages nothing.
+ */
+async function stageListedImages(
+  images: McpImage[],
+  listed: ListedImage[],
+  directory: () => Promise<string>,
+  failure: string,
+) {
+  const checked = images.map((image, index) => {
+    const entry = listed[index]
+    const extension =
+      typeof image.mimeType === 'string' ? extensions.get(image.mimeType) : undefined
+    if (!extension || typeof image.data !== 'string' || entry?.media_type !== image.mimeType) {
+      throw new Error(failure)
+    }
+    const bytes = Buffer.from(image.data, 'base64')
+    const sha256 = createHash('sha256').update(bytes).digest('hex')
+    if (sha256 !== entry.sha256) {
+      throw new Error(failure)
+    }
+    return { extension, bytes, sha256, mediaType: image.mimeType }
+  })
+  const files = []
+  for (const image of checked) {
+    const path = join(await directory(), randomUUID() + '.' + image.extension)
+    await writeFile(path, image.bytes, { flag: 'wx', mode: 0o600 })
+    files.push({
+      path,
+      sha256: image.sha256,
+      byte_length: image.bytes.length,
+      media_type: image.mediaType,
+    })
+  }
+  return files
 }
 
 /**

@@ -1,4 +1,13 @@
-import { boolean, customType, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  customType,
+  integer,
+  pgTable,
+  smallint,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { MediaVersionDto } from '@invimport/contracts'
 import type { MediaRenditionSize } from '@invimport/contracts/media'
@@ -174,4 +183,20 @@ export const mediaEvidenceRemovals = pgTable('media_evidence_removal', {
   actorId: uuid('actor_id').notNull(),
   removed: boolean().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+export const mediaImageSelections = pgTable('media_image_selection', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  subjectKind: text('subject_kind').$type<'lot'>().notNull().default('lot'),
+  revision: decimalInteger().notNull(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+export const mediaImageSelectionItems = pgTable('media_image_selection_item', {
+  selectionId: uuid('selection_id').notNull(),
+  batchId: uuid('batch_id').notNull(),
+  role: text().$type<'part_image' | 'stock_image'>().notNull(),
+  position: smallint().notNull(),
+  derivationId: uuid('derivation_id').notNull(),
 })

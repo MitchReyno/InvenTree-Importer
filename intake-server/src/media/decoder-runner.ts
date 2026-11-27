@@ -1,13 +1,29 @@
 import { launchDecoder } from './docker-decoder.ts'
 import { reservedLauncher } from './decoder-admission.ts'
 import { requestDecode } from './dispatcher-client.ts'
-import { parseDecoderOutput, parseRenditionOutput, parseViewOutput } from './decoder-output.ts'
 import {
+  parseDecoderOutput,
+  parseGridOutput,
+  parseLogoMatchOutput,
+  parsePreviewOutput,
+  parseRenditionOutput,
+  parseViewOutput,
+} from './decoder-output.ts'
+import {
+  checkedGridInput,
   checkedInput,
+  checkedLogoMatchInput,
+  checkedPreviewInput,
   checkedRenditionInput,
   checkedViewInput,
   type DecodeInput,
   type DecodedMedia,
+  type GridInput,
+  type GridResult,
+  type LogoMatchInput,
+  type LogoMatchResult,
+  type PreviewInput,
+  type PreviewResult,
   type RenditionInput,
   type RenditionResult,
   type ViewInput,
@@ -59,6 +75,61 @@ export async function renderViewIsolated(
     marks: input.marks,
   }
   return parseViewOutput(await runIsolated(image, header, input.bytes, dispatch), input)
+}
+
+/**
+ * `preview_images`: recipe `/2` crops on up to four retained page PNGs, rendered as their
+ * derivations would be onto one labelled montage. The pages follow the header in order.
+ */
+export async function previewIsolated(
+  image: string,
+  input: PreviewInput,
+  dispatch: DispatchOptions = {},
+): Promise<PreviewResult> {
+  checkedPreviewInput(input)
+  const { header, pages } = previewPacket(input)
+  return parsePreviewOutput(await runIsolated(image, header, pages, dispatch))
+}
+
+/** A preview's input header, each page described by its size, and its pages' bytes in order. */
+export function previewPacket(input: PreviewInput) {
+  const header = {
+    version: input.version,
+    pages: input.pages.map((page) => ({
+      source_version_id: page.source_version_id,
+      source_digest: page.source_digest,
+      page: page.page,
+      digest: page.digest,
+      width: page.width,
+      height: page.height,
+      byte_size: page.bytes.length,
+    })),
+    crops: input.crops,
+  }
+  const pages = Buffer.concat(input.pages.map((page) => page.bytes))
+  return { header, pages }
+}
+
+/** `inspect_region`: a grid labelled in page pixels over one retained page PNG. */
+export async function gridIsolated(
+  image: string,
+  input: GridInput,
+  dispatch: DispatchOptions = {},
+): Promise<GridResult> {
+  checkedGridInput(input)
+  const { bytes, ...header } = input
+  return parseGridOutput(await runIsolated(image, header, bytes, dispatch))
+}
+
+/** `match_logo`: the bundled logo set ranked against a view of one retained page PNG. */
+export async function logoMatchIsolated(
+  image: string,
+  input: LogoMatchInput,
+  dispatch: DispatchOptions = {},
+): Promise<LogoMatchResult> {
+  checkedLogoMatchInput(input)
+  const { bytes, ...header } = input
+  return parseLogoMatchOutput(await runIsolated(image, header, bytes, dispatch))
 }
 
 /** How long a request waits for the dispatcher's slot; see `requestDecode`. */
