@@ -120,6 +120,8 @@ const MAX_LANE_OFFERS = MAX_SESSION_SLOTS
 const OFFER_LINE_MS = 5_000
 /** How long a route waits to start another guest after one closed before it was admitted. */
 const LAUNCH_RETRY_MS = 1_000
+/** How long a journal probe may take, its guest's start on demand included, as a turn's wait. */
+const JOURNAL_PROBE_MS = 45_000
 /** The first byte of a TLS handshake record: a guest, status or catalogue connection. */
 const TLS_HANDSHAKE = 0x16
 
@@ -245,7 +247,6 @@ export async function startSessionBridge(
             throw new Error('runner_capacity')
           }
           turnSockets.add(socket)
-          noteMemory(greeting.memoryBytes)
           if (
             greeting.reapProof === true &&
             greeting.builtinTools === true &&
@@ -281,6 +282,8 @@ export async function startSessionBridge(
             throw new Error('runner_protocol_mismatch')
           }
           socket.setTimeout(0) // The greeting deadline ends once the peer is admitted.
+          // Only an admitted guest's report counts, so a refused greeting changes no capacity.
+          noteMemory(greeting.memoryBytes)
           admittedTurns.add(socket)
           const key = socketRouteKey(socket)
           routeAdmissions.set(key, (routeAdmissions.get(key) ?? 0) + 1)
@@ -562,6 +565,8 @@ export async function startSessionBridge(
   const transports = new Set<Socket>()
   // Closing the bridge ends every wait for a peer, so a stopping worker isn't held by one.
   const closing = new AbortController()
+  // Only `close` ends the bridge's life; `endProofWaits` leaves turns that haven't started alone.
+  const lifetime = new AbortController()
 
   /**
    * Reads a connection's first bytes: TLS goes to the TLS server as it arrived, and a relay's
@@ -627,6 +632,9 @@ export async function startSessionBridge(
    * waiter's poll calls this, and the offers start no more than the waiters need.
    */
   function demand(route: GuestRoute) {
+    if (lifetime.signal.aborted) {
+      return
+    }
     const offer = offers.next(routeKey(route))
     if (offer) {
       startGuest(offer)
@@ -736,6 +744,7 @@ export async function startSessionBridge(
     signal: AbortSignal,
   ) {
     const leave = offers.wait(routeKey(route))
+    const waiting = AbortSignal.any([signal, lifetime.signal])
     try {
       const admittedBefore = admissionsOf(route)
       // A busy connection or an offer of the route at any point shows its relay is running.
@@ -752,7 +761,13 @@ export async function startSessionBridge(
           throw noConnection(route, relaySeen)
         }
         demand(route)
-        await delay(100, undefined, { signal })
+        await delay(100, undefined, { signal: waiting }).catch((error: unknown) => {
+          // Closed with nothing sent: the turn goes back to the queue, as a cancellation doesn't.
+          if (!signal.aborted) {
+            throw new SessionCapacityUnavailable()
+          }
+          throw error
+        })
         relaySeen ||= routeConnected(route)
       }
     } finally {
@@ -771,15 +786,32 @@ export async function startSessionBridge(
       throw new Error('turn_child_recorder_required')
     }
     // One turn at a time starts on the VM, from its guest's start to its provider's admission.
-    const started = await startupGate.enter(context.signal, turnTiming.startupWaitMs)
-    if (!started) {
-      throw new SessionCapacityUnavailable()
-    }
+    const started = await enterStartup(context.signal)
     try {
       return await runTurn(turn, { ...context, recordChild }, route, started)
     } finally {
       started()
     }
+  }
+
+  /**
+   * The turn's place at the startup gate. A turn still waiting when the bridge closes, or that
+   * waits past the bound, sent nothing and goes back to the queue; a cancelled one rejects.
+   */
+  async function enterStartup(signal: AbortSignal) {
+    const waiting = AbortSignal.any([signal, lifetime.signal])
+    const started = await startupGate
+      .enter(waiting, turnTiming.startupWaitMs)
+      .catch((error: unknown) => {
+        if (signal.aborted) {
+          throw error
+        }
+        return undefined
+      })
+    if (!started) {
+      throw new SessionCapacityUnavailable()
+    }
+    return started
   }
 
   /** One turn on a connection of its route; `admitted` ends its hold on the startup gate. */
@@ -999,7 +1031,7 @@ export async function startSessionBridge(
             probe.available,
             idle,
             command,
-            context.signal,
+            AbortSignal.any([context.signal, closing.signal]),
           ).finally(probe.leave)
           if (outcome === 'done') {
             return
@@ -1036,6 +1068,7 @@ export async function startSessionBridge(
       return vmTurnCapacity(vmMemory)
     },
     close() {
+      lifetime.abort()
       closing.abort()
       for (const socket of transports) {
         socket.destroy()
@@ -1136,7 +1169,9 @@ async function probeTerminal(
   signal: AbortSignal,
   requireReap = false,
 ) {
-  const deadline = requireReap ? signal : AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+  const deadline = requireReap
+    ? signal
+    : AbortSignal.any([signal, AbortSignal.timeout(JOURNAL_PROBE_MS)])
   let claimed: TLSSocket | undefined
 
   const stop = () => claimed?.destroy()

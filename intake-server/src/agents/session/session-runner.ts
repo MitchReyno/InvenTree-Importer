@@ -376,6 +376,13 @@ export async function interruptSession(client: PoolClient, session: InterruptedS
   if (!changed) {
     return false
   }
+  // A turn that started and was interrupted ends a run of startup timeouts.
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(agentSessions)
+      .set({ startupTimeouts: 0 })
+      .where(eq(agentSessions.attemptId, session.attemptId)),
+  )
   await retainSessionFailure(
     client,
     sessionFailure(new NativeSessionError('agent_worker_interrupted'), {
@@ -784,6 +791,7 @@ export async function runSessionTurn(
             state: agentSessions.sessionState,
             attemptState: processingAttempts.state,
             turnCount: agentSessions.turnCount,
+            startupTimeouts: agentSessions.startupTimeouts,
             lineageId: agentSessions.sessionLineageId,
             providerSessionId: agentSessions.nativeSessionId,
             jobId: processingAttempts.jobId,
@@ -941,7 +949,10 @@ export async function runSessionTurn(
       }
       // A resume whose only pending items were withdrawn since it was queued has nothing to do:
       // the session goes back to the state its last turn left it in, without a turn.
-      if (row.turnCount > 0n && (await withdrawnOnly(client, row.jobId))) {
+      // A turn requeued after a startup timeout never reached the provider, so it still owes it
+      // its opening and isn't such a resume.
+      const resumeOnly = row.turnCount > 0n && row.startupTimeouts === 0
+      if (resumeOnly && (await withdrawnOnly(client, row.jobId))) {
         const idle = await stateBeforeWake(client, attemptId, row.jobId)
         const settled = await setSessionState(client, attemptId, row.jobId, idle, ['queued'])
         await publish(client, row.batchId)
@@ -951,7 +962,7 @@ export async function runSessionTurn(
         return ['idle', idle] as const
       }
       // Without a free slot the session stays queued; the caller waits and tries again.
-      if (!(await claimSessionSlot(client, config, attemptId, deps.turnCapacity?.()))) {
+      if (!(await claimSessionSlot(client, config, attemptId, deps.turnCapacity))) {
         return undefined
       }
       const state = await setSessionState(client, attemptId, row.jobId, 'running', ['queued'], {

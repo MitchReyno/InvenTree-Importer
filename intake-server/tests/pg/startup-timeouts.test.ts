@@ -5,7 +5,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { runSessionTurn, type SessionDriver } from '#/agents/session/session-runner.ts'
+import { randomUUID } from 'node:crypto'
+import {
+  interruptSession,
+  runSessionTurn,
+  type SessionDriver,
+} from '#/agents/session/session-runner.ts'
 import { claimSessionSlot } from '#/agents/session/slots.ts'
 import { NativeSessionError } from '#/agents/failure-model.ts'
 import { transaction } from '#/db/database.ts'
@@ -145,13 +150,116 @@ test('a session claims no slot past the VM turn capacity', async (t) => {
   const first = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
   const second = await lotSession(fixture, capture, capture.packetB, { state: 'queued' })
 
-  const claim = (attemptId: string, capacity: number | undefined) =>
+  const claim = (attemptId: string, capacity: number) =>
     transaction(fixture.runner.pool, (client) =>
-      claimSessionSlot(client, fixture.config, attemptId, capacity),
+      claimSessionSlot(client, fixture.config, attemptId, () => capacity),
     )
 
   assert.equal(await claim(first.attempt, 1), true)
   // Sessions at once allows three, but the VM holds one.
   assert.equal(await claim(second.attempt, 1), false)
   assert.equal(await claim(second.attempt, 2), true)
+})
+
+test('a turn that started and was interrupted resets the startup timeouts', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+
+  const timesOut: SessionDriver = async () => {
+    throw guestAdmissionTimeout()
+  }
+
+  assert.equal(await runWith(fixture, session.attempt, timesOut), 'queued')
+  assert.equal(await runWith(fixture, session.attempt, timesOut), 'queued')
+  // The next turn starts, and a restart confirms it gone and interrupts it.
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='running' WHERE attempt_id=$1",
+    [session.attempt],
+  )
+  await transaction(fixture.runner.pool, (client) =>
+    interruptSession(client, {
+      attemptId: session.attempt,
+      jobId: session.job,
+      batchId: capture.batch.id,
+      turnCount: 3n,
+    }),
+  )
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='queued' WHERE attempt_id=$1",
+    [session.attempt],
+  )
+  assert.equal(await runWith(fixture, session.attempt, timesOut), 'queued')
+})
+
+test('a first turn requeued after a startup timeout still runs when its inbox was withdrawn', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+  let opened = 0
+
+  assert.equal(
+    await runWith(fixture, session.attempt, async () => {
+      throw guestAdmissionTimeout()
+    }),
+    'queued',
+  )
+  // Its only pending item is withdrawn before the retry.
+  const item = randomUUID()
+  await fixture.db.pool.query(
+    "INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key) VALUES($1,$2,1,'evidence',$3,$4)",
+    [item, session.job, { evidence_id: randomUUID(), version_id: randomUUID() }, item],
+  )
+  await fixture.db.pool.query('INSERT INTO agent_session_inbox_withdrawal(item_id) VALUES($1)', [
+    item,
+  ])
+
+  const state = await runWith(fixture, session.attempt, async () => {
+    opened++
+  })
+  // The provider never had the opening, so the retry delivers it.
+  assert.equal(opened, 1)
+  assert.equal(state, 'finished')
+})
+
+test('a claim waiting for the slot lock reads the VM capacity once it has the lock', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: '0',
+      selection: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+      session_concurrency: 3,
+    }),
+  )
+  const capture = await fixture.seedCapture()
+  const first = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+  const second = await lotSession(fixture, capture, capture.packetB, { state: 'queued' })
+  let capacity = 3
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) =>
+      claimSessionSlot(client, fixture.config, first.attempt, () => capacity),
+    ),
+    true,
+  )
+
+  // Another claim holds the actor's slot lock while the capacity drops.
+  const holder = await fixture.db.pool.connect()
+  await holder.query('BEGIN')
+  await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 7319))', [
+    `agent-slots:${fixture.config.actorId}`,
+  ])
+  const waiting = transaction(fixture.runner.pool, (client) =>
+    claimSessionSlot(client, fixture.config, second.attempt, () => capacity),
+  )
+  await new Promise((settle) => setTimeout(settle, 300))
+  capacity = 1
+  await holder.query('COMMIT')
+  // Released before the fixture is disposed, which waits for its checked-out connections.
+  holder.release()
+  assert.equal(await waiting, false)
 })

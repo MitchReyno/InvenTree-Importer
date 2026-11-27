@@ -49,7 +49,7 @@ Security: the offer line is unauthenticated, on the coordinator's loopback port.
 
 Compatibility: an older relay launches guests at once and speaks TLS first, so it is served as before (with its idle ready lane). A new relay against an older coordinator fails the handshake and retries every 500 ms, so they deploy together, as `pnpm dev` does.
 
-Startup reap check: a held slot's proof now needs a cold lane, which starts three containers. `STARTUP_REAP_CHECK_MS` rises from 20 s to 45 s, the tool lane's own connection wait.
+Startup reap check: a held slot's proof now needs a cold lane, which starts three containers. `STARTUP_REAP_CHECK_MS` rises from 20 s to 45 s, the tool lane's own connection wait, and held turns are asked about one at a time. A waiter that leaves stops any starting guest of its route that no remaining waiter needs. The journal probe after a lost connection gets 45 s instead of 15 s.
 
 Alternatives: a ready lane that starts only the paired supervisor (still an idle container per relay, and a reordered `tool-turn.sh`), and closing ready lanes after an idle bound (an absent relay then reads as `agent_vm_unavailable`). Rejected.
 

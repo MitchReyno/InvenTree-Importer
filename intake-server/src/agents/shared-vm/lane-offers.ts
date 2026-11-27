@@ -33,7 +33,8 @@ export function offerRoute(line: string) {
  */
 export class LaneOffers {
   private readonly offers = new Map<string, Set<Socket>>()
-  private readonly starting = new Map<string, Set<string>>()
+  // Guests asked for and not yet admitted, by route, then by peer.
+  private readonly starting = new Map<string, Map<string, Socket>>()
   private readonly waiters = new Map<string, number>()
   private readonly offered = new Map<string, number>()
   private readonly retryAt = new Map<string, number>()
@@ -70,14 +71,23 @@ export class LaneOffers {
     return this.offered.get(route) ?? 0
   }
 
-  /** Registers a waiter of the route until the returned function is called. */
+  /**
+   * Registers a waiter of the route until the returned function is called. A waiter that leaves
+   * stops a starting guest no remaining waiter needs, so its containers don't keep starting.
+   */
   wait(route: string) {
     this.waiters.set(route, (this.waiters.get(route) ?? 0) + 1)
     let left = false
     return () => {
-      if (!left) {
-        left = true
-        this.waiters.set(route, (this.waiters.get(route) ?? 1) - 1)
+      if (left) {
+        return
+      }
+      left = true
+      const waiting = (this.waiters.get(route) ?? 1) - 1
+      this.waiters.set(route, waiting)
+      const starting = [...(this.starting.get(route)?.values() ?? [])]
+      for (const socket of starting.slice(waiting)) {
+        socket.destroy()
       }
     }
   }
@@ -87,7 +97,11 @@ export class LaneOffers {
    * its starting guests; undefined otherwise. The caller writes `LANE_START` and admits it.
    */
   next(route: string, now = Date.now()) {
-    const starting = setOf(this.starting, route)
+    let starting = this.starting.get(route)
+    if (!starting) {
+      starting = new Map()
+      this.starting.set(route, starting)
+    }
     if ((this.waiters.get(route) ?? 0) <= starting.size || now < (this.retryAt.get(route) ?? 0)) {
       return undefined
     }
@@ -98,7 +112,7 @@ export class LaneOffers {
     const socket = offer.value
     const peer = peerKey(socket)
     this.offers.get(route)!.delete(socket)
-    starting.add(peer)
+    starting.set(peer, socket)
     socket.once('close', () => {
       // Closed before it was admitted: the next start of this route waits a little.
       if (starting.delete(peer)) {
@@ -121,7 +135,7 @@ export class LaneOffers {
   }
 }
 
-function setOf<T>(map: Map<string, Set<T>>, route: string) {
+function setOf(map: Map<string, Set<Socket>>, route: string) {
   let set = map.get(route)
   if (!set) {
     set = new Set()

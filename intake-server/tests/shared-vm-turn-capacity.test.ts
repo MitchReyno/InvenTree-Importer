@@ -217,22 +217,6 @@ test('a lane offer gets its guest only once a turn needs one', async (t) => {
   assert.equal(await running, undefined)
 })
 
-test('a guest started for a turn that has gone is closed once it sits idle', async (t) => {
-  const { root, port, bridge } = await bridgeFixture(t)
-  const lane = await offer(t, port)
-  const control = new AbortController()
-  const turnContext = context(claudeManifest('shared-vm-agent/3'), control.signal)
-  const running = bridge.driver(turn, turnContext.value).catch((error: unknown) => error)
-  while (lane.received() !== 'go\n') {
-    await delay(25)
-  }
-  control.abort()
-  await running
-  lane.socket.removeAllListeners('data')
-  const started = await guest(t, root, port, {}, lane.socket)
-  await once(started.socket, 'close')
-})
-
 test('a second turn reaches its guest only once the first is admitted', async (t) => {
   const { root, port, bridge } = await bridgeFixture(t)
   const first = await guest(t, root, port)
@@ -260,4 +244,48 @@ test('a second turn reaches its guest only once the first is admitted', async (t
     await peer.frames.send({ done: true })
   }
   assert.deepEqual(await Promise.all(runs), [undefined, undefined])
+})
+
+test('a guest still starting when its turn gives up is stopped', async (t) => {
+  const { port, bridge } = await bridgeFixture(t)
+  const lane = await offer(t, port)
+  const control = new AbortController()
+  const turnContext = context(claudeManifest('shared-vm-agent/3'), control.signal)
+  const running = bridge.driver(turn, turnContext.value).catch((error: unknown) => error)
+  while (lane.received() !== 'go\n') {
+    await delay(25)
+  }
+  // Cancelled before its guest has greeted: no other waiter needs that guest.
+  const closed = once(lane.socket, 'close')
+  control.abort()
+  await running
+  await closed
+})
+
+test('closing the bridge puts a turn waiting to start back in the queue', async (t) => {
+  const { root, port, bridge } = await bridgeFixture(t)
+  const first = await guest(t, root, port)
+  const holding = bridge
+    .driver(turn, context(claudeManifest('shared-vm-agent/3'), new AbortController().signal).value)
+    .catch((error: unknown) => error)
+  await first.frames.read()
+  // The first turn's start holds the gate; the second waits for it.
+  const waiting = bridge
+    .driver(turn, context(claudeManifest('shared-vm-agent/3'), new AbortController().signal).value)
+    .catch((error: unknown) => error)
+  await delay(200)
+  bridge.close()
+  assert.ok((await waiting) instanceof SessionCapacityUnavailable)
+  await holding
+})
+
+test('a greeting the coordinator refuses leaves the VM capacity as it was', async (t) => {
+  const { root, port, bridge } = await bridgeFixture(t)
+  await guest(t, root, port, { memoryBytes: 4 * 1024 ** 3 })
+  await delay(200)
+  assert.equal(bridge.turnCapacity(), 3)
+  // An older tool supervisor without the turn policy is refused after it greets.
+  const refused = await guest(t, root, port, { turnPolicy: false, memoryBytes: 2 * 1024 ** 3 })
+  await once(refused.socket, 'close')
+  assert.equal(bridge.turnCapacity(), 3)
 })

@@ -224,8 +224,12 @@ export async function recoverHeldCapacity(
   checks: HeldCapacityChecks = {},
 ): Promise<HeldCapacityOutcome[]> {
   const held = await readHeldCapacity(owner, config)
-  // Each VM turn is asked about at once, each within its own bound.
-  const proofs = await Promise.all(held.map((item) => vmReapProof(item, checks)))
+  // One VM turn at a time, each within its own bound: each proof starts a guest on demand, and
+  // starting them all at once would load the small VM the cap protects.
+  const proofs: VmReapProof[] = []
+  for (const item of held) {
+    proofs.push(await vmReapProof(item, checks))
+  }
   const outcomes: HeldCapacityOutcome[] = []
   for (const [index, item] of held.entries()) {
     const verdict = heldCapacityVerdict(item, proofs[index])

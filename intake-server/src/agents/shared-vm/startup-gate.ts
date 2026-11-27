@@ -49,8 +49,17 @@ export class StartupGate {
       signal.addEventListener('abort', abort, { once: true })
       this.waiting.push(wake)
     })
-    // A release that wakes a waiter hands it the gate, so it stays held between them.
-    return admitted ? this.holdFor() : undefined
+    if (!admitted) {
+      return undefined
+    }
+    // A release that wakes a waiter hands it the gate, so it stays held between them; one
+    // aborted at the hand-off passes it straight on.
+    const release = this.holdFor()
+    if (signal.aborted) {
+      release()
+      throw signal.reason
+    }
+    return release
   }
 
   private holdFor() {

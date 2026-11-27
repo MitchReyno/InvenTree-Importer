@@ -168,9 +168,17 @@ async function turnLog(root: string) {
   return turns
 }
 
+/** When each fake guest the relay started began, in order. */
+async function launchTimes(root: string) {
+  return (await logLines(root))
+    .filter(([event]) => event === 'launch')
+    .map(([, , at]) => Number(at))
+    .sort((a, b) => a - b)
+}
+
 /** How many fake guests the relay has started. */
 async function launches(root: string) {
-  return (await logLines(root)).filter(([event]) => event === 'launch').length
+  return (await launchTimes(root)).length
 }
 
 /** Resolves once the fake guest has logged the attempt's turn as started. */
@@ -238,10 +246,13 @@ test(
 )
 
 test('an idle relay starts no guest', { timeout: 60_000 }, async (t) => {
-  const { root } = await twoSessions(t, { holdMs: 0 })
+  const { root, sessions, run } = await twoSessions(t, { holdMs: 0 })
   // Long enough for a relay to connect and start a ready guest.
   await new Promise((settle) => setTimeout(settle, 5_000))
   assert.equal(await launches(root), 0)
+  // The relay was connected all along: a turn gets a guest started for it.
+  assert.equal(await run(sessions[0]), 'finished')
+  assert.equal(await launches(root), 1)
 })
 
 test(
@@ -279,7 +290,10 @@ test(
     const [a, b] = sessions
       .map((attemptId) => turns.get(attemptId)!)
       .sort((x, y) => x.start! - y.start!)
-    // The second reached its guest only once the first's provider was admitted...
+    // The second's guest was started only once the first's provider was admitted...
+    const started = await launchTimes(root)
+    assert.equal(started.length, 2)
+    assert.ok(started[1] >= a.admitted!, JSON.stringify({ a, b, started }))
     assert.ok(b.start! >= a.admitted!, JSON.stringify({ a, b }))
     // ...and they still overlapped.
     assert.ok(b.start! < a.end!, JSON.stringify({ a, b }))

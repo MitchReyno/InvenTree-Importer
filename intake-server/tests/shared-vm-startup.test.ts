@@ -82,3 +82,16 @@ test('the startup gate bounds a hold and a wait, and leaves on abort', async () 
   next()
   assert.ok(await gate.enter(signal, 0))
 })
+
+test('a waiter aborted as the gate is handed to it passes the gate on', async () => {
+  const gate = new StartupGate(10_000)
+  const signal = new AbortController().signal
+  const first = await gate.enter(signal, 1000)
+  const aborted = new AbortController()
+  const handed = gate.enter(aborted.signal, 1000)
+  const next = gate.enter(signal, 1000)
+  first!()
+  aborted.abort(new Error('stopped'))
+  await assert.rejects(handed, /stopped/)
+  assert.ok(await next)
+})
