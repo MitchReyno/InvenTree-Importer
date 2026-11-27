@@ -174,7 +174,9 @@
 - **Risks and decisions:** the sessions are real provider turns with their cost; the read itself makes no paid call.
 
 - [x] 6.1 Ask Mitch for the go-ahead, naming the reads and the two short sessions. Given on 2026-11-26.
-- [x] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Revised by PR-G for Claude: a setup token gets no list to compare, so Claude's criterion is that the guest's reply is the alias list and the merged worker's guest reader classes it as not listed (task 8.4). Codex verified live; Claude shows the setup-token state by design, verified here only as far as the reader's classification. Codex's list matched and no turn started (PR-E). Claude's reply after PR-G's merge was the alias list and the reader classed it as not listed; the recording, the stored row and Settings weren't observed (see `notes.md`).
+- [x] 6.2 Read each provider's list in the real guest and confirm no turn started. Codex verified live; Claude shows the setup-token state by design, verified here only as far as the reader's classification.
+  - **Codex:** the list compared with the provider's own list; it matched, and no turn started (PR-E).
+  - **Claude, revised by PR-G:** a setup token gets no list to compare, so the criterion is task 8.4's: the guest's reply is the alias list and the merged worker's reader classes it as not listed. The recording, the stored row and Settings weren't observed (see `notes.md`).
 - [x] 6.3 Run one short session per provider at a non-default effort; confirm its turn completed and its `sent_effort` matches, and record the effective effort as unverified. Claude's session finished; Codex's completed its turn and waits for an answer (see `notes.md`); both recorded `sent_effort: low`.
 - [x] 6.4 Record the outcome in `notes.md` and run `pnpm lint:markdown`.
 - [x] 6.5 Attach the evidence to PR-E.
