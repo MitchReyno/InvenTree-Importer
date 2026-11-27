@@ -12,7 +12,7 @@ import type {
   SessionBriefPageDto,
   SessionInputDto,
 } from '@invimport/contracts'
-import { formedBatch, photoWithNote, type Fixture } from '../support/lot-pipeline.ts'
+import { formedBatch, photoWithNote, settleMatch, type Fixture } from '../support/lot-pipeline.ts'
 import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import { editMedia } from '#/media/edit.ts'
@@ -216,8 +216,8 @@ test('under the switch the lead and its successors seal briefs with their stages
       ['human', true],
       ['asked', false],
       ['evidence', true],
-      // Match state and the vocabulary arrive with later changes; their sections exist, empty.
-      ['match', false],
+      // The lot's Match state; the vocabulary is the batch's observed records, none here.
+      ['match', true],
       ['identity', true],
       ['observations', true],
       ['vocabulary', false],
@@ -895,9 +895,32 @@ test('Start before a lead follows the configuration on both synthetic routes', a
       stages: ['research', 'images', 'inventory'],
     })
     if (route === 'local') {
-      // A `/7` batch has no Inventory session; Research and Images seal briefs.
-      assert.equal(started.status, 202, JSON.stringify(started.value))
-      const ids = (started.value as { attempt_ids: string[] }).attempt_ids
+      // A `/7` batch has no Inventory session, and its lots start only through Match: a lot Match
+      // hasn't searched starts nothing until Check again asks about it.
+      assert.equal(started.status, 409, JSON.stringify(started.value))
+      assert.equal((started.value as { code?: string }).code, 'match_waiting')
+      await fixture.http(`/batches/${batchId}/match/checks`, { lot_ids: [capture.packetA.id] })
+      await settleMatch(fixture)
+      const match = (await fixture.http(`/batches/${batchId}/match`)).value as {
+        questions: { id: string; revision: string; lot_id: string; kind: string }[]
+      }
+      const asked = match.questions.find((question) => question.lot_id === capture.packetA.id)!
+      assert.equal(asked.kind, 'unresolved')
+      const decided = await fixture.http(
+        `/batches/${batchId}/match/questions/${asked.id}/answers`,
+        {
+          expected_question_revision: asked.revision,
+          steps: [{ step_id: 'decision', value: { kind: 'choice', option_id: 'new_part' } }],
+        },
+      )
+      assert.equal(decided.status, 200, JSON.stringify(decided.value))
+      const ids = (
+        await fixture.db.pool.query<{ id: string }>(
+          `SELECT a.id FROM processing_job j JOIN processing_attempt a ON a.id=j.current_attempt_id
+           WHERE j.subject_id=$1 ORDER BY j.stage`,
+          [capture.packetA.id],
+        )
+      ).rows.map((row) => row.id)
       assert.deepEqual(await stageInputsOf(fixture, ids), [
         ['images', 'bench-intake-input/7'],
         ['research', 'bench-intake-input/7'],
@@ -1170,8 +1193,9 @@ test('a current brief past the page bound is refused while earlier views still p
     assert.deepEqual(again.brief!.entries, kept.brief!.entries)
     assert.ok(again.brief!.newer)
 
-    // The lead republishes the crystal's identity: its unstarted successors would be sealed
-    // past capacity, so the proposal is refused with that cause and nothing is kept.
+    // The lead republishes the crystal's identity. Match queues its successors only once the
+    // search settles, so the identity stands; sealing them would pass capacity, so they stay
+    // unqueued, and Start says why.
     const crystal = await batch.lot('16 mhz crystal')
     const [identity] = await batch.identities(crystal.id)
     const value = await fixture.db.pool.query<{ value: Record<string, unknown> }>(
@@ -1179,21 +1203,22 @@ test('a current brief past the page bound is refused while earlier views still p
       [identity.id],
     )
     const before = await batch.successors(crystal.id)
-    const proposals = async () =>
-      (
-        await fixture.db.pool.query('SELECT 1 FROM processing_proposal WHERE attempt_id=$1', [
-          batch.leadAttempt,
-        ])
-      ).rowCount
-    const count = await proposals()
     const lead = await open(batch.deps.toolUrl, await running(fixture, batch.leadAttempt))
-    const refusedProposal = await call(lead, 'propose', { proposal: value.rows[0].value })
-    assert.equal(refusedProposal.error, 'capacity_reached', JSON.stringify(refusedProposal))
-    assert.equal(await proposals(), count)
+    const republished = await call(lead, 'propose', { proposal: value.rows[0].value })
+    assert.equal(republished.ok, true, JSON.stringify(republished))
+    await settleMatch(fixture)
+    const after = await batch.successors(crystal.id)
     assert.deepEqual(
-      (await batch.successors(crystal.id)).map((item) => item.attempt_id),
-      before.map((item) => item.attempt_id),
+      after.map((item) => [item.attempt_id, item.attempt_state]),
+      before.map((item) => [item.attempt_id, 'superseded']),
     )
+    const started = await fixture.http(`/batches/${batchId}/processing`, {
+      schema_version: 'bench-intake-processing/1',
+      expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+      subject_ids: [crystal.id],
+      stages: ['research'],
+    })
+    assert.equal((started.value as { code?: string }).code, 'processing_input_capacity')
   })
 })
 
@@ -2122,11 +2147,26 @@ test('a lineage’s first /7 attempt doesn’t inherit a /6 attempt’s pending 
     'Count every reel',
     'Keep the shelf together',
   ])
-  // The switch goes on, and Start queues the lineage's first `/7` attempt.
+  // The switch goes on, and Match, once the operator decides, queues the lineage's first `/7`
+  // attempt.
   fixture.config.stageInputs = 'local'
-  const second = await start()
+  await fixture.http(`/batches/${batchId}/match/checks`, { lot_ids: [capture.packetA.id] })
+  await settleMatch(fixture)
+  const match = (await fixture.http(`/batches/${batchId}/match`)).value as {
+    questions: { id: string; revision: string; lot_id: string }[]
+  }
+  const asked = match.questions.find((question) => question.lot_id === capture.packetA.id)!
+  const decided = await fixture.http(`/batches/${batchId}/match/questions/${asked.id}/answers`, {
+    expected_question_revision: asked.revision,
+    steps: [{ step_id: 'decision', value: { kind: 'choice', option_id: 'new_part' } }],
+  })
+  assert.equal(decided.status, 200, JSON.stringify(decided.value))
+  const second = await fixture.db.pool.query<{ attempt_id: string }>(
+    'SELECT current_attempt_id AS attempt_id FROM processing_job WHERE id=$1',
+    [jobId],
+  )
   assert.equal(
-    (await sealedInput(fixture, second.attempt_ids[0])).manifest.schema_version,
+    (await sealedInput(fixture, second.rows[0].attempt_id)).manifest.schema_version,
     'bench-intake-input/7',
   )
   assert.deepEqual(await pendingInstructions(fixture, jobId), [

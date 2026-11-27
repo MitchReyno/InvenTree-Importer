@@ -95,9 +95,21 @@ function stillAnswerable(row: MatchRow | undefined, planned: Planned) {
     row !== undefined &&
     planned.question.state === 'open' &&
     row.questionId === planned.question.id &&
-    !searchPending(row) &&
     planned.question.generation.toString() === planned.choice.expectedRevision
   )
+}
+
+/**
+ * Refuses an answer Match can't take now: a question replaced or closed is stale for good, while
+ * one whose lot has a newer search pending can be answered again once that search settles.
+ */
+function requireAnswerable(row: MatchRow | undefined, planned: Planned, retired: boolean) {
+  if (retired || !stillAnswerable(row, planned)) {
+    fail('stale_question', 409)
+  }
+  if (searchPending(row!)) {
+    fail('match_waiting', 409)
+  }
 }
 
 function candidateFor(content: StoredQuestion, partPk: string | undefined) {
@@ -246,10 +258,15 @@ async function applyAnswers(
     ),
   )
   // Refused before any write when a question can't be answered now; checked again under lock.
+  const retired = new Set(
+    peek.snapshot.lots.filter((lot) => lot.retired === true).map((lot) => lot.id),
+  )
   for (const item of planned) {
-    if (!stillAnswerable(await readMatch(client, item.question.lotId), item)) {
-      fail('stale_question', 409)
-    }
+    requireAnswerable(
+      await readMatch(client, item.question.lotId),
+      item,
+      retired.has(item.question.lotId),
+    )
   }
   await requireCurrentTargetContext(client, config)
   const scope = await lockCaptureForOperatorCommand(client, config, batchId, peek.snapshot.revision)
@@ -279,9 +296,7 @@ async function applyAnswers(
   }
   for (const item of byLot) {
     const row = await lockMatch(client, item.question.lotId)
-    if (!stillAnswerable(row, item)) {
-      fail('stale_question', 409)
-    }
+    requireAnswerable(row, item, retired.has(item.question.lotId))
     await settleAnswer(
       client,
       config,

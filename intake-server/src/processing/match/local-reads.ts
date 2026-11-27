@@ -78,6 +78,8 @@ export interface CompetingLot {
   }[]
 }
 
+const MAX_MATCHED_BY = 16
+
 /** At most this many other lots' latest requests are compared with each search. */
 const COMPETING_LOT_SCAN = 500
 
@@ -128,7 +130,7 @@ function competingReason(key: MatchKeyDto) {
 
 /**
  * Unapproved lots of this actor, target and context in other, unarchived batches whose latest
- * Match request shares a strong key with this lot's. Lots of the same batch are never competing:
+ * Match request, for an identity still current, shares a strong key with this lot's. Lots of the same batch are never competing:
  * two lots of one batch may well be the same Part.
  */
 export async function competingLots(
@@ -159,6 +161,9 @@ export async function competingLots(
        AND NOT EXISTS (SELECT 1 FROM public.capture_lot_retirement r WHERE r.lot_id=l.id)
        AND NOT EXISTS (SELECT 1 FROM public.executor_operation o
                        WHERE o.contribution_key=l.contribution_key AND o.target_id=b.target_id)
+       -- An Examine identity since made stale no longer says what the other lot is.
+       AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale st
+                       WHERE st.proposal_id::text=convert_from(m.identity_bytes,'UTF8')::jsonb->>'proposal_id')
      ORDER BY m.updated_at DESC, l.id
      LIMIT $5`,
     [request.batch_id, config.actorId, config.targetId, config.targetContextId, COMPETING_LOT_SCAN],
@@ -169,6 +174,8 @@ export async function competingLots(
     const matched = strong
       .filter((key) => keys.some((theirs) => sameKey(key, theirs)))
       .map((key) => ({ key, reason: competingReason(key) }))
+      // The contract quotes at most 16 reasons per candidate.
+      .slice(0, MAX_MATCHED_BY)
     if (matched.length) {
       found.push({
         batchId: row.batch_id,

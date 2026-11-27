@@ -208,3 +208,46 @@ test('settling follows the rules: equivalent results keep, a lost target asks, a
     kind: 'keep_question',
   })
 })
+
+test('a lost target stays asked about, weak operator keys ask, and a new identity re-clears', () => {
+  const found = result({ candidates: [part()], verdict: 'exact' })
+  const added = decided('add_stock', coveredOf(found)).outcome!.outcome
+  // A question opened after add stock leaves the decision recorded but not in force.
+  const asking: MatchStanding = {
+    identity: { kind: 'examine', proposal_id: PROPOSAL },
+    recorded: { outcome: added },
+    openQuestion: { kind: 'target_lost', covered: coveredOf(result()) },
+  }
+  assert.deepEqual(nextStep(result(), asking), { kind: 'keep_question' })
+  const operator = { kind: 'operator' as const, revision: '2' }
+  const clearOutcome: MatchOutcomeDto = {
+    schema_version: 'bench-intake-match-outcome/1',
+    lot_id: LOT,
+    revision: '1',
+    basis: { kind: 'clear' },
+    ...decisionModes('new_part', undefined),
+  }
+  const cleared: MatchStanding = {
+    identity: operator,
+    outcome: { outcome: clearOutcome, covered: coveredOf(result()), targetPartPk: null },
+    outcomeIdentity: { kind: 'operator', revision: '1' },
+  }
+  const weak = result({ searched: 'local_only', keys: [{ kind: 'mpn', mpn: '1N4148' }] })
+  assert.deepEqual(nextStep(weak, cleared), { kind: 'question', questionKind: 'unresolved' })
+  assert.deepEqual(nextStep(result(), cleared), { kind: 'clear' })
+  assert.deepEqual(nextStep(result(), { ...cleared, outcomeIdentity: operator }), { kind: 'keep' })
+})
+
+test('what a Part lacks is part of what a decision covers', () => {
+  const imageless = result({
+    candidates: [
+      part({ part: { pk: '144', name: 'R', has_image: false }, missing: [{ kind: 'part_image' }] }),
+    ],
+  })
+  assert.notEqual(coveredOf(imageless), coveredOf(result({ candidates: [part()] })))
+  // A missing supplier Part alone sets no mode, so it doesn't change what is covered.
+  assert.equal(
+    coveredOf(result({ candidates: [part({ missing: [{ kind: 'supplier_part' }] })] })),
+    coveredOf(result({ candidates: [part()] })),
+  )
+})

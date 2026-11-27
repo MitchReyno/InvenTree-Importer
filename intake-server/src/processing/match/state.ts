@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { canonicalRecord, strictJson } from '@invimport/contracts/json'
 import {
   validate,
@@ -170,9 +170,32 @@ export async function currentOutcome(client: PoolClient, row: MatchRow) {
   return {
     outcome: value as MatchOutcomeDto,
     revision: latest.revision,
+    generation: latest.generation,
     targetPartPk: latest.targetPartPk,
     covered: latest.coveredBytes.toString('utf8'),
     questionId: latest.questionId,
     recordedAt: latest.recordedAt,
   }
+}
+
+/** The lot's latest recorded outcome, in force or not; none before the first. */
+export async function latestOutcome(client: PoolClient, lotId: string) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select()
+      .from(processingMatchOutcomes)
+      .where(eq(processingMatchOutcomes.lotId, lotId))
+      .orderBy(desc(processingMatchOutcomes.revision))
+      .limit(1),
+  )
+  const latest = rows[0]
+  if (!latest) {
+    return undefined
+  }
+  if (!sha256(latest.outcomeBytes).equals(latest.outcomeDigest)) {
+    throw new Error('match_outcome_corrupt')
+  }
+  const value: unknown = strictJson(latest.outcomeBytes.toString('utf8'))
+  validate('MatchOutcome', value)
+  return value as MatchOutcomeDto
 }

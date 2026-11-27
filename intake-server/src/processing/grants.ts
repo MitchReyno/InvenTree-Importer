@@ -24,7 +24,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       GRANT INSERT, UPDATE(settlement,result_bytes,result_digest,settled_at) ON processing_match_search TO ${role};
       GRANT INSERT ON processing_match_outcome,processing_match_question,processing_match_answer TO ${role};
       GRANT UPDATE(state,closed_at) ON processing_match_question TO ${role};
-      GRANT SELECT ON executor_operation,executor_run,executor_approval,executor_effect,executor_supported_effect,
+      GRANT SELECT ON executor_operation,executor_run,executor_guard,executor_approval,executor_effect,executor_supported_effect,
         manual_preparation TO ${role};`)
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(

@@ -20,8 +20,15 @@ import { competingLots, contributionApprovals } from './local-reads.ts'
 import { verdictOf, type MatchResult } from './outcome.ts'
 import type { MatchRequest } from './state.ts'
 
-/** Rows a key's search reads; more would be a key too vague to decide on. */
-const SEARCH_PAGE = 20
+/** Rows one read returns, the transport's largest page. */
+const SEARCH_PAGE = 100
+/**
+ * Rows a search reads under one key, in pages; a key matching more is too vague to decide on,
+ * so the search settles as unavailable rather than as no match.
+ */
+const SEARCH_MAX_ROWS = 500
+/** The contract quotes at most 16 reasons per candidate. */
+const MAX_MATCHED_BY = 16
 /** Category depth walked for inherited parameter mappings. */
 const MAX_CATEGORY_DEPTH = 16
 /** One search's reads must finish within this budget, or it settles as unavailable. */
@@ -54,6 +61,30 @@ async function rows<T>(
   return result
 }
 
+type Page = { limit: number; offset: number }
+
+/**
+ * Every row a list read matches, page by page. Partial results never stand for the whole: a read
+ * matching more than `SEARCH_MAX_ROWS`, or one that fails, makes the search unavailable.
+ */
+async function everyRow<T>(
+  read: (
+    page: Page,
+  ) => Promise<{ kind: 'found'; rows: T[]; count: number } | { kind: 'unavailable' }>,
+) {
+  const found: T[] = []
+  for (let offset = 0; ; offset += SEARCH_PAGE) {
+    const page = await rows(read({ limit: SEARCH_PAGE, offset }))
+    if (page.count > SEARCH_MAX_ROWS) {
+      throw new Unavailable()
+    }
+    found.push(...page.rows)
+    if (found.length >= page.count || !page.rows.length) {
+      return { rows: found, count: page.count }
+    }
+  }
+}
+
 function add(
   hits: Map<string, Hit>,
   part: MatchPart,
@@ -62,7 +93,7 @@ function add(
   exact: boolean,
 ) {
   const hit = hits.get(part.pk) ?? { part, matched: [], exact: false }
-  if (hit.matched.length < 16) {
+  if (hit.matched.length < MAX_MATCHED_BY) {
     hit.matched.push({ key, reason })
   }
   hit.exact = hit.exact || exact
@@ -76,12 +107,11 @@ async function searchKey(
   hits: Map<string, Hit>,
   deadline: number,
 ) {
-  const page = { limit: SEARCH_PAGE, offset: 0 }
   switch (key.kind) {
     case 'mpn':
     case 'type': {
       const mpn = key.kind === 'mpn' ? key.mpn : key.type
-      const found = await rows(
+      const found = await everyRow((page) =>
         reader.list(
           {
             kind: 'list_manufacturer_parts',
@@ -112,7 +142,7 @@ async function searchKey(
         add(hits, row.part_detail, key, reason, agrees)
       }
       // A Part named by its type or MPN, with no manufacturer Part, is a possible match.
-      const named = await rows(
+      const named = await everyRow((page) =>
         reader.list({ kind: 'search_parts', ...page, search: mpn }, budgeted(deadline)),
       )
       for (const part of named.rows) {
@@ -123,7 +153,7 @@ async function searchKey(
       return
     }
     case 'nsn': {
-      const found = await rows(
+      const found = await everyRow((page) =>
         reader.list({ kind: 'list_stock', ...page, nsn_tag: `nsn:${key.nsn}` }, budgeted(deadline)),
       )
       for (const stock of found.rows) {
@@ -135,7 +165,7 @@ async function searchKey(
       return
     }
     case 'ipn': {
-      const found = await rows(
+      const found = await everyRow((page) =>
         reader.list({ kind: 'search_parts', ...page, search: key.ipn }, budgeted(deadline)),
       )
       for (const part of found.rows) {
@@ -146,7 +176,7 @@ async function searchKey(
       return
     }
     case 'sku': {
-      const found = await rows(
+      const found = await everyRow((page) =>
         reader.list(
           {
             kind: 'list_supplier_parts',
@@ -221,11 +251,8 @@ async function missingParameters(reader: MatchReader, part: MatchPart, deadline:
   if (mappings.kind !== 'found') {
     return { known: false, missing: [] }
   }
-  const values = await rows(
-    reader.list(
-      { kind: 'list_part_parameters', part: part.pk, limit: 100, offset: 0 },
-      budgeted(deadline),
-    ),
+  const values = await everyRow((page) =>
+    reader.list({ kind: 'list_part_parameters', part: part.pk, ...page }, budgeted(deadline)),
   )
   const filled = new Set(
     values.rows.filter((row) => row.data.trim() !== '').map((row) => row.template),
@@ -255,11 +282,8 @@ async function candidate(
 ): Promise<MatchPartCandidateDto> {
   const part = (await single(reader.part(hit.part.pk))) ?? hit.part
   const missing: MatchMissingDto[] = []
-  const attachments = await rows(
-    reader.list(
-      { kind: 'list_part_attachments', part: part.pk, limit: 100, offset: 0 },
-      budgeted(deadline),
-    ),
+  const attachments = await everyRow((page) =>
+    reader.list({ kind: 'list_part_attachments', part: part.pk, ...page }, budgeted(deadline)),
   )
   if (!attachments.rows.some(datasheet)) {
     missing.push({ kind: 'datasheet' })
@@ -315,7 +339,7 @@ async function candidate(
         stock.push({
           pk: row.pk,
           batch: row.batch,
-          quantity: row.quantity === '0' ? '0' : row.quantity,
+          quantity: row.quantity,
         })
       }
     }

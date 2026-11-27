@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { canonicalRecord } from '@invimport/contracts/json'
 import type { CaptureSnapshotDto, MatchOutcomeDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
@@ -31,6 +31,7 @@ import {
 import {
   currentOutcome,
   decodeIdentity,
+  latestOutcome,
   decodeRequest,
   lockMatch,
   type MatchRequest,
@@ -65,8 +66,12 @@ async function openQuestion(client: PoolClient, row: MatchRow) {
 /** What the lot had when its search settled: its outcome, any open question and its identity. */
 export async function standingOf(client: PoolClient, row: MatchRow): Promise<MatchStanding> {
   const outcome = await currentOutcome(client, row)
+  const recorded = await latestOutcome(client, row.lotId)
   const question = await openQuestion(client, row)
   const content = question ? decodeQuestionContent(question) : undefined
+  const outcomeIdentity = outcome
+    ? await requestIdentity(client, row.lotId, outcome.generation)
+    : undefined
   return {
     identity: decodeIdentity(row),
     ...(outcome
@@ -78,10 +83,21 @@ export async function standingOf(client: PoolClient, row: MatchRow): Promise<Mat
           },
         }
       : {}),
+    ...(recorded ? { recorded: { outcome: recorded } } : {}),
+    ...(outcomeIdentity ? { outcomeIdentity } : {}),
     ...(question && content
       ? { openQuestion: { kind: question.kind, covered: coveredOf(content) } }
       : {}),
   }
+}
+
+/** The identity a request of the lot searched for. */
+async function requestIdentity(client: PoolClient, lotId: string, generation: bigint) {
+  const rows = await client.query<{ request_bytes: Buffer }>(
+    'SELECT request_bytes FROM public.processing_match_search WHERE lot_id=$1 AND generation=$2',
+    [lotId, generation.toString()],
+  )
+  return rows.rows[0] ? decodeRequest(rows.rows[0].request_bytes).identity : undefined
 }
 
 /** Closes the lot's open question, if any: answered, or superseded by a newer one. */
@@ -164,7 +180,7 @@ export async function recordOutcome(
 
 /**
  * Tells the lot's stage sessions that its Match outcome moved on, when they exist; a stage that
- * hasn't started reads the outcome from its own input.
+ * hasn't started reads the outcome from its own input, and a first outcome replaces none.
  */
 export async function tellOutcome(
   client: PoolClient,
@@ -174,6 +190,10 @@ export async function tellOutcome(
   to: bigint,
   briefRevision: string,
 ) {
+  // A lot's first outcome changes nothing a session was sealed with.
+  if (from === 0n) {
+    return
+  }
   const lineages = await client.query<{ id: string }>(
     `SELECT id FROM public.processing_job
      WHERE batch_id=$1 AND subject_id=$2 AND stage IN ('research','images') ORDER BY id`,
@@ -191,7 +211,7 @@ export async function tellOutcome(
           {
             kind: 'match',
             lot_id: lotId,
-            from: from === 0n ? null : from.toString(),
+            from: from.toString(),
             to: to.toString(),
           },
         ],
@@ -294,6 +314,8 @@ async function recordSettlement(
         and(
           eq(processingMatchSearches.lotId, request.lot_id),
           eq(processingMatchSearches.generation, BigInt(request.generation)),
+          // A generation settles once; a duplicate sweep's later result never replaces it.
+          isNull(processingMatchSearches.settlement),
         ),
       ),
   )

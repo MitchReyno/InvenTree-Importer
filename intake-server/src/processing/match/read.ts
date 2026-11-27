@@ -169,8 +169,12 @@ export async function readBatchMatch(
         .where(eq(processingMatches.batchId, batchId))
         .orderBy(processingMatches.lotId),
     )
+    // A lot Review retired is gone: its Match state isn't listed and its questions read superseded.
+    const retired = new Set(
+      capture.snapshot.lots.filter((lot) => lot.retired === true).map((lot) => lot.id),
+    )
     const lots: MatchLotDto[] = []
-    for (const row of rows) {
+    for (const row of rows.filter((item) => !retired.has(item.lotId))) {
       lots.push(await lotOf(client, row))
     }
     const read: BatchMatchDto = {
@@ -178,7 +182,11 @@ export async function readBatchMatch(
       capture_revision: capture.snapshot.revision,
       pipeline: version === 'bench-intake-input/7' ? 'match' : 'inventory',
       lots,
-      questions: await questionsOf(client, batchId),
+      questions: (await questionsOf(client, batchId)).map((question) =>
+        retired.has(question.lot_id) && question.state === 'open'
+          ? { ...question, state: 'superseded' as const }
+          : question,
+      ),
     }
     validate('BatchMatch', read)
     return read

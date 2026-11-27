@@ -427,6 +427,26 @@ describe('Processing › Match', () => {
     expect(client.answerMatch).toHaveBeenCalledTimes(1)
   })
 
+  test('an answer refused while Match searches again can be sent again once it finishes', async () => {
+    const user = userEvent.setup()
+    const client = clientFor(midway())
+    client.answerMatch.mockRejectedValueOnce(new IntakeRequestError(409, 'match_waiting'))
+    mount(client, 'match', resistorQuestion)
+
+    const form = await screen.findByRole('form', { name: /^Match question/ })
+    const option = within(form).getByRole('radio', { name: /It's a new Part/ })
+    await user.click(option)
+    const send = within(form).getByRole('button', { name: 'Send answer' })
+    await whenAvailable(send)
+    await user.click(send)
+
+    expect(await within(form).findByText(/Match is searching again/)).toBeInTheDocument()
+    expect(option).toBeChecked()
+    await whenAvailable(within(form).getByRole('button', { name: 'Send answer' }))
+    await user.click(within(form).getByRole('button', { name: 'Send answer' }))
+    await waitFor(() => expect(client.answerMatch).toHaveBeenCalledTimes(2))
+  })
+
   test('an answered question shows what was decided', async () => {
     const read = midway()
     read.questions[0] = {

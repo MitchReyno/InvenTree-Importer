@@ -50,18 +50,30 @@ export function verdictOf(
 }
 
 /**
+ * A Part as a decision covers it: its stock with the lot's batch code, whether it has an image and
+ * which fillable fields it lacks, since those set the options offered and the modes they set.
+ */
+function partCovered(candidate: MatchPartCandidateDto) {
+  const stock = candidate.stock.map((item) => item.pk).sort()
+  const gaps = candidate.missing
+    .flatMap((missing) => {
+      if (missing.kind === 'parameter') {
+        return [`parameter:${missing.template}`]
+      }
+      return missing.kind === 'datasheet' || missing.kind === 'part_image' ? [missing.kind] : []
+    })
+    .sort()
+  return `part:${candidate.part.pk}:${stock.join(',')}:${candidate.part.has_image}:${gaps.join(',')}`
+}
+
+/**
  * The candidates a decision covers, as canonical text: each Part with the stock it showed, each
- * competing lot and any contribution hit. Two results that cover the same are equivalent, so a
+ * competing lot and any contribution hit, with what each Part lacks. Two results that cover the same are equivalent, so a
  * repeat search keeps the decision and the proposals pinned to it.
  */
 export function coveredOf(result: Pick<MatchResult, 'candidates' | 'contribution'>) {
   const items = result.candidates.map((candidate) =>
-    candidate.kind === 'part'
-      ? `part:${candidate.part.pk}:${candidate.stock
-          .map((stock) => stock.pk)
-          .sort()
-          .join(',')}`
-      : `lot:${candidate.lot_id}`,
+    candidate.kind === 'part' ? partCovered(candidate) : `lot:${candidate.lot_id}`,
   )
   if (result.contribution) {
     items.push('contribution')
@@ -126,7 +138,15 @@ export function outcomeRecord(
 
 /** What the lot had when its search settled. */
 export interface MatchStanding {
+  /** The outcome in force; none while a question is open or after one was left held. */
   outcome?: { outcome: MatchOutcomeDto; covered: string; targetPartPk: string | null }
+  /**
+   * The latest outcome recorded, in force or not: a question opened after an add stock decision
+   * leaves that decision here, so a later clear search still can't drop its target.
+   */
+  recorded?: { outcome: MatchOutcomeDto }
+  /** The identity the outcome in force was recorded under. */
+  outcomeIdentity?: MatchIdentityDto
   openQuestion?: { kind: MatchQuestionKindDto; covered: string }
   identity: MatchIdentityDto
 }
@@ -141,7 +161,7 @@ export type MatchStep =
 
 /** Whether the lot's outcome sends stock to an existing Part. */
 function targetsExistingPart(standing: MatchStanding) {
-  const basis = standing.outcome?.outcome.basis
+  const basis = (standing.outcome ?? standing.recorded)?.outcome.basis
   return (
     basis?.kind === 'decision' && (basis.decision === 'add_stock' || basis.decision === 'fill_gaps')
   )
@@ -188,12 +208,21 @@ export function nextStep(result: MatchResult, standing: MatchStanding): MatchSte
   if (targetsExistingPart(standing)) {
     return asking('target_lost')
   }
-  if (standing.outcome) {
+  const decided = standing.outcome?.outcome.basis.kind === 'decision'
+  // An operator's lot with no strong key is asked about rather than identified by Research,
+  // even after an earlier clear search on keys since removed.
+  if (standing.identity.kind === 'operator' && !searchable(result.keys) && !decided) {
+    return asking('unresolved')
+  }
+  if (decided) {
     return { kind: 'keep' }
   }
-  // An operator's lot with no strong key is asked about rather than identified by Research.
-  if (standing.identity.kind === 'operator' && !searchable(result.keys)) {
-    return asking('unresolved')
+  // A clear verdict on another identity is a new one, so work sealed for the old identity stops.
+  if (
+    standing.outcome &&
+    canonicalRecord(standing.outcomeIdentity ?? null) === canonicalRecord(standing.identity)
+  ) {
+    return { kind: 'keep' }
   }
   return { kind: 'clear' }
 }

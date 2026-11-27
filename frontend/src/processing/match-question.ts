@@ -75,6 +75,13 @@ export function matchAnswerRefusal(failure: unknown) {
   if (failure.status === 409 && failure.code === 'stale_question') {
     return { kind: 'stale' as const }
   }
+  // A newer search is pending: the same question may be answered once it settles.
+  if (failure.status === 409 && failure.code === 'match_waiting') {
+    return {
+      kind: 'retry' as const,
+      message: 'Match is searching again for this lot. Send your answer once it finishes.',
+    }
+  }
   if (failure.status === 422 && failure.code === 'invalid_match_answer') {
     return { kind: 'invalid' as const }
   }

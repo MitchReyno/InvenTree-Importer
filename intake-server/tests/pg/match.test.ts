@@ -12,6 +12,8 @@ import { matchReader } from '#/inventory/match-reads.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { matchSearch } from '#/processing/match/search.ts'
 import { settleInTransaction } from '#/processing/match/settle.ts'
+import { startMatchSweep } from '#/processing/match/sweep.ts'
+import { matchGate } from '#/processing/match/gate.ts'
 import { decodeRequest } from '#/processing/match/state.ts'
 import { transaction } from '#/db/database.ts'
 import { inventoryFake, type MatchFakeRecords } from '../fixtures/inventory-fake.ts'
@@ -50,12 +52,10 @@ const RES_0144: MatchFakeRecords = {
 async function matchFixture(t: TestContext, records: MatchFakeRecords = {}) {
   const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
   fixture.config.stageInputs = 'local'
+  t.after(() => fixture.dispose())
   const fake = await inventoryFake(fixture.db.pool)
+  t.after(() => fake.close())
   await fake.seedMatch(records)
-  t.after(async () => {
-    await fake.close()
-    await fixture.dispose()
-  })
   const binding = { targetId: fixture.config.targetId, contextId: fixture.config.targetContextId }
   const transport = inventoryTransport({
     kind: 'protected-read-only',
@@ -448,8 +448,27 @@ test('a committed request still settles after the API restarts, on the deployed 
   const { a } = await operatorLots(fixture, '1N4148W-7-F')
   await fixture.stop()
   await fixture.start()
-  assert.deepEqual(await settleMatch(fixture, reader), ['clear', 'clear'])
-  assert.equal((await stageJobs(fixture, a.id)).length, 2)
+  // The API's own sweep finds the requests committed before the restart and settles them.
+  const sweep = startMatchSweep(
+    fixture.api.pool,
+    fixture.config,
+    matchSearch(fixture.api.pool, fixture.config, reader),
+    (event) => assert.fail(event),
+    50,
+  )
+  try {
+    const deadline = Date.now() + 30_000
+    while ((await stageJobs(fixture, a.id)).length < 2) {
+      assert.ok(Date.now() < deadline, 'the sweep settled nothing')
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+  } finally {
+    await sweep.stop()
+  }
+  const pending = await fixture.db.pool.query(
+    'SELECT 1 FROM processing_match_search WHERE settlement IS NULL',
+  )
+  assert.equal(pending.rowCount, 0)
 })
 
 test('another batch of the same actor with the same key is a competing lot, and add stock is not offered', async (t) => {
@@ -495,16 +514,25 @@ async function approveContribution(
     await client.query('SET LOCAL session_replication_role = replica')
     const ids = {
       approval: randomUUID(),
+      preparation: randomUUID(),
       run: randomUUID(),
       operation: randomUUID(),
       key: randomUUID(),
     }
+    const bytes = "'\\x7b7d'"
+    await client.query(
+      `INSERT INTO manual_preparation(id,batch_id,prepare_command_id,actor_id,target_revision,plan_bytes,plan_digest,
+         review_bytes,review_digest,dependency_bytes,dependency_digest,preview_bytes)
+       SELECT $1,l.batch_id,$2,$3,1,${bytes},sha256(${bytes}),${bytes},sha256(${bytes}),${bytes},sha256(${bytes}),${bytes}
+       FROM capture_lot l WHERE l.id=$4`,
+      [ids.preparation, randomUUID(), actorId, lotId],
+    )
     await client.query(
       `INSERT INTO executor_approval(id,preparation_id,actor_id,deployment_id,target_id,context_id,source_id,original_key,plan_bytes,plan_digest)
        SELECT $1,$2,$3,$4,$5,$6,l.source_id,$7,'\\x7b7d',sha256('\\x7b7d') FROM capture_lot l WHERE l.id=$8`,
       [
         ids.approval,
-        randomUUID(),
+        ids.preparation,
         actorId,
         randomUUID(),
         fixture.config.targetId,
@@ -551,7 +579,12 @@ test('an approved original contribution is a hit that offers only already import
   const match = await readMatch(fixture, capture.batch.id)
   const hitA = openQuestion(match, a.id)!
   assert.equal(hitA.kind, 'contribution')
-  assert.deepEqual(hitA.contribution, { readable: true, run_id: run, stock: 'deleted' })
+  assert.deepEqual(hitA.contribution, {
+    readable: true,
+    run_id: run,
+    batch_id: capture.batch.id,
+    stock: 'deleted',
+  })
   // The hit decides: no identity candidates are searched for it.
   assert.deepEqual(hitA.candidates, [])
   assert.deepEqual(
@@ -619,4 +652,178 @@ test('a queued stage waits at its claim, and Start refuses, while a newer search
     await runSessionTurn(deps, research.attempt_id, new AbortController().signal),
     'queued',
   )
+})
+
+test('a clear search after add stock asks again, every time, until the operator decides', async (t) => {
+  const { fixture, reader } = await matchFixture(t, RES_0144)
+  const { capture, a, b } = await operatorLots(fixture, MPN)
+  await settleMatch(fixture, reader)
+  const match = await readMatch(fixture, capture.batch.id)
+  const questions = [openQuestion(match, a.id)!, openQuestion(match, b.id)!]
+  await fixture.http(`/batches/${capture.batch.id}/match/answers`, {
+    answers: questions.map((question) => ({
+      question_id: question.id,
+      expected_question_revision: question.revision,
+      option_id: 'add_stock_1',
+    })),
+  })
+  // RES-0144 loses the MPN: A's search now finds nothing, twice over.
+  await fixture.db.pool.query('DELETE FROM fake_match_manufacturer_part WHERE pk=501')
+  for (const round of [1, 2]) {
+    await fixture.http(`/batches/${capture.batch.id}/match/checks`, { lot_ids: [a.id] })
+    await settleMatch(fixture, reader)
+    const lot = (await readMatch(fixture, capture.batch.id)).lots.find(
+      (item) => item.lot_id === a.id,
+    )!
+    assert.equal(lot.state, 'question', `round ${round}`)
+    assert.equal(
+      openQuestion(await readMatch(fixture, capture.batch.id), a.id)!.kind,
+      'target_lost',
+    )
+    assert.deepEqual(
+      (await stageJobs(fixture, a.id)).map((job) => [job.stage, job.match?.mode.mode]),
+      [['images', 'stock']],
+    )
+  }
+  const lost = openQuestion(await readMatch(fixture, capture.batch.id), a.id)!
+  const answered = await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${lost.id}/answers`,
+    answer(lost, 'new_part'),
+  )
+  assert.equal(answered.status, 200, JSON.stringify(answered.value))
+  const snapshot = (await fixture.http(`/batches/${capture.batch.id}`)).value as CaptureSnapshotDto
+  const partOf = (lotId: string) =>
+    snapshot.parts.find(
+      (part) => part.id === snapshot.lots.find((lot) => lot.id === lotId)!.part_subject_id,
+    )!
+  assert.equal(partOf(a.id).choice.mode, 'unset')
+  const peer = partOf(b.id).choice
+  assert.equal(peer.mode === 'set' ? peer.value.pk : null, '144')
+})
+
+test('removing the confirmed manufacturer asks again and holds work sealed for the old keys', async (t) => {
+  const { fixture, reader } = await matchFixture(t)
+  const { capture, part, a } = await operatorLots(fixture, '1N4148W-7-F')
+  await settleMatch(fixture, reader)
+  const [, research] = await stageJobs(fixture, a.id)
+  const spec = capture.batch.parts.find((item) => item.id === part.id)!.choice
+  assert.equal(spec.mode, 'create')
+  if (spec.mode === 'create') {
+    await capture.edit({
+      kind: 'part',
+      id: part.id,
+      choice: { mode: 'create', spec: { ...spec.spec, manufacturer: null } },
+    })
+  }
+  await settleMatch(fixture, reader)
+  assert.equal(openQuestion(await readMatch(fixture, capture.batch.id), a.id)!.kind, 'unresolved')
+  const gate = await transaction(fixture.runner.pool, (client) =>
+    matchGate(client, a.id, 'research', research.match),
+  )
+  assert.equal(gate.allowed, false)
+})
+
+test('a changed gap asks again, and an equivalent repeat search keeps the open question', async (t) => {
+  const imageless: MatchFakeRecords = {
+    ...RES_0144,
+    parts: [{ pk: 144, name: '10k resistor 0603', ipn: 'RES-0144', category: 81 }],
+    categoryParameters: [],
+    attachments: [{ pk: 4001, model_type: 'part', model_id: 144, comment: 'Datasheet' }],
+  }
+  const { fixture, reader } = await matchFixture(t, imageless)
+  const { capture, a } = await operatorLots(fixture, MPN)
+  await settleMatch(fixture, reader)
+  const before = openQuestion(await readMatch(fixture, capture.batch.id), a.id)!
+  const options = (question: MatchQuestionDto) =>
+    question.steps[0].answer.kind === 'choice'
+      ? question.steps[0].answer.options.map((option) => option.id)
+      : []
+  assert.deepEqual(options(before), ['add_stock_1', 'fill_gaps_1', 'new_part', 'already_imported'])
+  await fixture.http(`/batches/${capture.batch.id}/match/checks`, { lot_ids: [a.id] })
+  await settleMatch(fixture, reader)
+  assert.equal(openQuestion(await readMatch(fixture, capture.batch.id), a.id)!.id, before.id)
+  // The Part gains its image: nothing is left to fill, so the question is asked afresh.
+  await fixture.db.pool.query(
+    "UPDATE fake_match_part SET image='/media/part_images/r.png' WHERE pk=144",
+  )
+  await fixture.http(`/batches/${capture.batch.id}/match/checks`, { lot_ids: [a.id] })
+  await settleMatch(fixture, reader)
+  const after = openQuestion(await readMatch(fixture, capture.batch.id), a.id)!
+  assert.notEqual(after.id, before.id)
+  assert.deepEqual(options(after), ['add_stock_1', 'new_part', 'already_imported'])
+  const stale = await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${before.id}/answers`,
+    answer(before, 'fill_gaps_1'),
+  )
+  assert.equal((stale.value as { code: string }).code, 'stale_question')
+})
+
+test('a search reads every page of its matches before it can settle clear', async (t) => {
+  const crowd = Array.from({ length: 120 }, (_, index) => ({
+    pk: 400 + index,
+    name: `Aaa crowd ${String(index).padStart(3, '0')}`,
+    description: 'Cross-reference for ZX-1',
+  }))
+  const { fixture, reader } = await matchFixture(t, {
+    parts: [...crowd, { pk: 900, name: 'ZX-1' }],
+  })
+  const { capture, a } = await operatorLots(fixture, 'ZX-1')
+  await settleMatch(fixture, reader)
+  const lot = (await readMatch(fixture, capture.batch.id)).lots.find(
+    (item) => item.lot_id === a.id,
+  )!
+  assert.equal(lot.verdict, 'possible')
+  assert.deepEqual(
+    lot.candidates.map((candidate) => (candidate.kind === 'part' ? candidate.part.pk : null)),
+    ['900'],
+  )
+})
+
+test('a generation settles once: a duplicate sweep’s result never replaces it', async (t) => {
+  const { fixture, fake, reader } = await matchFixture(t, RES_0144)
+  const { a } = await operatorLots(fixture, MPN)
+  const pending = await fixture.db.pool.query<{ request_bytes: Buffer }>(
+    'SELECT request_bytes FROM processing_match_search WHERE lot_id=$1 AND settlement IS NULL',
+    [a.id],
+  )
+  const request = decodeRequest(pending.rows[0].request_bytes)
+  const search = matchSearch(fixture.api.pool, fixture.config, reader)
+  const found = await search(request)
+  await fake.fault('read_unavailable')
+  const unavailable = await search(request)
+  assert.equal(unavailable.searched, 'unavailable')
+  const settle = (result: typeof found) =>
+    transaction(fixture.api.pool, (client) =>
+      settleInTransaction(client, fixture.config, request, result),
+    )
+  assert.equal(await settle(found), 'question')
+  assert.equal(await settle(unavailable), 'discarded')
+  const row = await fixture.db.pool.query<{ settlement: string; result_bytes: Buffer }>(
+    'SELECT settlement,result_bytes FROM processing_match_search WHERE lot_id=$1 AND generation=$2',
+    [a.id, request.generation],
+  )
+  assert.equal(row.rows[0].settlement, 'settled')
+  assert.equal(JSON.parse(row.rows[0].result_bytes.toString()).searched, 'remote')
+})
+
+test('a lot Review retired leaves the Match read, its question superseded', async (t) => {
+  const { fixture, reader } = await matchFixture(t, RES_0144)
+  const { capture, a, b } = await operatorLots(fixture, MPN)
+  await settleMatch(fixture, reader)
+  await fixture.db.pool.query(
+    'INSERT INTO capture_lot_retirement(batch_id,lot_id,revision,actor_id) VALUES ($1,$2,$3,$4)',
+    [capture.batch.id, a.id, capture.batch.revision, fixture.config.actorId],
+  )
+  const match = await readMatch(fixture, capture.batch.id)
+  assert.deepEqual(
+    match.lots.map((lot) => lot.lot_id),
+    [b.id],
+  )
+  const retired = match.questions.find((question) => question.lot_id === a.id)!
+  assert.equal(retired.state, 'superseded')
+  const refused = await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${retired.id}/answers`,
+    answer(retired, 'new_part'),
+  )
+  assert.equal((refused.value as { code: string }).code, 'stale_question')
 })

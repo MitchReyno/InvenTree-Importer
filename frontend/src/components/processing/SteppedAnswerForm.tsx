@@ -21,7 +21,11 @@ import { StepInput } from './StepInput'
  * A send the server read and refused, so nothing was saved: a step it names, the whole answer, or
  * a question that moved on (`stale`), whose draft is kept but can't be sent again.
  */
-export type SteppedRefusal = { kind: 'invalid'; stepId?: string } | { kind: 'stale' }
+export type SteppedRefusal =
+  | { kind: 'invalid'; stepId?: string }
+  | { kind: 'stale' }
+  /** Not saved now, but the same answer may be sent once the reason passes. */
+  | { kind: 'retry'; message: string }
 
 export type SteppedAnswerFormProps<Input> = {
   /** The pinned question's id and how it reads: its title, reason and steps. */
@@ -179,6 +183,10 @@ export function SteppedAnswerForm<Input>({
       submission.current = null
       if (refused.kind === 'stale') {
         setRefusedStale(true)
+        return
+      }
+      if (refused.kind === 'retry') {
+        setRefusal({ message: refused.message })
         return
       }
       const index = steps.findIndex((step) => step.id === refused.stepId)
