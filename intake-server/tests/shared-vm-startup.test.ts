@@ -4,7 +4,9 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { StartupGate } from '#/agents/shared-vm/startup-gate.ts'
 import { vmTurnCapacity, reportedMemory } from '#/agents/shared-vm/turn-capacity.ts'
 import { memTotalBytes } from '#/agents/shared-vm/guest-memory.ts'
-import { offerRoute } from '#/agents/shared-vm/lane-offers.ts'
+import { EventEmitter } from 'node:events'
+import type { Socket } from 'node:net'
+import { LaneOffers, offerRoute } from '#/agents/shared-vm/lane-offers.ts'
 
 const MIB = 1024 * 1024
 
@@ -94,4 +96,51 @@ test('a waiter aborted as the gate is handed to it passes the gate on', async ()
   aborted.abort(new Error('stopped'))
   await assert.rejects(handed, /stopped/)
   assert.ok(await next)
+})
+
+/** An offer connection whose close, as on a real socket, arrives only after `destroy` returns. */
+function fakeOffer(port: number) {
+  const socket = new EventEmitter() as EventEmitter & { destroyed: boolean }
+  Object.assign(socket, {
+    remoteAddress: '127.0.0.1',
+    remotePort: port,
+    destroyed: false,
+    destroy() {
+      socket.destroyed = true
+      setImmediate(() => socket.emit('close'))
+    },
+  })
+  return socket as unknown as Socket
+}
+
+test('a guest stopped for a leaving waiter holds back every start before its close arrives', () => {
+  const offers = new LaneOffers(8, 30_000)
+  offers.add('claude:tools', fakeOffer(1))
+  const leave = offers.wait('claude:tools')
+  assert.ok(offers.next('claude:tools'))
+  leave()
+  // Synchronously, before the stopped guest's close event: no start is pending, the stop isn't
+  // a failed start for whoever waits next, and no route may start a guest yet.
+  assert.equal(offers.hasStarting('claude:tools'), false)
+  assert.equal(offers.failedStarts('claude:tools'), 0)
+  offers.add('claude:tools', fakeOffer(2))
+  offers.add('codex:tools', fakeOffer(3))
+  const claude = offers.wait('claude:tools')
+  const codex = offers.wait('codex:tools')
+  assert.equal(offers.next('claude:tools'), undefined)
+  assert.equal(offers.next('codex:tools'), undefined)
+  claude()
+  codex()
+})
+
+test('a guest its relay closes before greeting is a failed start', async () => {
+  const offers = new LaneOffers(8, 30_000)
+  const socket = fakeOffer(4)
+  offers.add('claude:tools', socket)
+  const leave = offers.wait('claude:tools')
+  assert.ok(offers.next('claude:tools'))
+  socket.emit('close')
+  assert.equal(offers.failedStarts('claude:tools'), 1)
+  assert.equal(offers.hasStarting('claude:tools'), false)
+  leave()
 })

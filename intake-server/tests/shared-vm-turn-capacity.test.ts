@@ -329,7 +329,11 @@ test('a guest stopped while starting holds back the next start on the VM', async
         context(claudeManifest('shared-vm-agent/3', provider), new AbortController().signal).value,
       )
       .catch((error: unknown) => error)
-    assert.ok((await waiting) instanceof SessionCapacityUnavailable, provider)
+    const outcome = await waiting
+    assert.ok(
+      outcome instanceof SessionCapacityUnavailable,
+      `${provider}: ${outcome instanceof NativeSessionError ? outcome.code : String(outcome)}`,
+    )
     assert.equal(next.received(), '', provider)
   }
 })

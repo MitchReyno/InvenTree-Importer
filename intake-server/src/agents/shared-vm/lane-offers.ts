@@ -91,8 +91,13 @@ export class LaneOffers {
       left = true
       const waiting = (this.waiters.get(route) ?? 1) - 1
       this.waiters.set(route, waiting)
-      const starting = [...(this.starting.get(route)?.values() ?? [])]
-      for (const socket of starting.slice(waiting)) {
+      const starting = this.starting.get(route)
+      const unneeded = [...(starting?.entries() ?? [])].slice(waiting)
+      for (const [peer, socket] of unneeded) {
+        // Settled here, not when its close arrives later: the hold is in place before the
+        // leaving turn settles, and no later waiter takes this stop for a failed start.
+        starting!.delete(peer)
+        this.holdUntil = Date.now() + this.teardownMs
         socket.destroy()
       }
     }
@@ -120,7 +125,8 @@ export class LaneOffers {
     this.offers.get(route)!.delete(socket)
     starting.set(peer, socket)
     socket.once('close', () => {
-      // Closed before it was admitted: the next start of this route waits for its teardown.
+      // Closed by its relay before it was admitted: a failed start, and its teardown is waited
+      // for. One the coordinator stopped itself was settled when it was stopped.
       if (starting!.delete(peer)) {
         this.holdUntil = Date.now() + this.teardownMs
         this.failed.set(route, (this.failed.get(route) ?? 0) + 1)
