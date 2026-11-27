@@ -143,10 +143,8 @@ async function searchKey(
             {
               kind: 'list_manufacturer_parts',
               ...page,
+              // Every maker's: one with another maker is still a possible match.
               mpn: spelling,
-              ...(key.kind === 'mpn' && key.manufacturer_pk
-                ? { manufacturer: key.manufacturer_pk }
-                : {}),
             },
             budgeted(deadline),
           ),
@@ -278,8 +276,9 @@ function datasheet(attachment: {
 
 /**
  * The key parameters a Part lacks: its category's mappings, and those of the category's
- * ancestors, that have no value row on the Part. Unknown when the category can't be read or has
- * more mappings than one response holds; then none is listed as missing.
+ * ancestors, that have no value row on the Part. Unknown when the category can't be read, its
+ * ancestry is deeper than the walk, or it has more mappings than one response holds; then none
+ * is listed as missing.
  */
 async function missingParameters(reader: MatchReader, part: MatchPart, deadline: number) {
   if (!part.category) {
@@ -287,7 +286,11 @@ async function missingParameters(reader: MatchReader, part: MatchPart, deadline:
   }
   const chain = new Set<string>()
   let next: string | null = part.category
-  while (next && chain.size < MAX_CATEGORY_DEPTH) {
+  while (next) {
+    // An ancestry deeper than the walk, or one that loops, leaves mappings unread.
+    if (chain.size >= MAX_CATEGORY_DEPTH || chain.has(next)) {
+      return { known: false, missing: [] }
+    }
     const category: MatchRecordResult<MatchCategory> = await withinBudget(
       reader.category(next),
       deadline,

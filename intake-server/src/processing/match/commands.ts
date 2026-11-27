@@ -239,6 +239,40 @@ async function targetChanged(client: PoolClient, snapshot: CaptureSnapshotDto, r
 }
 
 /**
+ * Searches again each lot Capture now binds to another Part than its outcome in force set, so it
+ * is decided afresh; returns the lots searched. Runs after any operator change to Capture that
+ * can relink a lot, and does nothing where the role can't read Match.
+ */
+export async function requestTargetSearches(client: PoolClient, after: CaptureSnapshotDto) {
+  const searched = new Set<string>()
+  if (!(await readsMatch(client))) {
+    return searched
+  }
+  for (const lot of after.lots.filter((item) => item.retired !== true)) {
+    const row = await lockMatch(client, lot.id)
+    if (row && (await targetChanged(client, after, row))) {
+      await requestSearch(client, {
+        batchId: after.id,
+        lotId: lot.id,
+        identity: decodeIdentity(row),
+        keys: await requestedKeys(client, row),
+        reason: 'operator',
+      })
+      searched.add(lot.id)
+    }
+  }
+  return searched
+}
+
+/** Whether this role can read Match: a deployment whose capture role can't has no Processing. */
+async function readsMatch(client: PoolClient) {
+  const privilege = await client.query<{ match: boolean }>(
+    "SELECT has_table_privilege('processing_match', 'SELECT') AS match",
+  )
+  return privilege.rows[0]?.match === true
+}
+
+/**
  * After an operator's Capture edit: a lot they added without evidence enters Match from the
  * identifiers they confirmed, as a revisioned operator identity, whenever those change, and any
  * lot bound to another Part than its outcome set is searched again, to be decided afresh. Runs in
@@ -247,32 +281,18 @@ async function targetChanged(client: PoolClient, snapshot: CaptureSnapshotDto, r
 export function matchCaptureHooks(config: ProcessingConfig) {
   return {
     async afterEdit(client: PoolClient, after: CaptureSnapshotDto) {
-      // A deployment whose capture role can't read Match has no Processing, so nothing to search.
-      const privilege = await client.query<{ match: boolean }>(
-        "SELECT has_table_privilege('processing_match', 'SELECT') AS match",
-      )
-      if (privilege.rows[0]?.match !== true) {
+      if (!(await readsMatch(client))) {
         return
       }
       if ((await batchInputVersion(client, config, after.id)) !== 'bench-intake-input/7') {
         return
       }
-      for (const lot of after.lots.filter((item) => item.retired !== true)) {
+      const searched = await requestTargetSearches(client, after)
+      for (const lot of after.lots.filter(operatorLot)) {
+        if (searched.has(lot.id)) {
+          continue
+        }
         const row = await lockMatch(client, lot.id)
-        // A lot bound to another Part than its outcome set is searched and decided afresh.
-        if (row && (await targetChanged(client, after, row))) {
-          await requestSearch(client, {
-            batchId: after.id,
-            lotId: lot.id,
-            identity: decodeIdentity(row),
-            keys: await requestedKeys(client, row),
-            reason: 'operator',
-          })
-          continue
-        }
-        if (!operatorLot(lot)) {
-          continue
-        }
         const keys = await operatorKeysNow(client, after, lot, row)
         if (!row && !keys.length) {
           continue

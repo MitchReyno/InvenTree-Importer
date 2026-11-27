@@ -1165,3 +1165,94 @@ test('a lot Match holds keeps no place in the slot queue ahead of runnable work'
     assert.equal(await claimSessionSlot(client, fixture.config, runnable.id), true)
   })
 })
+
+/** Binds a Part subject of the batch to the existing InvenTree Part `pk`, as the picker would. */
+async function existingPart(fixture: Fixture, batchId: string, pk: string) {
+  const edit = async (change: unknown) => {
+    const current = (await fixture.http(`/batches/${batchId}`)).value as CaptureSnapshotDto
+    const response = await fixture.http(`/batches/${batchId}/edits`, {
+      expected_revision: current.revision,
+      change,
+    })
+    assert.equal(response.status, 200, JSON.stringify(response.value))
+    return response.value as CaptureSnapshotDto
+  }
+  const label = `Existing ${pk}`
+  const added = await edit({ kind: 'add_part', label })
+  const part = added.parts.find((item) => item.label === label)!
+  const observation = randomUUID()
+  await fixture.db.pool.query(
+    `INSERT INTO capture_observation(id,batch_id,target_id,target_context_id,model,pk,label)
+     VALUES($1,$2,$3,$4,'part',$5,$6)`,
+    [observation, batchId, fixture.config.targetId, fixture.config.targetContextId, pk, label],
+  )
+  await edit({
+    kind: 'part',
+    id: part.id,
+    choice: {
+      mode: 'set',
+      value: {
+        observation_id: observation,
+        target_context_id: fixture.config.targetContextId,
+        model: 'part',
+        pk,
+      },
+    },
+  })
+  return { part, edit }
+}
+
+test('a cleared lot bound in Capture to an existing Part is asked about before Research runs', async (t) => {
+  const { fixture, reader } = await matchFixture(t)
+  const { capture, a } = await operatorLots(fixture, MPN)
+  assert.deepEqual(await settleMatch(fixture, reader), ['clear', 'clear'])
+  const research = (await stageJobs(fixture, a.id)).find((job) => job.stage === 'research')!
+  const { part, edit } = await existingPart(fixture, capture.batch.id, '29')
+  await edit({ kind: 'lot', id: a.id, part_subject_id: part.id })
+  const gate = () =>
+    transaction(fixture.runner.pool, (client) =>
+      matchGate(client, a.id, 'research', research.match),
+    )
+  assert.equal((await gate()).allowed, false)
+  assert.deepEqual(await settleMatch(fixture, reader), ['question'])
+  assert.equal(openQuestion(await readMatch(fixture, capture.batch.id), a.id)!.kind, 'target_lost')
+  assert.equal((await gate()).allowed, false)
+})
+
+test('a lot relinked by a path that asks Match nothing keeps no place in the slot queue', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const current = await fixture.http('/agent-settings')
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
+  const crystal = await batch.lot('16 mhz crystal')
+  const led = await batch.lot('led 0603 red')
+  const attempts = [...(await batch.successors(crystal.id)), ...(await batch.successors(led.id))]
+  const created = await fixture.db.pool.query<{ id: string; subject_id: string }>(
+    `SELECT a.id, j.subject_id FROM processing_attempt a JOIN processing_job j ON j.id=a.job_id
+     JOIN agent_session s ON s.attempt_id=a.id
+     WHERE a.id = ANY($1::uuid[]) ORDER BY s.queued_since, a.id`,
+    [attempts.map((row) => row.attempt_id)],
+  )
+  const held = created.rows[0].subject_id
+  const runnable = created.rows.find((row) => row.subject_id !== held)!
+  const { part } = await existingPart(fixture, batchId, '29')
+  await transaction(fixture.runner.pool, async (client) => {
+    assert.equal(await claimSessionSlot(client, fixture.config, runnable.id), false)
+  })
+  // Written directly: no hook requests a search, so only the queue scan sees the new target.
+  await fixture.db.pool.query('UPDATE capture_lot SET part_subject_id=$2 WHERE id=$1', [
+    held,
+    part.id,
+  ])
+  await transaction(fixture.runner.pool, async (client) => {
+    assert.equal(await claimSessionSlot(client, fixture.config, runnable.id), true)
+  })
+})

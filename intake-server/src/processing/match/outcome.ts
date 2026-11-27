@@ -183,11 +183,11 @@ export interface MatchStanding {
 }
 
 /**
- * Whether the lot's Capture binding must agree with the outcome: an operator's decision binds it
- * (to a Part, or to a draft for a new one); a lot left out, or a clear search, doesn't.
+ * Whether the lot's Capture binding must agree with the outcome: a decision binds it (to a Part,
+ * or to a draft for a new one) and a clear search leaves it on a draft; a lot left out doesn't.
  */
 export function checksTarget(outcome: MatchOutcomeDto) {
-  return outcome.basis.kind === 'decision' && outcome.basis.decision !== 'already_imported'
+  return !(outcome.basis.kind === 'decision' && outcome.basis.decision === 'already_imported')
 }
 
 /** The InvenTree Part an outcome binds the lot to: add stock and fill what's missing name one. */
@@ -254,12 +254,12 @@ export function nextStep(result: MatchResult, standing: MatchStanding): MatchSte
     }
     return asking('contribution')
   }
-  // The operator bound the lot to another Part than the outcome did: it is decided afresh.
+  // Capture binds the lot to another Part than its outcome did, or to an existing Part with none
+  // decided yet: it is decided afresh rather than researched as found.
   if (
-    standing.outcome &&
     standing.captureTarget !== undefined &&
     standing.captureTarget !== outcomeTarget(standing.outcome) &&
-    checksTarget(standing.outcome.outcome)
+    (!standing.outcome || checksTarget(standing.outcome.outcome))
   ) {
     return asking(result.candidates.length ? 'candidates' : 'target_lost')
   }
