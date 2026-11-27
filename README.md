@@ -81,6 +81,8 @@ pnpm vm:setup
 
 It builds the app, guest and runner images, creates the VM `bench-agent` from `tooling/deployment/lima/agent.yaml`, loads the runner image, pairs the coordinator with the guest, creates the operator key file, installs the guest browser policy and starts both providers' guest services for the origin `pnpm dev` serves. The first run takes several minutes. It is safe to run again: each step is skipped when its result is already in place, and it never replaces a pairing, the operator key, a provider sign-in or the VM's disk. A pairing or key found on one side only stops it with `vm_pairing_mismatch` or `vm_operator_key_mismatch`, naming both places and changing neither. A VM it started is stopped at the end unless `INTAKE_VM_KEEP_RUNNING=true`.
 
+The VM gets the template's 4 CPUs and 4 GiB, which holds three agent turns at once. Setup resizes an existing VM of another size while it is stopped; a running one is left as it is, with a line saying to stop `pnpm dev`, run `limactl stop <vm>` and run setup again. The [deployment guide](tooling/deployment/README.md#sizing-the-agent-vm) has the sizing for other machines.
+
 The pairing is in `vm-pair` and the operator key in `vm-operator-key`, both in the development state directory (`~/.local/state/bench-intake` unless `INTAKE_DEV_STATE` says otherwise). Another VM name, guest directory, runner image tag or port can be set with `INTAKE_VM_NAME`, `INTAKE_VM_GUEST_DIR`, `INTAKE_VM_RUNNER_IMAGE` and `INTAKE_VM_PORT`, the same settings `pnpm dev` reads. Run `pnpm vm:setup` again after changing `INTAKE_DEV_PORT` or turning on the tailnet, so the guest services accept the new origin.
 
 Turn on real agents in the VM in `.env`, then restart `pnpm dev` so it reads the file:

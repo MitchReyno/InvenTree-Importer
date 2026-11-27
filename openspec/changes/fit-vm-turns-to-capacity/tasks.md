@@ -96,7 +96,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - Outcome: the agents architecture, `docs/agent-sessions.md`, `docs/development.md` and the deployment README describe the cap, the gate, lane offers, the startup-timeout requeue and the sizing table.
 - Acceptance: design D1–D5 as documented behaviour.
 
-- [ ] 6.1 Update the documents and check their claims against the code.
+- [x] 6.1 Update the documents and check their claims against the code.
 
 ## 7. Review and publication
 
