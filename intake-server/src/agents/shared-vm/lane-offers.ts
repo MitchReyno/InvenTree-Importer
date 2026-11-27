@@ -37,13 +37,14 @@ export class LaneOffers {
   private readonly starting = new Map<string, Map<string, Socket>>()
   private readonly waiters = new Map<string, number>()
   private readonly offered = new Map<string, number>()
-  private readonly retryAt = new Map<string, number>()
+  // Until when no guest of any route starts: the VM may still be removing one that never greeted.
+  private holdUntil = 0
   private readonly failed = new Map<string, number>()
 
   /**
-   * `teardownMs` is how long a route starts no other guest after one closed before it was
-   * admitted: its relay may still be starting or removing that guest's containers, and says
-   * nothing when they are gone, so this is a time bound rather than a confirmation.
+   * `teardownMs` is how long no other guest starts, on any route, after one closed before it was
+   * admitted: its relay may still be starting or removing that guest's containers on the shared
+   * VM, and says nothing when they are gone, so this is a time bound rather than a confirmation.
    */
   constructor(
     readonly limit: number,
@@ -107,7 +108,7 @@ export class LaneOffers {
       starting = new Map()
       this.starting.set(route, starting)
     }
-    if ((this.waiters.get(route) ?? 0) <= starting.size || now < (this.retryAt.get(route) ?? 0)) {
+    if ((this.waiters.get(route) ?? 0) <= starting.size || now < this.holdUntil) {
       return undefined
     }
     const offer = this.offers.get(route)?.values().next()
@@ -121,7 +122,7 @@ export class LaneOffers {
     socket.once('close', () => {
       // Closed before it was admitted: the next start of this route waits for its teardown.
       if (starting!.delete(peer)) {
-        this.retryAt.set(route, Date.now() + this.teardownMs)
+        this.holdUntil = Date.now() + this.teardownMs
         this.failed.set(route, (this.failed.get(route) ?? 0) + 1)
       }
     })

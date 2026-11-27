@@ -82,11 +82,11 @@ async function guest(
 }
 
 /** A relay lane's offer for Claude tool turns; resolves with what the coordinator wrote back. */
-async function offer(t: TestContext, port: number) {
+async function offer(t: TestContext, port: number, provider = 'claude') {
   const socket = netConnect(port, '127.0.0.1')
   t.after(() => socket.destroy())
   await once(socket, 'connect')
-  socket.write('bench-lane/1 claude tools\n')
+  socket.write(`bench-lane/1 ${provider} tools\n`)
   let received = ''
   socket.on('data', (bytes) => {
     received += bytes.toString('latin1')
@@ -94,10 +94,10 @@ async function offer(t: TestContext, port: number) {
   return { socket, received: () => received }
 }
 
-function claudeManifest(profile: 'shared-vm-agent/1' | 'shared-vm-agent/3') {
+function claudeManifest(profile: 'shared-vm-agent/1' | 'shared-vm-agent/3', provider = 'claude') {
   return {
     profile_id: profile,
-    agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+    agent: { provider, authentication: 'subscription', model: 'haiku' },
   } as unknown as SessionDriverContext['manifest']
 }
 
@@ -307,7 +307,7 @@ test('a relay whose guests all fail before greeting is unavailable, not busy', a
   )
 })
 
-test("a guest stopped while starting holds back its route's next start", async (t) => {
+test('a guest stopped while starting holds back the next start on the VM', async (t) => {
   const { port, bridge } = await bridgeFixture(t)
   const first = await offer(t, port)
   const control = new AbortController()
@@ -319,11 +319,30 @@ test("a guest stopped while starting holds back its route's next start", async (
   }
   control.abort()
   await cancelled
-  // The relay offers its next lane while the first guest may still be starting containers.
-  const second = await offer(t, port)
-  const waiting = bridge
-    .driver(turn, context(claudeManifest('shared-vm-agent/3'), new AbortController().signal).value)
-    .catch((error: unknown) => error)
-  assert.ok((await waiting) instanceof SessionCapacityUnavailable)
-  assert.equal(second.received(), '')
+  // Lanes are offered while the first guest may still be starting containers on the VM, which
+  // the other provider's turns share too.
+  for (const provider of ['claude', 'codex']) {
+    const next = await offer(t, port, provider)
+    const waiting = bridge
+      .driver(
+        turn,
+        context(claudeManifest('shared-vm-agent/3', provider), new AbortController().signal).value,
+      )
+      .catch((error: unknown) => error)
+    assert.ok((await waiting) instanceof SessionCapacityUnavailable, provider)
+    assert.equal(next.received(), '', provider)
+  }
+})
+
+test('a guest that never greets within the wait is unavailable, not busy', async (t) => {
+  const { port, bridge } = await bridgeFixture(t)
+  const lane = await offer(t, port)
+  const turnContext = context(claudeManifest('shared-vm-agent/3'), new AbortController().signal)
+  // The relay accepts go and keeps the connection open, but its guest never speaks.
+  const error = await bridge.driver(turn, turnContext.value).catch((caught: unknown) => caught)
+  assert.equal(lane.received(), 'go\n')
+  assert.ok(
+    error instanceof NativeSessionError && error.code === 'agent_vm_unavailable',
+    String(error),
+  )
 })

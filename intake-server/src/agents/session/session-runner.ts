@@ -1301,6 +1301,8 @@ export async function runSessionTurn(
       if (startupTimeout && live && startupTimeouts < MAX_STARTUP_RETRIES) {
         return requeueStartupTimeout(client, current, attemptId, startupTimeouts + 1)
       }
+      // Cancelled since the CLI timed out: the cancellation is the outcome, not the timeout.
+      const retainedFailure = startupTimeout && !live ? undefined : diagnostic
       // A wake's earlier state no longer applies once a turn has run.
       await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
       if (next === 'finished' && accepted > 0n && live) {
@@ -1315,8 +1317,8 @@ export async function runSessionTurn(
       }
       // Job and attempt first, then the session row, as the tool handlers lock them.
       const settled = (await setSessionState(client, attemptId, current.jobId, next)) || next
-      if (diagnostic) {
-        await retainSessionFailure(client, diagnostic)
+      if (retainedFailure) {
+        await retainSessionFailure(client, retainedFailure)
       }
       await revokeSessionCapability(client, attemptId)
       await releaseSessionSlot(client, attemptId)

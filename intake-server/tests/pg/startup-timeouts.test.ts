@@ -306,3 +306,22 @@ test('an established session whose retry lost its only wake item goes back to id
   )
   assert.equal(row.rows[0].startup_timeouts, 0)
 })
+
+test('a session cancelled after its CLI timed out settles as cancelled, without a timeout', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+
+  const state = await runWith(fixture, session.attempt, async () => {
+    // The cancellation commits after the guest reported the timeout, before settlement.
+    await fixture.db.pool.query("UPDATE processing_attempt SET state='cancelled' WHERE id=$1", [
+      session.attempt,
+    ])
+    throw guestAdmissionTimeout()
+  })
+
+  assert.equal(state, 'cancelled')
+  assert.deepEqual(await failures(fixture, session.attempt), [])
+  assert.equal(await heldSlots(fixture, session.attempt), 0)
+})

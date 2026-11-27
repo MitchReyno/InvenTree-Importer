@@ -119,8 +119,8 @@ const MAX_LANE_OFFERS = MAX_SESSION_SLOTS
 /** How long a relay has to write its whole offer line. */
 const OFFER_LINE_MS = 5_000
 /**
- * How long a route starts no other guest after one closed before it was admitted, covering the
- * relay's removal of a guest still starting its containers.
+ * How long no guest starts after one closed before it was admitted, covering the relay's removal
+ * of a guest still starting its containers on the shared VM.
  */
 const STARTED_TEARDOWN_MS = 30_000
 /** How long a journal probe may take, its guest's start on demand included, as a turn's wait. */
@@ -757,6 +757,8 @@ export async function startSessionBridge(
     try {
       const admittedBefore = admissionsOf(route)
       const failedBefore = offers.failedStarts(key)
+      // Guests of the route admitted so far, without the offers `admissionsOf` adds.
+      const greetedBefore = routeAdmissions.get(key) ?? 0
       // A busy connection or an offer of the route at any point shows its relay is running.
       let relaySeen = routeConnected(route)
       for (;;) {
@@ -768,10 +770,12 @@ export async function startSessionBridge(
         if (Date.now() >= deadline) {
           // So does one admitted or offered during the wait, even if it closed between samples.
           relaySeen ||= admissionsOf(route) !== admittedBefore
-          // But a relay whose every guest failed before admission can't run turns at all.
+          // But a relay none of whose guests greeted during the whole wait, one failing or still
+          // starting at its end, can't run turns now; this turn's leaving stops a starting one.
+          const startsFailed = offers.failedStarts(key) !== failedBefore || offers.hasStarting(key)
           const unusable =
-            offers.failedStarts(key) !== failedBefore &&
-            !offers.hasStarting(key) &&
+            startsFailed &&
+            (routeAdmissions.get(key) ?? 0) === greetedBefore &&
             !busyConnection(route)
           throw noConnection(route, relaySeen && !unusable)
         }
