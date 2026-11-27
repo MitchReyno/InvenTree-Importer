@@ -130,11 +130,12 @@ Each step in Settings › Agents gets optional instructions of up to 1,000 chara
     - PR-A (effort saved, sealed and sent to both CLIs) in #291;
     - PR-B (each provider's model list read, stored and served, with the built-in fallback) in #293;
     - PR-C (the pickers listing each provider's models, an Effort select beside each, the list's states and the Processing "Not offered" pill) in #295;
-    - PR-D (instructions for Examine, Research and Images, sealed into each attempt and given as operator guidance in the `/6` opening and the `/7` brief) in #296.
-  - Live check (PR-E, with Mitch's go-ahead): Codex's model list read in the agent VM matched the pinned CLI's list on the host, and a Claude and a Codex session each sent the chosen effort. The guest's Claude subscription read stored no list, an open bug; a manual read there got only the CLI's built-in aliases, and the cause is unconfirmed.
-  - Remaining: PR-E's publication with its evidence and its merge; the Claude read's fix and its recheck; PR-F (step instructions in multi-lot groups), which waits for BI-022's PR-I.
-- Size: L — settings and sealed-input fields, effort passed by both session adapters, a model catalogue read in the guest with its own connection, table, schedule and API, the pickers and their states, and the step instruction editor, in five PRs after the plan plus a live check; the multi-lot part waits for BI-022 PR-I.
-- Prerequisites: [BI-022](#bi-022--agent-stage-inputs-and-outputs) (`agent-stage-inputs-outputs`) PR-A (#275, sealed briefs), before the step instructions PR only. A live recheck after the Claude fix needs Mitch's go-ahead.
+    - PR-D (instructions for Examine, Research and Images, sealed into each attempt and given as operator guidance in the `/6` opening and the `/7` brief) in #296;
+    - PR-E (the live check) in #297;
+    - PR-G (Claude's setup-token list state) in #300.
+  - Remaining: PR-F (step instructions in multi-lot groups), which waits for BI-022's PR-I.
+- Size: L — settings and sealed-input fields, effort passed by both session adapters, a model catalogue read in the guest with its own connection, table, schedule and API, the pickers and their states, and the step instruction editor, in six PRs after the plan (PR-A to PR-D, PR-F and the setup-token fix PR-G) plus a live check (PR-E); the multi-lot part waits for BI-022 PR-I.
+- Prerequisites: [BI-022](#bi-022--agent-stage-inputs-and-outputs) (`agent-stage-inputs-outputs`) PR-A (#275, sealed briefs), before the step instructions PR only.
 - OpenSpec: [agent-model-catalog-and-step-instructions](../openspec/changes/agent-model-catalog-and-step-instructions/)
 
 #### BI-017 — Simple web access and setup for VM agents

@@ -27780,14 +27780,14 @@ export interface components {
             usable: boolean | null;
         };
         AgentProviderCatalog: {
-            state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+            state: "current" | "reading" | "failed" | "stale_sign_in" | "not_listed" | "never_read";
             authentication: "api_key" | "subscription";
             source: "cli" | "api" | null;
             read_in: "vm" | "host" | null;
             cli_version: string | null;
             read_at: string | null;
             attempted_at: string | null;
-            failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+            failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable" | "not_listed") | null;
             builtin: boolean;
             models: {
                 id: string;
@@ -27801,14 +27801,14 @@ export interface components {
         };
         AgentModelCatalog: {
             claude: {
-                state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+                state: "current" | "reading" | "failed" | "stale_sign_in" | "not_listed" | "never_read";
                 authentication: "api_key" | "subscription";
                 source: "cli" | "api" | null;
                 read_in: "vm" | "host" | null;
                 cli_version: string | null;
                 read_at: string | null;
                 attempted_at: string | null;
-                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable" | "not_listed") | null;
                 builtin: boolean;
                 models: {
                     id: string;
@@ -27821,14 +27821,14 @@ export interface components {
                 }[];
             };
             codex: {
-                state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+                state: "current" | "reading" | "failed" | "stale_sign_in" | "not_listed" | "never_read";
                 authentication: "api_key" | "subscription";
                 source: "cli" | "api" | null;
                 read_in: "vm" | "host" | null;
                 cli_version: string | null;
                 read_at: string | null;
                 attempted_at: string | null;
-                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable" | "not_listed") | null;
                 builtin: boolean;
                 models: {
                     id: string;

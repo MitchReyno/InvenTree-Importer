@@ -12,11 +12,19 @@ import { builtinCatalog, catalogModel, CLAUDE_MODELS, providerCatalog } from '#/
  * The model list states the fixture page can open on, chosen with `?models=` in its address:
  * `current` (the default), `reading` (Codex's first read), `failed` (Claude's read failed after
  * yesterday's), `builtin` (never read), `stale` (Claude's list from an earlier sign-in) and
- * `gone` (a saved model and a saved effort the current list no longer takes) and `refused`
- * (the current list, with a sign-in dialog's request to mark it refused).
+ * `gone` (a saved model and a saved effort the current list no longer takes), `refused`
+ * (the current list, with a sign-in dialog's request to mark it refused) and `setup_token`
+ * (Claude's built-in list, since its CLI lists no models for a setup token, even when read again).
  */
 export type FixtureListState =
-  'current' | 'reading' | 'failed' | 'builtin' | 'stale' | 'gone' | 'refused'
+  | 'current'
+  | 'reading'
+  | 'failed'
+  | 'builtin'
+  | 'stale'
+  | 'gone'
+  | 'refused'
+  | 'setup_token'
 
 const STATES: readonly FixtureListState[] = [
   'current',
@@ -26,6 +34,7 @@ const STATES: readonly FixtureListState[] = [
   'stale',
   'gone',
   'refused',
+  'setup_token',
 ]
 
 export function fixtureListState(): FixtureListState {
@@ -80,6 +89,12 @@ function claudeList(state: FixtureListState): AgentProviderCatalogDto {
       return builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude])
     case 'stale':
       return providerCatalog(CLAUDE_MODELS, { ...read, state: 'stale_sign_in' })
+    case 'setup_token':
+      return builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude], {
+        state: 'not_listed',
+        failure: 'not_listed',
+        attempted_at: today(9, 12),
+      })
     case 'current':
     case 'reading':
     case 'gone':
@@ -99,6 +114,7 @@ function codexList(state: FixtureListState): AgentProviderCatalogDto {
     case 'stale':
     case 'gone':
     case 'refused':
+    case 'setup_token':
       return providerCatalog(CODEX_MODELS, {
         read_at: today(9, 12),
         attempted_at: today(9, 12),
@@ -165,7 +181,9 @@ export function fakeModelCatalog(state: FixtureListState) {
       return
     }
     delete landsAt[provider]
-    lists[provider] = (provider === 'claude' ? claudeList : codexList)('current')
+    // A setup token's read answers the same again; every other read lands the current list.
+    const landed = state === 'setup_token' ? state : 'current'
+    lists[provider] = (provider === 'claude' ? claudeList : codexList)(landed)
   }
 
   return {

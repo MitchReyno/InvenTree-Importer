@@ -9,6 +9,8 @@ import {
   codexModels,
   openAiModelIds,
 } from '#/agents/model-catalog/normalise.ts'
+import { guestReader } from '#/agents/model-catalog/readers.ts'
+import { guestCatalogAnswer } from '#/agents/shared-vm/model-catalog.ts'
 
 function fixture(name: string) {
   return JSON.parse(
@@ -62,6 +64,108 @@ test('Claude Code 2.1.319: aliases fold into the exact models, 4.x sit in Older'
 test("the CLI's offline alias list is refused, so the last good list stays", () => {
   // With the network refused, 2.1.319 answers only its built-in aliases, none by exact ID.
   refusedAs(() => claudeCliModels(claudeOffline.models), 'unavailable')
+})
+
+function guestClaude(raw: unknown) {
+  return guestReader(async (_provider, kind) => {
+    if (kind === 'generation') {
+      return { kind: 'generation', generation: 'rev-a' }
+    }
+    return { kind: 'read', read: { generation: 'rev-a', cliVersion: '2.1.319', raw } }
+  }, 'claude')
+}
+
+test('an invalid alias folded behind a valid one still makes the reply malformed', async () => {
+  const models = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
+    entry.value === 'default' ? { ...entry, displayName: 'x'.repeat(81) } : entry,
+  )
+  await assert.rejects(
+    guestClaude(models).read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+})
+
+test('an alias list with an entry left out is malformed on the guest route', async () => {
+  const models = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
+    entry.value === 'opus' ? { ...entry, resolvedModel: 'opus[1m]' } : entry,
+  )
+  await assert.rejects(
+    guestClaude(models).read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+})
+
+test('an alias list whose folded entry is invalid is malformed on the guest route', async () => {
+  // A lone `default` alias is named by its ID once folded, here past the name limit.
+  const id = `claude-${'x'.repeat(86)}`
+  const models = [{ value: 'default', resolvedModel: id, displayName: 'Default' }]
+  await assert.rejects(
+    guestClaude(models).read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+})
+
+test('on the host an alias-only reply stays unavailable, however its aliases read', () => {
+  const invalid = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
+    entry.value === 'default' ? { ...entry, displayName: 'x'.repeat(81) } : entry,
+  )
+  const leftOut = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
+    entry.value === 'opus' ? { ...entry, resolvedModel: 'opus[1m]' } : entry,
+  )
+  refusedAs(() => claudeCliModels(invalid), 'unavailable')
+  refusedAs(() => claudeCliModels(leftOut), 'unavailable')
+})
+
+test('only the worker finds a list not listed: a guest failure saying so is refused', async () => {
+  assert.throws(() => guestCatalogAnswer({ model_catalog_failure: 'not_listed' }), {
+    message: 'invalid_model_catalog',
+  })
+  const reader = guestReader(async () => ({ kind: 'failure', failure: 'not_listed' }), 'codex')
+  const malformed = (error: unknown) =>
+    error instanceof CatalogReadError && error.code === 'malformed'
+  await assert.rejects(reader.read(AbortSignal.timeout(5_000)), malformed)
+  await assert.rejects(reader.generation(AbortSignal.timeout(5_000)), malformed)
+})
+
+test('an invalid alias-only reply is malformed, not the setup-token state', async () => {
+  const long = (claudeOffline.models as Record<string, unknown>[]).map((entry) => ({
+    ...entry,
+    displayName: 'x'.repeat(81),
+  }))
+  await assert.rejects(
+    guestClaude(long).read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+})
+
+test('a guest Claude reply with no usable entry stays unavailable, not the setup-token state', async () => {
+  const discarded = [{ value: 'opus[1m]', displayName: 'Opus (1M context)' }]
+  for (const raw of [[], discarded]) {
+    await assert.rejects(
+      guestClaude(raw).read(AbortSignal.timeout(5_000)),
+      (error) => error instanceof CatalogReadError && error.code === 'unavailable',
+    )
+  }
+})
+
+test('a guest Claude read answering only aliases lists no models for its setup token', async () => {
+  // The guest signs Claude in with a setup token, which 2.1.319 answers with its aliases only.
+  const reader = guestReader(async (_provider, kind) => {
+    if (kind === 'generation') {
+      return { kind: 'generation', generation: 'rev-a' }
+    }
+    return {
+      kind: 'read',
+      read: { generation: 'rev-a', cliVersion: '2.1.319', raw: claudeOffline.models },
+    }
+  }, 'claude')
+  const read = await reader.read(AbortSignal.timeout(5_000))
+  assert.deepEqual(read, {
+    generation: 'rev-a',
+    cliVersion: '2.1.319',
+    models: [],
+    notListed: true,
+  })
 })
 
 test('IDs the model ID check refuses fold into their resolved model or are left out', () => {

@@ -108,6 +108,22 @@ Before a provider's first read lands, its picker SHALL show "Reading <provider>'
 - **WHEN** a Claude picker opens
 - **THEN** it lists the built-in models marked "Built-in list, may be out of date", and Effort offers only Default.
 
+### Requirement: A provider that lists no models for its sign-in
+
+When the provider lists no models for its sign-in, as Claude doesn't for a setup token, the built-in list SHALL show with that reason and a pointer to typing an exact ID, with Effort offering no level beyond Default and a saved one, and SHALL be read again only on the normal schedule or on request.
+
+#### Scenario: Claude signed in with a setup token
+
+- **GIVEN** Claude's subscription signed in in the agent VM with a setup token, and its last read answering only the CLI's aliases
+- **WHEN** a Claude picker opens or the Claude card shows
+- **THEN** the picker lists the built-in models with "Claude doesn’t list models for a setup token. Type an exact ID to use another model.", the card says "Built-in list · Claude doesn’t list models for a setup token", Effort offers Default and keeps a saved level without offering others, a typed exact ID is accepted, and no read is retried before the 12-hour schedule unless Check again or a sign-in change asks for one.
+
+#### Scenario: A full list after a setup-token read
+
+- **GIVEN** Claude's last read recorded as listing no models for a setup token
+- **WHEN** a later read returns models by their exact IDs
+- **THEN** that list is stored and shown as current.
+
 ### Requirement: A saved model no longer offered
 
 A saved model the provider's current list doesn't offer SHALL stay selected and never be changed by the app. It SHALL be listed first in a "Saved, not offered" group, with a warning under its row that new sessions will try it and fail if the provider refuses it. A saved effort the chosen model doesn't accept SHALL stay saved, with its own warning.

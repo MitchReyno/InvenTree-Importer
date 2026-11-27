@@ -224,7 +224,8 @@ export interface PublishedRead extends CatalogRead {
  * Stores a read's list in one transaction, but only while no invalidation came during the read
  * and, for a fenced reader, the reply's generation equals `current` (taken from the source just
  * before) and the row's latest observed one. Otherwise it records what it saw and discards the
- * reply, so an old sign-in's list never becomes current.
+ * reply, so an old sign-in's list never becomes current. A read that lists no models records
+ * `not_listed` under the same fence and keeps the stored list.
  */
 export async function publishCatalogRead(
   pool: Pool,
@@ -253,6 +254,24 @@ export async function publishCatalogRead(
       if (read.generation !== current) {
         return 'discarded'
       }
+    }
+    if (read.notListed) {
+      const recorded = await client.query(
+        `UPDATE agent_model_catalog SET attempted_at=$7, failure='not_listed', attempt_in=$8,
+            reading_in=NULL, reading_since=NULL, latest_generation=coalesce($9, latest_generation),
+            ${CLEAR_ANSWERED_REQUEST}
+          WHERE ${KEY_SQL} AND invalidation_seq=$10
+            AND latest_generation IS NOT DISTINCT FROM coalesce($9, latest_generation)`,
+        [
+          ...keyParams(scope, key),
+          started.refreshSeq,
+          now,
+          read.readIn,
+          read.generation,
+          started.invalidationSeq,
+        ],
+      )
+      return recorded.rowCount === 1 ? 'published' : 'discarded'
     }
     const stored = await client.query(
       `UPDATE agent_model_catalog SET
@@ -313,8 +332,16 @@ export async function clearStaleReads(pool: Pool, scope: CaptureBinding) {
   )
 }
 
-/** Whether a key's row asks for a read now: requested, never read, stale with age, or failed. */
-export function catalogReadDue(row: CatalogRow | undefined, now: Date) {
+/**
+ * Whether a key's row asks for a read now: requested, never read, stale with age, or failed. A
+ * provider that lists no models for its sign-in on `readIn`'s route would answer the same, so it
+ * waits the full age; another route's answer says nothing about this one.
+ */
+export function catalogReadDue(
+  row: CatalogRow | undefined,
+  now: Date,
+  readIn: CatalogRow['attemptIn'],
+) {
   if (!row) {
     return true
   }
@@ -322,12 +349,13 @@ export function catalogReadDue(row: CatalogRow | undefined, now: Date) {
     return true
   }
   const time = now.getTime()
-  const retryPassed =
-    row.attemptedAt === null || time - row.attemptedAt.getTime() >= CATALOG_RETRY_MS
-  const lastFailed =
-    row.failure !== null &&
-    row.attemptedAt !== null &&
-    (row.readAt === null || row.attemptedAt.getTime() > row.readAt.getTime())
+  const sinceAttempt = row.attemptedAt === null ? Infinity : time - row.attemptedAt.getTime()
+  const retryPassed = sinceAttempt >= CATALOG_RETRY_MS
+  // A publish clears `failure`, so one that is set is the last attempt's.
+  const lastFailed = row.failure !== null && row.attemptedAt !== null
+  if (lastFailed && row.failure === 'not_listed' && row.attemptIn === readIn) {
+    return sinceAttempt >= CATALOG_MAX_AGE_MS
+  }
   if (row.readAt === null || lastFailed) {
     return retryPassed
   }
