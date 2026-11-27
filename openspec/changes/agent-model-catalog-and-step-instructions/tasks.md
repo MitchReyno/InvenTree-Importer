@@ -161,7 +161,7 @@
 ## 6. Live catalogue and effort check
 
 - **PR delivery:** PR-E.
-- **Target outcome:** evidence that the real guest reads each signed-in provider's models with no turn (for Claude under a setup token as the app passes it, narrowed by PR-G to the reply and its classification), and that a real session turn per provider sent the chosen effort and completed; the effort the provider applied stays unverified. Result: Codex's read and both effort turns passed. Claude's read, under a setup token, gets no list by design; PR-G replaced its criterion (task 6.2).
+- **Target outcome:** evidence that the real guest reads each signed-in provider's models with no turn (for Claude under a setup token as the app passes it, narrowed by PR-G to the reply and its classification), and that a real session turn per provider sent the chosen effort and completed; the effort the provider applied stays unverified. Result: Codex's read and both effort turns passed. Claude's read, under a setup token as the app passes it, gets no list, which PR-G shows by design and for which it replaced the criterion (task 6.2).
 - **Scope and approach:** PR-E's checks ran with Mitch's go-ahead and his `pnpm dev` with the refreshed guest image:
   - **Codex's list:** Check again, then the stored row and the Settings page compared with the provider's own list.
   - **Effort:** one short session per provider at a non-default effort, checking that its turn completed and that its recorded `sent_effort` is the chosen level. Neither pinned CLI reports the effort it applied, so the effective effort is recorded as unverified.
