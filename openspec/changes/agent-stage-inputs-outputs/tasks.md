@@ -215,7 +215,7 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 
 - [x] 10.1 RED: write the tool, relay and UI tests. (The server tool tests were written after the handlers, with a negative control; see notes.md.)
 - [x] 10.2 GREEN: implement the tools, `propose_images` and the review.
-- [ ] 10.3 Run the checks, and record the demo video.
+- [x] 10.3 Run the checks, and record the demo video.
 
 ## 6. Outputs into records and approval, and validation before approval
 
