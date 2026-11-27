@@ -34,9 +34,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - TDD approach: RED: a process test where a guest reporting 2 GiB lets two turns run at once under Sessions at once 2 (trunk: both `finished`, overlapping); unit tests for the formula and parsing.
 - Verification: unit tests, the process test, `tests/pg/session-slots.test.ts`.
 
-- [ ] 1.1 RED: the capacity process test and unit tests fail for the expected reasons.
-- [ ] 1.2 GREEN: the guest reports `memoryBytes`; the coordinator computes and exposes the capacity.
-- [ ] 1.3 GREEN: the slot claim applies the smaller limit; the worker passes the bridge's capacity and logs changes.
+- [x] 1.1 RED: the capacity process test and unit tests fail for the expected reasons.
+- [x] 1.2 GREEN: the guest reports `memoryBytes`; the coordinator computes and exposes the capacity.
+- [x] 1.3 GREEN: the slot claim applies the smaller limit; the worker passes the bridge's capacity and logs changes.
 
 ## 2. Lanes on demand
 
@@ -47,9 +47,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - TDD approach: RED: the process test where an idle relay and coordinator launch no guest (trunk: one), and the relay tooling test for an idle relay (trunk: guest started).
 - Verification: `node --test tooling/tests/relay-turns.test.cjs`, the coordinator unit tests, the process tests of #264/#281/#298.
 
-- [ ] 2.1 RED: idle-relay tests fail for the expected reason.
-- [ ] 2.2 GREEN: the relay offers lanes, starts a guest on `go` and opens its next offer.
-- [ ] 2.3 GREEN: the coordinator sniffs TLS, keeps offers, asks for guests on demand for turns and probes, and closes unclaimed launched connections.
+- [x] 2.1 RED: idle-relay tests fail for the expected reason.
+- [x] 2.2 GREEN: the relay offers lanes, starts a guest on `go` and opens its next offer.
+- [x] 2.3 GREEN: the coordinator sniffs TLS, keeps offers, asks for guests on demand for turns and probes, and closes unclaimed launched connections.
 - [ ] 2.4 Verify `concurrent-relay-turns`, `stale-slots`, `provider-status`, `shared-vm-*` process tests and `tooling/tests/dev-vm*.test.cjs`.
 
 ## 3. One start at a time
@@ -62,8 +62,8 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - TDD approach: RED: a process test with a delayed admission where the second command arrives before the first is admitted (trunk). Gate unit tests for order, hold bound, wait bound and abort.
 - Verification: unit and process tests.
 
-- [ ] 3.1 RED: the serialized-start process test and gate unit tests fail for the expected reasons.
-- [ ] 3.2 GREEN: the gate, taken by the driver and released on admission, end or hold bound; a wait past its bound requeues.
+- [x] 3.1 RED: the serialized-start process test and gate unit tests fail for the expected reasons.
+- [x] 3.2 GREEN: the gate, taken by the driver and released on admission, end or hold bound; a wait past its bound requeues.
 
 ## 4. Startup timeouts requeue
 
@@ -74,9 +74,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - TDD approach: RED: a PG test whose driver reports the guest's `agent_turn_failed` with cause `agent_admission_timeout` (trunk: `failed`, `provider_network`).
 - Verification: the PG test, `supervisor-fence`, `held-capacity`, `turn-capacity` PG tests, `session-failures` tests.
 
-- [ ] 4.1 RED: the startup-timeout PG test fails for the expected reason.
-- [ ] 4.2 GREEN: migration, grant and the requeue settlement with the counter and its reset.
-- [ ] 4.3 GREEN: the code's description and the 45 s admission limit.
+- [x] 4.1 RED: the startup-timeout PG test fails for the expected reason.
+- [x] 4.2 GREEN: migration, grant and the requeue settlement with the counter and its reset.
+- [x] 4.3 GREEN: the code's description and the 45 s admission limit.
 
 ## 5. VM sizes
 
@@ -87,8 +87,8 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - TDD approach: RED: `dev-vm-setup` tests for a stopped VM at 2/2 GiB (expects `limactl edit`), a running one (expects no stop and the message) and a matching one (no edit).
 - Verification: `pnpm test:dev`.
 
-- [ ] 5.1 RED: the resize tests fail for the expected reasons.
-- [ ] 5.2 GREEN: the template size and the resize step.
+- [x] 5.1 RED: the resize tests fail for the expected reasons.
+- [x] 5.2 GREEN: the template size and the resize step.
 
 ## 6. Documentation
 

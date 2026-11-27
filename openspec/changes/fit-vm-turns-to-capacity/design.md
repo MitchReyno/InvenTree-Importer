@@ -27,7 +27,7 @@ Complexity: moderate to high. One migration, one runner image change, a relay/co
 
 A 2 GiB VM (`MemTotal` about 1878 MiB) holds 1 turn, a 4 GiB VM (about 3930 MiB) 3.
 
-The session worker passes `bridge.turnCapacity` into the runner's dependencies, and `claimSessionSlot` takes the smaller of Sessions at once and that capacity as its limit. The claim is where Sessions at once already applies, under the actor's slot lock, so a session past the cap stays queued with no slot, no requeue churn and no failure; its workflow's 30 s slot wait and the wake sweep retry it as for a full limit. The worker logs `vm_turn_capacity` with the memory and turns when the capacity changes.
+The session worker passes `bridge.turnCapacity` into the runner's dependencies, and `claimSessionSlot` takes the smaller of Sessions at once and that capacity as its limit. The claim is where Sessions at once already applies, under the actor's slot lock, so a session past the cap stays queued with no slot, no requeue churn and no failure; its workflow's 30 s slot wait and the wake sweep retry it as for a full limit. The coordinator logs `vm_turn_capacity` with the memory and turns when the capacity changes.
 
 Alternatives: a configured per-installation cap (a second value to keep in step with Lima, wrong after a resize), and a cap in the coordinator that requeues (sessions claim and release slots every minute, each holding one for up to 45 s). Both rejected. Reading the size from `limactl list` on the host was rejected too: the packaged deployment's worker has no `limactl`, and the guest's `MemTotal` is what the turns actually share.
 

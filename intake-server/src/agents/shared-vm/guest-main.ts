@@ -3,6 +3,7 @@
 import { once } from 'node:events'
 import { Duplex } from 'node:stream'
 import { connect } from 'node:tls'
+import { guestMemoryBytes } from './guest-memory.ts'
 import { serveGuestTurn } from './guest-turn.ts'
 import { pairing } from './pair.ts'
 import { providerProxy } from './provider-proxy.ts'
@@ -32,8 +33,9 @@ async function main() {
       sessionsRoot: '/home/node/sessions',
       reapPath: '/run/reap/turn',
       policyPath: TURN_POLICY_PATH,
-      // The relay reads this line to open its next connection while this one is busy.
+      // The relay reads this line to tell a connection the coordinator used from one it didn't.
       onClaimed: () => process.stderr.write(TURN_CLAIMED_MARKER + '\n'),
+      memoryBytes: await guestMemoryBytes(),
     })
   } catch (error) {
     socket.destroy()

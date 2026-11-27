@@ -46,6 +46,9 @@ async function world(t, initial = {}) {
   const state = {
     missingTools: [],
     vmStatus: '',
+    // A VM created from the template gets its size.
+    vmCpus: 4,
+    vmMemoryGib: 4,
     localLabel: null,
     localRole: 'runner',
     baseLabels: {},
@@ -194,6 +197,17 @@ async function world(t, initial = {}) {
       return `/usr/bin/${args[3]}`
     }
     if (command === 'limactl') {
+      if (args[0] === 'list' && args[2].includes('{{.CPUs}}')) {
+        const bytes = state.vmMemoryGib * 1024 ** 3
+        return `bench-agent-other 2 2147483648\nbench-agent-test ${state.vmCpus} ${bytes}\n`
+      }
+      if (args[0] === 'edit') {
+        assert.notEqual(state.vmStatus, 'Running', 'Lima resizes a stopped VM only')
+        actions.push(`edit vm ${args.slice(1, -1).join(' ')}`)
+        state.vmCpus = Number(args.find((arg) => arg.startsWith('--cpus=')).split('=')[1])
+        state.vmMemoryGib = Number(args.find((arg) => arg.startsWith('--memory=')).split('=')[1])
+        return ''
+      }
       if (args[0] === 'list') {
         failIf('list vms')
         // Lima lists every instance; the named one is absent until it is created.
@@ -338,6 +352,7 @@ test('a rerun on a prepared VM reports every step done and changes nothing', asy
   assert.deepEqual(fake.actions, [])
   const lines = fake.output.join('').split('\n')
   for (const name of [
+    'VM size',
     'VM',
     'Pairing and operator key checks',
     'Images',
@@ -350,6 +365,41 @@ test('a rerun on a prepared VM reports every step done and changes nothing', asy
     assert.ok(lines.includes(`${name}: already done`), name)
   }
   assert.equal(await readFile(fake.keyFile, 'utf8'), key)
+})
+
+test('a stopped VM smaller than the template is resized before it boots', async (t) => {
+  const fake = await world(t)
+  await fake.setup()
+  fake.state.vmCpus = 2
+  fake.state.vmMemoryGib = 2
+  fake.actions.length = 0
+  fake.output.length = 0
+  await fake.setup()
+  assert.deepEqual(fake.actions.slice(0, 2), ['edit vm --tty=false --cpus=4 --memory=4', 'boot vm'])
+  assert.deepEqual([fake.state.vmCpus, fake.state.vmMemoryGib], [4, 4])
+  assert.match(fake.output.join(''), /Resizing VM bench-agent-test from 2 CPUs and 2 GiB to 4 CPUs/)
+  // Rerun: nothing more to change.
+  fake.actions.length = 0
+  await fake.setup()
+  assert.ok(!fake.actions.some((action) => action.startsWith('edit')), fake.actions.join())
+})
+
+test('a running VM smaller than the template is left running, with how to resize it', async (t) => {
+  const fake = await world(t)
+  await fake.setup({ plan: { keepRunning: true } })
+  fake.state.vmCpus = 2
+  fake.state.vmMemoryGib = 2
+  fake.actions.length = 0
+  fake.output.length = 0
+  await fake.setup({ plan: { keepRunning: true } })
+  assert.deepEqual(fake.actions, [])
+  const text = fake.output.join('')
+  assert.match(text, /VM size: left as it is while the VM runs/)
+  assert.match(
+    text,
+    /stop pnpm dev, run limactl stop bench-agent-test, then run pnpm vm:setup again/,
+  )
+  assert.match(text, /Guest services: already done/)
 })
 
 /** Writes a complete host pairing whose CA is `ca`. */

@@ -259,6 +259,8 @@ async function main() {
         'shared-vm-agent/1': bridge?.driver,
         'shared-vm-agent/3': bridge?.driver,
       },
+      // Every session of a worker with a bridge runs in the VM, so the VM's size bounds them all.
+      turnCapacity: bridge?.turnCapacity,
     }
     DBOS.setConfig({
       name: processingApplication,

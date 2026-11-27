@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { once } from 'node:events'
 import { connect, type TLSSocket } from 'node:tls'
+import { connect as netConnect, type Socket } from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pairedCertificates } from './support/vm-pairing.ts'
 import { freePort } from './support/manual-process.ts'
@@ -32,7 +33,13 @@ const CLAUDE_TOOL_GUEST = {
 }
 
 /** Short waits, so a test needn't sit out a tool turn's 45 s. */
-const TIMING = { toolWorkerPeerWaitMs: 1500, peerWaitMs: 1500 }
+const TIMING = {
+  toolWorkerPeerWaitMs: 1500,
+  peerWaitMs: 1500,
+  startupHoldMs: 5000,
+  startupWaitMs: 5000,
+  startedIdleMs: 1000,
+}
 
 async function bridgeFixture(t: TestContext) {
   const root = await mkdtemp(join(tmpdir(), 'turn-capacity-'))
@@ -51,19 +58,40 @@ async function bridgeFixture(t: TestContext) {
   return { root, port, bridge }
 }
 
-/** A paired guest connection that has greeted, as a relay lane's guest does. */
-async function guest(t: TestContext, root: string, port: number) {
+/**
+ * A paired guest connection that has greeted, as a relay lane's guest does: on its own
+ * connection, or on `transport`, a lane offer the coordinator asked for its guest.
+ */
+async function guest(
+  t: TestContext,
+  root: string,
+  port: number,
+  extra: Record<string, unknown> = {},
+  transport?: Socket,
+) {
   const socket: TLSSocket = connect({
     ...(await pairing(join(root, 'bench-guest'))),
-    port,
-    host: '127.0.0.1',
+    ...(transport ? { socket: transport } : { port, host: '127.0.0.1' }),
     servername: 'bench-coordinator',
   })
   t.after(() => socket.destroy())
   await once(socket, 'secureConnect')
   const frames = new Frames(socket)
-  await frames.send(CLAUDE_TOOL_GUEST)
+  await frames.send({ ...CLAUDE_TOOL_GUEST, ...extra })
   return { socket, frames }
+}
+
+/** A relay lane's offer for Claude tool turns; resolves with what the coordinator wrote back. */
+async function offer(t: TestContext, port: number) {
+  const socket = netConnect(port, '127.0.0.1')
+  t.after(() => socket.destroy())
+  await once(socket, 'connect')
+  socket.write('bench-lane/1 claude tools\n')
+  let received = ''
+  socket.on('data', (bytes) => {
+    received += bytes.toString('latin1')
+  })
+  return { socket, received: () => received }
 }
 
 function claudeManifest(profile: 'shared-vm-agent/1' | 'shared-vm-agent/3') {
@@ -79,6 +107,7 @@ const turn = {
   tools: [],
   toolUrl: 'http://127.0.0.1:1',
   capability: 'c',
+  onStarted: async () => {},
 } as unknown as SessionTurn
 
 function context(manifest: SessionDriverContext['manifest'], signal: AbortSignal) {
@@ -105,8 +134,9 @@ test('a turn whose route has only busy connections is put back in the queue', as
   const firstControl = new AbortController()
   const first = context(claudeManifest('shared-vm-agent/3'), firstControl.signal)
   const running = bridge.driver(turn, first.value).catch((error: unknown) => error)
-  // The first turn has the only connection once its command arrives.
+  // The first turn has the only connection once its command arrives, and its start is done.
   await peer.frames.read()
+  await peer.frames.send({ provider: { providerSessionId: 'p', actualModel: 'haiku' } })
 
   const second = context(claudeManifest('shared-vm-agent/3'), new AbortController().signal)
   await assert.rejects(bridge.driver(turn, second.value), SessionCapacityUnavailable)
@@ -149,4 +179,85 @@ test('the coordinator admits more than eight turn connections for one provider',
     peers.map((peer) => peer.socket.destroyed),
     peers.map(() => false),
   )
+})
+
+test('the VM turn capacity follows the memory the latest guest reports', async (t) => {
+  const { root, port, bridge } = await bridgeFixture(t)
+  // Nothing reported yet: one turn at a time.
+  assert.equal(bridge.turnCapacity(), 1)
+  await guest(t, root, port, { memoryBytes: 4 * 1024 ** 3 })
+  await delay(200)
+  assert.equal(bridge.turnCapacity(), 3)
+  // An older guest reports none, so the VM is again taken to hold one.
+  await guest(t, root, port)
+  await delay(200)
+  assert.equal(bridge.turnCapacity(), 1)
+})
+
+test('a lane offer gets its guest only once a turn needs one', async (t) => {
+  const { root, port, bridge } = await bridgeFixture(t)
+  const lane = await offer(t, port)
+  await delay(300)
+  assert.equal(lane.received(), '')
+
+  const control = new AbortController()
+  const turnContext = context(claudeManifest('shared-vm-agent/3'), control.signal)
+  const running = bridge.driver(turn, turnContext.value).catch((error: unknown) => error)
+  const deadline = Date.now() + 3000
+  while (lane.received() !== 'go\n') {
+    assert.ok(Date.now() < deadline, lane.received())
+    await delay(25)
+  }
+  lane.socket.removeAllListeners('data')
+  // The guest the relay starts speaks TLS on the same connection and gets the turn's command.
+  const started = await guest(t, root, port, {}, lane.socket)
+  const command = await started.frames.read()
+  assert.equal(command.attemptId, turnContext.value.identity.attemptId)
+  await started.frames.send({ done: true })
+  assert.equal(await running, undefined)
+})
+
+test('a guest started for a turn that has gone is closed once it sits idle', async (t) => {
+  const { root, port, bridge } = await bridgeFixture(t)
+  const lane = await offer(t, port)
+  const control = new AbortController()
+  const turnContext = context(claudeManifest('shared-vm-agent/3'), control.signal)
+  const running = bridge.driver(turn, turnContext.value).catch((error: unknown) => error)
+  while (lane.received() !== 'go\n') {
+    await delay(25)
+  }
+  control.abort()
+  await running
+  lane.socket.removeAllListeners('data')
+  const started = await guest(t, root, port, {}, lane.socket)
+  await once(started.socket, 'close')
+})
+
+test('a second turn reaches its guest only once the first is admitted', async (t) => {
+  const { root, port, bridge } = await bridgeFixture(t)
+  const first = await guest(t, root, port)
+  const second = await guest(t, root, port)
+  const controls = [new AbortController(), new AbortController()]
+  const runs = controls.map((control) =>
+    bridge
+      .driver(turn, context(claudeManifest('shared-vm-agent/3'), control.signal).value)
+      .catch((error: unknown) => error),
+  )
+  // Either guest may get the first command; the other must wait for its admission.
+  let arrived = 0
+  const commands = [first, second].map((peer) =>
+    peer.frames.read().then(() => {
+      arrived++
+      return peer
+    }),
+  )
+  const leading = await Promise.race(commands)
+  await delay(500)
+  assert.equal(arrived, 1)
+  await leading.frames.send({ provider: { providerSessionId: 'p', actualModel: 'haiku' } })
+  await Promise.race([Promise.all(commands), delay(2000).then(() => assert.fail('late command'))])
+  for (const peer of [first, second]) {
+    await peer.frames.send({ done: true })
+  }
+  assert.deepEqual(await Promise.all(runs), [undefined, undefined])
 })

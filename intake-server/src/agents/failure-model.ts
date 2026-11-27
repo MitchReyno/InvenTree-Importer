@@ -166,6 +166,11 @@ const codeDescriptions: Partial<Record<string, { summary: string; recovery: stri
     summary: 'This step was queued under an agent profile that has since been retired.',
     recovery: 'Run the step again to start it under the current profile. Its history is kept.',
   },
+  agent_admission_timeout: {
+    summary: "The provider CLI didn't start in time.",
+    recovery:
+      'The agent VM may be short of memory or CPU. Lower Sessions at once or give the VM more memory, then run the step again.',
+  },
   agent_vm_unavailable: {
     summary: 'The agent VM had no connection for this provider.',
     recovery:

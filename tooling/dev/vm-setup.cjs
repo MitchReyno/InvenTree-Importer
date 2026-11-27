@@ -27,6 +27,7 @@ const {
   ensureOperatorKey,
   ensurePairing,
   ensureVm,
+  ensureVmSize,
   guestImageDigest,
   loadRunner,
   localImageDigest,
@@ -59,6 +60,9 @@ const NAMED_FAILURES = new Set([
   'vm_setup_cancelled',
 ])
 
+/** How a step's result reads; `changed` and anything else read as done. */
+const STEP_RESULTS = { done: 'already done', deferred: 'left as it is while the VM runs' }
+
 /**
  * Runs one step, reports whether it changed anything, and names the step when it fails. A
  * cancelled run stops before the next step, so the cleanup after it still runs.
@@ -76,7 +80,7 @@ async function step(name, write, action, signal) {
     }
     throw new VmSetupError('vm_setup_step_failed', name, { cause: error })
   }
-  write.out(result === 'done' ? `${name}: already done\n` : `${name}: done\n`)
+  write.out(`${name}: ${STEP_RESULTS[result] ?? 'done'}\n`)
   return result
 }
 
@@ -175,6 +179,10 @@ async function runVmSetup({
         () => checkHostIdentityAlone(context),
         signal,
       )
+    }
+    if (status !== '') {
+      // A new VM is created at the template's size; an existing one may predate it.
+      await step('VM size', write, () => ensureVmSize(context, status), signal)
     }
     await step('VM', write, async () => ((await ensureVm(context)) ? 'changed' : 'done'), signal)
     context.guestDir = await resolveGuestDir(plan, { exec, env, write })

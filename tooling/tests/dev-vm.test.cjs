@@ -568,6 +568,10 @@ test(
     t.after(() => relay.kill('SIGKILL'))
     const [socket] = await connected
     t.after(() => socket.destroy())
+    // The lane offers itself first; its guest starts once asked.
+    const [offer] = await once(socket, 'data')
+    assert.equal(offer.toString(), 'bench-lane/1 codex tools\n')
+    socket.write('go\n')
     const [bytes] = await once(socket, 'data')
     const guestArgs = JSON.parse(bytes.toString())
     assert.deepEqual(guestArgs.slice(-5, -1), ['/guest', 'runner:test', 'codex', guestArgs.at(-2)])

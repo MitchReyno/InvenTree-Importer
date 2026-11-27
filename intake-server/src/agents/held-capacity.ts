@@ -7,8 +7,11 @@ import { processingAttempts, processingLanes } from '#/processing/schema.ts'
 import { agentSessions, agentSlots, type TurnChildKind } from './schema.ts'
 import { interruptSession } from './session/session-runner.ts'
 
-/** How long a starting worker waits for the guest's removal proof for one held VM turn. */
-export const STARTUP_REAP_CHECK_MS = 20_000
+/**
+ * How long a starting worker waits for the guest's removal proof for one held VM turn. Relays
+ * start guests on demand, so this covers a tool guest's cold start, as a turn's own wait does.
+ */
+export const STARTUP_REAP_CHECK_MS = 45_000
 
 /** A slot or the Processing lane still held by an attempt when a worker starts. */
 export type HeldCapacity =

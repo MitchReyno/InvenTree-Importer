@@ -2,19 +2,23 @@ import { evidenceFormatHeader, TurnEvidenceReleases } from './evidence-release.t
 import { evidenceRequest } from './evidence-request.ts'
 import { checkServerIdentity, createServer, type TLSSocket } from 'node:tls'
 import { setTimeout as delay } from 'node:timers/promises'
-import type { Socket } from 'node:net'
+import { createServer as createTcpServer, type Socket } from 'node:net'
 import { once } from 'node:events'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import type { SessionDriver } from '#/agents/session/session-runner.ts'
+import type { SessionDriver, SessionDriverContext } from '#/agents/session/session-runner.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
 import {
   SessionCapacityUnavailable,
   SessionResumeUnavailable,
+  type SessionTurn,
 } from '#/agents/session/session-adapters.ts'
-import { MAX_SESSION_SLOTS } from '#/agents/session/slots.ts'
+import { MAX_SESSION_SLOTS, type TurnChild } from '#/agents/session/slots.ts'
 import { NativeSessionError, retainedCause, retainedProviderError } from '#/agents/failure-model.ts'
 import { refusalOutcome } from './journal.ts'
+import { LANE_START, LaneOffers, MAX_OFFER_BYTES, offerRoute, peerKey } from './lane-offers.ts'
+import { StartupGate } from './startup-gate.ts'
+import { reportedMemory, vmTurnCapacity } from './turn-capacity.ts'
 import { pairing } from './pair.ts'
 import { settled } from '#/events/settled.ts'
 import {
@@ -86,14 +90,38 @@ const GUEST_ANSWER_MARGIN_MS = 100
 /** Under the API's 2 s request, leaving it time to answer. */
 const STATUS_TIMING: StatusTiming = { deadlineMs: 1800, peerWaitMs: 500 }
 
-/** How long a turn waits for a free connection of its route. */
+/**
+ * How long a turn waits for a free connection of its route, how long one turn's start may hold
+ * the startup gate and how long a turn waits for the gate.
+ */
 export interface TurnTiming {
   toolWorkerPeerWaitMs: number
   peerWaitMs: number
+  startupHoldMs: number
+  startupWaitMs: number
+  /** How long a guest started for a waiter that has gone may sit idle before it is closed. */
+  startedIdleMs: number
 }
 
-// A tool relay starts its provider tunnel, worker and paired supervisor for each new connection.
-const TURN_TIMING: TurnTiming = { toolWorkerPeerWaitMs: 45_000, peerWaitMs: 15_000 }
+const TURN_TIMING: TurnTiming = {
+  // A tool relay starts its provider tunnel, worker and paired supervisor for each new connection.
+  toolWorkerPeerWaitMs: 45_000,
+  peerWaitMs: 15_000,
+  // The connection wait, the CLI's 45 s admission and a margin.
+  startupHoldMs: 120_000,
+  // Behind at most a few starts, each bounded by the hold; past it the turn is requeued.
+  startupWaitMs: 180_000,
+  startedIdleMs: 30_000,
+}
+
+/** Open lane offers the coordinator keeps; each relay holds one. */
+const MAX_LANE_OFFERS = MAX_SESSION_SLOTS
+/** How long a relay has to write its whole offer line. */
+const OFFER_LINE_MS = 5_000
+/** How long a route waits to start another guest after one closed before it was admitted. */
+const LAUNCH_RETRY_MS = 1_000
+/** The first byte of a TLS handshake record: a guest, status or catalogue connection. */
+const TLS_HANDSHAKE = 0x16
 
 export type BridgeStatusUnknownReason =
   | 'not_configured'
@@ -166,6 +194,11 @@ export async function startSessionBridge(
   const catalogPeers = { claude: new Map<TLSSocket, Frames>(), codex: new Map<TLSSocket, Frames>() }
   // Whether each provider's latest turn guest greeted with the model catalogue capability.
   const catalogCapable = new Map<StatusProvider, boolean>()
+  const offers = new LaneOffers(MAX_LANE_OFFERS, LAUNCH_RETRY_MS)
+  const startupGate = new StartupGate(turnTiming.startupHoldMs)
+  // The VM's memory as the latest turn greeting reported it; an older guest reports none.
+  let vmMemory: number | undefined
+  let loggedCapacity: number | undefined
   const server = createServer(
     { ...(await pairing(directory)), requestCert: true },
     settled(
@@ -193,6 +226,9 @@ export async function startSessionBridge(
         })
         socket.on('error', () => socket.destroy())
         socket.setTimeout(60_000, () => socket.destroy())
+        // Started from a lane offer: it counts as starting until it is admitted or closes.
+        const peer = peerKey(socket)
+        const launched = offers.isStarting(peer)
         try {
           const frames = new Frames(socket)
           const greeting = await frames.read()
@@ -209,6 +245,7 @@ export async function startSessionBridge(
             throw new Error('runner_capacity')
           }
           turnSockets.add(socket)
+          noteMemory(greeting.memoryBytes)
           if (
             greeting.reapProof === true &&
             greeting.builtinTools === true &&
@@ -248,6 +285,10 @@ export async function startSessionBridge(
           const key = socketRouteKey(socket)
           routeAdmissions.set(key, (routeAdmissions.get(key) ?? 0) + 1)
           idle.set(socket, frames)
+          if (launched) {
+            offers.admitted(peer)
+            closeIfUnclaimed(socket)
+          }
         } catch {
           socket.destroy()
         }
@@ -256,6 +297,31 @@ export async function startSessionBridge(
       (_error, socket) => socket.destroy(),
     ),
   )
+
+  /** Keeps the latest turn greeting's memory report and logs a change in the VM's capacity. */
+  function noteMemory(value: unknown) {
+    vmMemory = reportedMemory(value)
+    const capacity = vmTurnCapacity(vmMemory)
+    if (capacity !== loggedCapacity) {
+      loggedCapacity = capacity
+      const memoryMib = vmMemory === undefined ? null : Math.round(vmMemory / 1024 / 1024)
+      process.stderr.write(
+        JSON.stringify({ event: 'vm_turn_capacity', memory_mib: memoryMib, turns: capacity }) +
+          '\n',
+      )
+    }
+  }
+
+  /** A guest started for a waiter that has since gone doesn't stay up holding its containers. */
+  function closeIfUnclaimed(socket: TLSSocket) {
+    const timer = setTimeout(() => {
+      if (idle.has(socket)) {
+        socket.destroy()
+      }
+    }, turnTiming.startedIdleMs)
+    timer.unref()
+    socket.once('close', () => clearTimeout(timer))
+  }
 
   /** A status connection carries reads only; it never enters the turn pool. */
   function admitStatusPeer(socket: TLSSocket, frames: Frames, greeting: Record<string, unknown>) {
@@ -496,13 +562,86 @@ export async function startSessionBridge(
   const transports = new Set<Socket>()
   // Closing the bridge ends every wait for a peer, so a stopping worker isn't held by one.
   const closing = new AbortController()
-  server.maxConnections = MAX_TURN_PEERS + MAX_STATUS_PEERS + MAX_CATALOG_PEERS
-  server.on('connection', (socket) => {
+
+  /**
+   * Reads a connection's first bytes: TLS goes to the TLS server as it arrived, and a relay's
+   * lane offer is kept until a turn or probe of its route needs a guest.
+   */
+  function sniff(socket: Socket) {
+    let buffered = Buffer.alloc(0)
+
+    const refuse = () => {
+      done()
+      socket.destroy()
+    }
+
+    const timer = setTimeout(refuse, OFFER_LINE_MS)
+
+    const done = () => {
+      clearTimeout(timer)
+      socket.off('data', read)
+    }
+
+    const read = (chunk: Buffer) => {
+      buffered = Buffer.concat([buffered, chunk])
+      if (buffered[0] === TLS_HANDSHAKE) {
+        done()
+        socket.pause()
+        socket.unshift(buffered)
+        server.emit('connection', socket)
+        return
+      }
+      const end = buffered.indexOf(0x0a)
+      if (end < 0) {
+        if (buffered.length > MAX_OFFER_BYTES) {
+          refuse()
+        }
+        return
+      }
+      done()
+      const route = offerRoute(buffered.subarray(0, end).toString('latin1'))
+      // Nothing may follow the offer until the coordinator asks for its guest.
+      if (!route || buffered.length > end + 1 || offers.size >= offers.limit) {
+        socket.destroy()
+        return
+      }
+      socket.on('data', refuseEarlyBytes)
+      offers.add(route, socket)
+    }
+
+    const refuseEarlyBytes = () => socket.destroy()
+
+    socket.on('data', read)
+  }
+
+  /** Asks the relay behind an offer to start its guest, whose TLS connection follows. */
+  function startGuest(socket: Socket) {
+    socket.removeAllListeners('data')
+    socket.pause()
+    socket.write(LANE_START)
+    server.emit('connection', socket)
+  }
+
+  /**
+   * Starts a guest for `route` when its waiters have no idle or starting connection; each
+   * waiter's poll calls this, and the offers start no more than the waiters need.
+   */
+  function demand(route: GuestRoute) {
+    const offer = offers.next(routeKey(route))
+    if (offer) {
+      startGuest(offer)
+    }
+  }
+
+  const front = createTcpServer((socket) => {
     transports.add(socket)
     socket.once('close', () => transports.delete(socket))
+    socket.on('error', () => socket.destroy())
+    sniff(socket)
   })
-  server.listen(port, '127.0.0.1')
-  await once(server, 'listening')
+  front.maxConnections = MAX_TURN_PEERS + MAX_STATUS_PEERS + MAX_CATALOG_PEERS + MAX_LANE_OFFERS
+  front.listen(port, '127.0.0.1')
+  await once(front, 'listening')
 
   /** Whether an admitted turn connection serves `route`. */
   function servesRoute(socket: TLSSocket, route: GuestRoute) {
@@ -520,17 +659,40 @@ export async function startSessionBridge(
     )
   }
 
-  /** Whether any turn connection of the route is open, idle or busy: its relay is running. */
+  /** Whether the route has an open turn connection or lane offer: its relay is running. */
   function routeConnected(route: GuestRoute) {
-    return [...admittedTurns].some((socket) => servesRoute(socket, route))
+    return (
+      offers.hasOffer(routeKey(route)) ||
+      [...admittedTurns].some((socket) => servesRoute(socket, route))
+    )
   }
 
   function socketRouteKey(socket: TLSSocket) {
     return routeKey({ subscription: subscriptions.get(socket), toolWorker: rich.has(socket) })
   }
 
+  /** Connections admitted and offers made for the route so far, which only ever grow. */
   function admissionsOf(route: GuestRoute) {
-    return routeAdmissions.get(routeKey(route)) ?? 0
+    return (routeAdmissions.get(routeKey(route)) ?? 0) + offers.offersMade(routeKey(route))
+  }
+
+  /**
+   * An idle connection of the manifest's route for a probe, starting a guest on one of its relay's
+   * offers when there is none. `leave` ends the probe's claim on a starting guest.
+   */
+  function probeConnections(manifest: Record<string, unknown>, reap: boolean) {
+    const route = guestRoute(manifest)
+    const leave = offers.wait(routeKey(route))
+
+    const available = () => {
+      const peer = idlePeer(manifest, true, reap)
+      if (!peer) {
+        demand(route)
+      }
+      return peer
+    }
+
+    return { available, leave }
   }
 
   /**
@@ -548,15 +710,54 @@ export async function startSessionBridge(
     if (!isRecord(command) || !isRecord(command.manifest)) {
       return false
     }
-    const manifest = command.manifest
-    const proof = await probeTerminal(
-      () => idlePeer(manifest, true, true),
-      idle,
-      command,
-      AbortSignal.any([signal, closing.signal]),
-      true,
-    )
-    return proof === 'worker_removed'
+    const probe = probeConnections(command.manifest, true)
+    try {
+      const proof = await probeTerminal(
+        probe.available,
+        idle,
+        command,
+        AbortSignal.any([signal, closing.signal]),
+        true,
+      )
+      return proof === 'worker_removed'
+    } finally {
+      probe.leave()
+    }
+  }
+
+  /**
+   * Waits for an idle connection of the turn's route until `deadline`, asking its relay for a
+   * guest meanwhile. Throws the requeue or the absent-relay failure when none comes.
+   */
+  async function turnConnection(
+    route: GuestRoute,
+    manifest: Record<string, unknown>,
+    deadline: number,
+    signal: AbortSignal,
+  ) {
+    const leave = offers.wait(routeKey(route))
+    try {
+      const admittedBefore = admissionsOf(route)
+      // A busy connection or an offer of the route at any point shows its relay is running.
+      let relaySeen = routeConnected(route)
+      for (;;) {
+        const connection = idlePeer(manifest)
+        if (connection) {
+          idle.delete(connection[0])
+          return connection
+        }
+        if (Date.now() >= deadline) {
+          // So does one admitted or offered during the wait, even if it closed between samples.
+          relaySeen ||= admissionsOf(route) !== admittedBefore
+          throw noConnection(route, relaySeen)
+        }
+        demand(route)
+        await delay(100, undefined, { signal })
+        relaySeen ||= routeConnected(route)
+      }
+    } finally {
+      leave()
+    }
   }
 
   const driver: SessionDriver = async (turn, context) => {
@@ -565,30 +766,33 @@ export async function startSessionBridge(
     if (toolWorker && !options) {
       throw new Error('protected_hosts_required')
     }
-    if (!context.recordChild) {
+    const recordChild = context.recordChild
+    if (!recordChild) {
       throw new Error('turn_child_recorder_required')
     }
+    // One turn at a time starts on the VM, from its guest's start to its provider's admission.
+    const started = await startupGate.enter(context.signal, turnTiming.startupWaitMs)
+    if (!started) {
+      throw new SessionCapacityUnavailable()
+    }
+    try {
+      return await runTurn(turn, { ...context, recordChild }, route, started)
+    } finally {
+      started()
+    }
+  }
+
+  /** One turn on a connection of its route; `admitted` ends its hold on the startup gate. */
+  async function runTurn(
+    turn: SessionTurn,
+    context: SessionDriverContext & { recordChild: (child: TurnChild) => Promise<void> },
+    route: GuestRoute,
+    admitted: () => void,
+  ) {
+    const toolWorker = route.toolWorker
     const waitMs = toolWorker ? turnTiming.toolWorkerPeerWaitMs : turnTiming.peerWaitMs
     const deadline = Date.now() + waitMs
-
-    const available = (probe = false, reap = false) => idlePeer(context.manifest, probe, reap)
-
-    const admittedBefore = admissionsOf(route)
-    let connection = available()
-    // A busy connection of the route at any point shows its relay is running.
-    let relaySeen = routeConnected(route)
-    while (!connection && Date.now() < deadline) {
-      await delay(100, undefined, { signal: context.signal })
-      connection = available()
-      relaySeen ||= routeConnected(route)
-    }
-    if (!connection) {
-      // So does one admitted during the wait, even if it closed between samples.
-      relaySeen ||= admissionsOf(route) !== admittedBefore
-      throw noConnection(route, relaySeen)
-    }
-    const [socket, frames] = connection
-    idle.delete(socket)
+    const [socket, frames] = await turnConnection(route, context.manifest, deadline, context.signal)
     const client = new Client({ name: 'shared-vm', version: '1' })
 
     const stop = () => socket.destroy()
@@ -659,6 +863,7 @@ export async function startSessionBridge(
           ) {
             throw new Error('invalid_provider_identity')
           }
+          admitted()
           await turn.onStarted({ providerSessionId, actualModel })
           await frames.send({ ok: true })
           continue
@@ -669,6 +874,7 @@ export async function startSessionBridge(
           if (sealed === undefined || msg.sentEffort !== sealed) {
             throw new Error('invalid_sent_effort')
           }
+          admitted()
           await turn.onEffortSent(sealed)
           await frames.send({ ok: true })
           continue
@@ -741,6 +947,7 @@ export async function startSessionBridge(
           return
         }
         if (msg.started === true && context.manifest.profile_id === 'synthetic-session/1') {
+          admitted()
           await turn.onStarted({
             providerSessionId: 'synthetic-' + context.manifest.batch_id,
             actualModel: 'synthetic',
@@ -771,20 +978,29 @@ export async function startSessionBridge(
         if (cancelled && reapPeers.has(socket)) {
           // Cancellation has already closed the original connection. Wait only for a proof
           // from the VM-side launcher, independently bounded from the cancelled operation.
+          admitted()
+          const probe = probeConnections(context.manifest, true)
           const proof = await probeTerminal(
-            () => available(true, true),
+            probe.available,
             idle,
             command,
             AbortSignal.any([AbortSignal.timeout(45_000), closing.signal]),
             true,
-          )
+          ).finally(probe.leave)
           if (proof === 'worker_removed') {
             throw new NativeSessionError('agent_process_failed')
           }
         } else if (!cancelled && probePeers.has(socket)) {
           // The replacement relay only reads the exact turn journal. A missing or partial
           // record leaves the original interruption path in control.
-          const outcome = await probeTerminal(available, idle, command, context.signal)
+          admitted()
+          const probe = probeConnections(context.manifest, false)
+          const outcome = await probeTerminal(
+            probe.available,
+            idle,
+            command,
+            context.signal,
+          ).finally(probe.leave)
           if (outcome === 'done') {
             return
           }
@@ -815,12 +1031,16 @@ export async function startSessionBridge(
     },
     providerStatus,
     modelCatalog,
+    /** How many VM turns the agent VM holds, from the latest guest's memory report. */
+    turnCapacity() {
+      return vmTurnCapacity(vmMemory)
+    },
     close() {
       closing.abort()
       for (const socket of transports) {
         socket.destroy()
       }
-      server.close()
+      front.close()
     },
   }
 }

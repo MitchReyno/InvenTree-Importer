@@ -2,6 +2,7 @@ import {
   bigint,
   boolean,
   customType,
+  integer,
   jsonb,
   pgTable,
   primaryKey,
@@ -107,6 +108,8 @@ export const agentSessions = pgTable('agent_session', {
   sessionLineageId: uuid('session_lineage_id'),
   capabilitySha256: bytea('capability_sha256'),
   turnCount: bigint('turn_count', { mode: 'bigint' }).notNull().default(0n),
+  /** Admission timeouts in a row that put the session back in the queue (migration `0046`). */
+  startupTimeouts: integer('startup_timeouts').notNull().default(0),
   queuedSince: timestamp('queued_since', { withTimezone: true, precision: 3 })
     .notNull()
     .defaultNow(),

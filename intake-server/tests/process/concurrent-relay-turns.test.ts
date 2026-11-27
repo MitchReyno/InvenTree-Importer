@@ -32,8 +32,18 @@ exit 2
 /** Longer than a tool turn's 45 s wait for a connection, so a second turn can't wait it out. */
 const HOLD_MS = 50_000
 
+/** How each fake guest behaves, and the relay's capacity. */
+interface GuestOptions {
+  holdMs: number
+  turns?: number
+  /** The VM memory the guest reports; 8 GiB unless set. */
+  memoryMib?: number
+  /** How long the guest's provider takes to be admitted. */
+  admitMs?: number
+}
+
 /** A real tool-capable Claude relay with its whole process group killed afterwards. */
-function startRelay(t: TestContext, root: string, port: number, holdMs: number, turns?: number) {
+function startRelay(t: TestContext, root: string, port: number, guest: GuestOptions) {
   const child = spawn(
     process.execPath,
     [relay, 'bench-agent-test', String(port), '/guest', 'runner:test'],
@@ -44,11 +54,13 @@ function startRelay(t: TestContext, root: string, port: number, holdMs: number, 
         PATH: join(root, 'bin') + ':' + process.env.PATH,
         INTAKE_VM_CLAUDE_SUBSCRIPTION: '1',
         INTAKE_VM_BUILTIN_TOOLS: '1',
-        ...(turns ? { INTAKE_VM_RELAY_TURNS: String(turns) } : {}),
+        ...(guest.turns ? { INTAKE_VM_RELAY_TURNS: String(guest.turns) } : {}),
         FAKE_GUEST: fakeGuest,
         FAKE_GUEST_PAIR: join(root, 'bench-guest'),
         FAKE_GUEST_LOG: root,
-        FAKE_GUEST_HOLD_MS: String(holdMs),
+        FAKE_GUEST_HOLD_MS: String(guest.holdMs),
+        FAKE_GUEST_MEMORY_MIB: String(guest.memoryMib ?? 8192),
+        FAKE_GUEST_ADMIT_MS: String(guest.admitMs ?? 0),
       },
     },
   )
@@ -61,8 +73,8 @@ function startRelay(t: TestContext, root: string, port: number, holdMs: number, 
   })
 }
 
-/** Two queued Claude tool sessions, a coordinator and a relay with `turns` capacity. */
-async function twoSessions(t: TestContext, holdMs: number, turns?: number) {
+/** Two queued Claude tool sessions, a coordinator and a relay whose guests behave as `guest` says. */
+async function twoSessions(t: TestContext, guest: GuestOptions) {
   // Short: the pairing directory sits in it.
   const root = await mkdtemp('/tmp/relay-turns-')
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -89,7 +101,7 @@ async function twoSessions(t: TestContext, holdMs: number, turns?: number) {
     protectedHosts: [],
   })
   t.after(() => bridge.close())
-  startRelay(t, root, port, holdMs, turns)
+  startRelay(t, root, port, guest)
 
   const run = (attemptId: string) =>
     runSessionTurn(
@@ -99,6 +111,7 @@ async function twoSessions(t: TestContext, holdMs: number, turns?: number) {
         host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
         toolUrl: 'http://127.0.0.1:1',
         drivers: { 'shared-vm-agent/3': bridge.driver },
+        turnCapacity: bridge.turnCapacity,
       },
       attemptId,
       new AbortController().signal,
@@ -130,17 +143,34 @@ async function heldSlots(fixture: Fixture) {
   return rows.rows
 }
 
-/** Each logged turn's start and end times, by attempt. */
-async function turnLog(root: string) {
+type TurnEvent = 'start' | 'admitted' | 'end'
+
+async function logLines(root: string) {
   const text = await readFile(join(root, 'turns.log'), 'utf8').catch(() => '')
-  const turns = new Map<string, { start?: number; end?: number }>()
-  for (const line of text.trim().split('\n').filter(Boolean)) {
-    const [event, attemptId, at] = line.split(' ')
+  return text
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.split(' '))
+}
+
+/** Each logged turn's start, admission and end times, by attempt. */
+async function turnLog(root: string) {
+  const turns = new Map<string, Partial<Record<TurnEvent, number>>>()
+  for (const [event, attemptId, at] of await logLines(root)) {
+    if (event === 'launch') {
+      continue
+    }
     const turn = turns.get(attemptId) ?? {}
-    turn[event as 'start' | 'end'] = Number(at)
+    turn[event as TurnEvent] = Number(at)
     turns.set(attemptId, turn)
   }
   return turns
+}
+
+/** How many fake guests the relay has started. */
+async function launches(root: string) {
+  return (await logLines(root)).filter(([event]) => event === 'launch').length
 }
 
 /** Resolves once the fake guest has logged the attempt's turn as started. */
@@ -156,7 +186,7 @@ test(
   'two tool turns for one provider run at once through one relay',
   { timeout: 150_000 },
   async (t) => {
-    const { root, fixture, sessions, run } = await twoSessions(t, HOLD_MS)
+    const { root, fixture, sessions, run } = await twoSessions(t, { holdMs: HOLD_MS })
     const [first, second] = sessions
     const firstTurn = run(first)
     // The second starts once the first's guest has its command, so its connection is taken.
@@ -181,7 +211,10 @@ test(
   'a turn that finds every connection busy goes back to the queue and runs later',
   { timeout: 240_000 },
   async (t) => {
-    const { root, fixture, sessions, run } = await twoSessions(t, HOLD_MS + 15_000, 1)
+    const { root, fixture, sessions, run } = await twoSessions(t, {
+      holdMs: HOLD_MS + 15_000,
+      turns: 1,
+    })
     const [first, second] = sessions
     const firstTurn = run(first)
     await started(root, first)
@@ -201,5 +234,54 @@ test(
       session_state: 'finished',
       turn_count: '1',
     })
+  },
+)
+
+test('an idle relay starts no guest', { timeout: 60_000 }, async (t) => {
+  const { root } = await twoSessions(t, { holdMs: 0 })
+  // Long enough for a relay to connect and start a ready guest.
+  await new Promise((settle) => setTimeout(settle, 5_000))
+  assert.equal(await launches(root), 0)
+})
+
+test(
+  'a turn past what the VM can hold stays queued, and runs once the first has ended',
+  { timeout: 180_000 },
+  async (t) => {
+    // 2 GiB holds one tool turn; the session limit allows two. Longer than the 30 s slot wait.
+    const { root, fixture, sessions, run } = await twoSessions(t, {
+      holdMs: 40_000,
+      memoryMib: 2048,
+    })
+    const [first, second] = sessions
+    const firstTurn = run(first)
+    await started(root, first)
+    assert.equal(await run(second), 'queued')
+    assert.deepEqual(await sessionRow(fixture, second), {
+      session_state: 'queued',
+      turn_count: '0',
+    })
+    assert.deepEqual(await failureCodes(fixture, second), [])
+    assert.equal((await turnLog(root)).get(second), undefined)
+    assert.equal(await firstTurn, 'finished')
+    assert.equal(await run(second), 'finished')
+  },
+)
+
+test(
+  'turns started together start one at a time, then run at once',
+  { timeout: 120_000 },
+  async (t) => {
+    const { root, sessions, run } = await twoSessions(t, { holdMs: 8_000, admitMs: 3_000 })
+    const results = await Promise.all(sessions.map((attemptId) => run(attemptId)))
+    assert.deepEqual(results, ['finished', 'finished'])
+    const turns = await turnLog(root)
+    const [a, b] = sessions
+      .map((attemptId) => turns.get(attemptId)!)
+      .sort((x, y) => x.start! - y.start!)
+    // The second reached its guest only once the first's provider was admitted...
+    assert.ok(b.start! >= a.admitted!, JSON.stringify({ a, b }))
+    // ...and they still overlapped.
+    assert.ok(b.start! < a.end!, JSON.stringify({ a, b }))
   },
 )

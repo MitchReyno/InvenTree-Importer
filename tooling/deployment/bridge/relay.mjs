@@ -377,6 +377,67 @@ function watchGuestErrors(stream, onClaimed) {
   })
 }
 
+/**
+ * A lane's offer to the coordinator, before any guest exists: `bench-lane/1`, the route
+ * (see intake-server/src/agents/shared-vm/lane-offers.ts) and nothing else until it says `go`.
+ */
+const LANE_OFFER =
+  [
+    'bench-lane/1',
+    codex ? 'codex' : subscription ? 'claude' : 'none',
+    tools ? 'tools' : 'plain',
+  ].join(' ') + '\n'
+/** The coordinator's request to start this lane's guest. */
+const LANE_START = 'go'
+/** An offer is answered with one short line; anything longer isn't the coordinator's. */
+const MAX_START_LINE = 16
+
+/**
+ * Offers the lane and waits for the coordinator to ask for its guest; false when the connection
+ * ends, says anything else or the relay stops first.
+ */
+async function awaitStart(socket) {
+  socket.write(LANE_OFFER)
+  let rest = Buffer.alloc(0)
+  const started = await new Promise((resolve) => {
+    let received = Buffer.alloc(0)
+
+    const finish = (value) => {
+      socket.off('data', read)
+      socket.off('close', closed)
+      socket.off('end', closed)
+      stopping.signal.removeEventListener('abort', closed)
+      resolve(value)
+    }
+
+    const closed = () => finish(false)
+
+    const read = (bytes) => {
+      received = Buffer.concat([received, bytes])
+      const end = received.indexOf(0x0a)
+      if (end < 0) {
+        if (received.length > MAX_START_LINE) {
+          finish(false)
+        }
+        return
+      }
+      // Whatever follows `go` belongs to the guest's connection.
+      rest = received.subarray(end + 1)
+      finish(received.subarray(0, end).toString('latin1') === LANE_START)
+    }
+
+    socket.on('data', read)
+    socket.once('close', closed)
+    socket.once('end', closed)
+    stopping.signal.addEventListener('abort', closed, { once: true })
+  })
+  socket.pause()
+  if (started && rest.length) {
+    socket.unshift(rest)
+  }
+  return started
+}
+
 /** Connects to the coordinator, retrying until it answers; undefined once the relay stops. */
 async function connectLane() {
   while (!stopping.signal.aborted) {
@@ -492,8 +553,8 @@ async function carryTurn(socket, onClaimed) {
   return claimed
 }
 
-// Each lane carries one turn connection at a time. One lane is kept ready (not yet claimed), and
-// a claim opens the next, so an idle relay holds one guest turn rather than its capacity.
+// Each lane carries one turn connection at a time. One lane is kept offered, with no guest, and
+// the coordinator's request for its guest opens the next offer, so an idle relay starts nothing.
 let lanes = 0
 let readyLanes = 0
 const laneRuns = new Set()
@@ -521,10 +582,17 @@ function startLane() {
     if (!socket) {
       return
     }
-    const claimed = await carryTurn(socket, () => {
-      leaveReady()
-      fillLanes()
-    })
+    socket.on('error', () => socket.destroy())
+    if (!(await awaitStart(socket))) {
+      socket.destroy()
+      // A refused or dropped offer: the replacement waits, so a refusing coordinator can't spin it.
+      await waitFor(UNCLAIMED_RETRY_MS, undefined, stopping.signal)
+      return
+    }
+    leaveReady()
+    fillLanes()
+    // The guest's claim report only tells whether the coordinator went on to use the connection.
+    const claimed = await carryTurn(socket, () => {})
     if (!claimed) {
       await waitFor(UNCLAIMED_RETRY_MS, undefined, stopping.signal)
     }
