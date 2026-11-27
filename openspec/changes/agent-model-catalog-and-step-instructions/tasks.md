@@ -25,7 +25,7 @@
 | 5. Instructions for each step | Contracts, intake server, guest and frontend | BI-022 PR-A (#275) merged | app-settings "Instructions for each step"; processing-agent-sessions "Step instructions sealed into each attempt", all scenarios except "Lots queued on either side of an edit" (task 7) |
 | 6. Live catalogue and effort check | Manual verification | 2, 3, 4 merged; Mitch's go-ahead | shared-vm-execution "Model lists read without a provider turn" against the real providers; processing-agent-sessions "Sessions run at the sealed effort" in a real session |
 | 7. Step instructions in multi-lot groups | Intake server | 5 merged; BI-022 PR-I (multi-lot sessions) merged | processing-agent-sessions "Step instructions sealed into each attempt" (Lots queued on either side of an edit) |
-| 8. Claude's list for a setup token | Contracts, intake server and frontend | 3, 4 merged; the cause found in task 6.2 | app-settings "Model list states" (Claude signed in with a setup token; A full list after a setup-token read); shared-vm-execution "Model lists read without a provider turn" (Claude with a subscription) |
+| 8. Claude's list for a setup token | Contracts, intake server and frontend | 3, 4 merged; the cause found in task 6.2 | app-settings "A provider that lists no models for its sign-in", both scenarios; shared-vm-execution "Model lists read without a provider turn" (Claude with a subscription) |
 
 ## PR delivery map
 
@@ -198,14 +198,14 @@
 - **Outcome:** with Claude signed in with a setup token in the agent VM, Settings shows the built-in list with the reason and a pointer to typing an exact ID, rather than a failed read retried every 5 minutes. A later full list is stored as usual.
 - **Scope and approach:** the failure code and state `not_listed` in the contracts; migration `0046` adding the code to the column's check; the guest route's normaliser recording an alias-only reply as `not_listed` (the host keeps `unavailable`); the schedule waiting 12 hours after a `not_listed` attempt; the API answering the state with the built-in list; the picker note and card line. The design is "A setup token's list".
 - **Prerequisites:** tasks 3 and 4 merged; the cause found in task 6.2 (`notes.md`).
-- **Acceptance:** app-settings "Model list states", Claude signed in with a setup token and A full list after a setup-token read; shared-vm-execution "Model lists read without a provider turn", Claude with a subscription.
+- **Acceptance:** app-settings "A provider that lists no models for its sign-in", both scenarios; shared-vm-execution "Model lists read without a provider turn", Claude with a subscription.
 - **TDD approach:** the guest reader refusing the recorded alias-only reply as `not_listed`, the schedule not due 5 minutes after it, the API answering `not_listed` with the built-in list, and the picker and card wording fail first: today the reply is `unavailable`, retried after 5 minutes and shown as never read.
 - **Verification:** contracts tests; intake unit and PG tiers; frontend checks; captures at 1440 and 390 px; after the merge, a free guest read confirming the state live.
 - **Risks and decisions:** the CLI's offline reply looks the same, so a broken egress also reads as `not_listed` (see `notes.md`). Mitch chose this state over the undocumented account variable.
 
-- [ ] 8.1 RED: the normaliser, guest reader, schedule, API and frontend tests above.
-- [ ] 8.2 GREEN: the contracts, migration, worker, API and frontend.
-- [ ] 8.3 Update `agents/ARCHITECTURE.md` and the deployment README, and run the contracts tests, the intake unit and PG tiers and the frontend checks.
+- [x] 8.1 RED: the normaliser, guest reader, schedule, API and frontend tests above.
+- [x] 8.2 GREEN: the contracts, migration, worker, API and frontend.
+- [x] 8.3 Update `agents/ARCHITECTURE.md` and the deployment README, and run the contracts tests, the intake unit and PG tiers and the frontend checks.
 - [ ] 8.4 After the merge, confirm the state live with a free guest read.
 
 ## Delivery evidence and lifecycle follow-up

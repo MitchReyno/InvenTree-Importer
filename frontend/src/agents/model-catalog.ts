@@ -250,6 +250,9 @@ export function catalogLine(view: ProviderCatalogView, now: number) {
   if (view.waiting) {
     return `Reading ${PROVIDER_NAME[view.provider]}’s models…`
   }
+  if (view.state === 'not_listed') {
+    return `Built-in list · ${PROVIDER_NAME[view.provider]} doesn’t list models for a setup token`
+  }
   if (view.builtin) {
     return 'Built-in list, may be out of date'
   }

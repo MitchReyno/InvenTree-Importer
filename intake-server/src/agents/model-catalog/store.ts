@@ -313,7 +313,10 @@ export async function clearStaleReads(pool: Pool, scope: CaptureBinding) {
   )
 }
 
-/** Whether a key's row asks for a read now: requested, never read, stale with age, or failed. */
+/**
+ * Whether a key's row asks for a read now: requested, never read, stale with age, or failed. A
+ * provider that lists no models for its sign-in would answer the same, so it waits the full age.
+ */
 export function catalogReadDue(row: CatalogRow | undefined, now: Date) {
   if (!row) {
     return true
@@ -322,12 +325,15 @@ export function catalogReadDue(row: CatalogRow | undefined, now: Date) {
     return true
   }
   const time = now.getTime()
-  const retryPassed =
-    row.attemptedAt === null || time - row.attemptedAt.getTime() >= CATALOG_RETRY_MS
+  const sinceAttempt = row.attemptedAt === null ? Infinity : time - row.attemptedAt.getTime()
+  const retryPassed = sinceAttempt >= CATALOG_RETRY_MS
   const lastFailed =
     row.failure !== null &&
     row.attemptedAt !== null &&
     (row.readAt === null || row.attemptedAt.getTime() > row.readAt.getTime())
+  if (lastFailed && row.failure === 'not_listed') {
+    return sinceAttempt >= CATALOG_MAX_AGE_MS
+  }
   if (row.readAt === null || lastFailed) {
     return retryPassed
   }

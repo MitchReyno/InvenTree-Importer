@@ -66,7 +66,9 @@ export function guestReader(catalog: GuestCatalog, provider: CatalogProvider): C
       if (provider === 'codex' && !Array.isArray(raw)) {
         throw new CatalogReadError('malformed')
       }
-      const models = provider === 'claude' ? claudeCliModels(raw) : codexModels(raw as unknown[])
+      // The guest signs Claude in with a setup token, which the pinned CLI lists only aliases for.
+      const models =
+        provider === 'claude' ? claudeCliModels(raw, 'not_listed') : codexModels(raw as unknown[])
       return { generation: answer.read.generation, cliVersion: answer.read.cliVersion, models }
     },
     async generation(signal) {

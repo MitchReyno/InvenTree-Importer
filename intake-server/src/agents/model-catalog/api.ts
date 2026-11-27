@@ -48,8 +48,17 @@ function lastAttemptFailed(row: CatalogRow) {
   return row.readAt === null || row.attemptedAt.getTime() > row.readAt.getTime()
 }
 
+/** Whether the last attempt found the provider lists no models for this sign-in. */
+function notListed(row: CatalogRow | undefined) {
+  return row !== undefined && lastAttemptFailed(row) && row.failure === 'not_listed'
+}
+
 function catalogState(row: CatalogRow | undefined): AgentProviderCatalogDto['state'] {
   const reading = row?.refreshRequestedAt != null || row?.readingSince != null
+  // The provider's own answer under the current sign-in, so it stands over any stored list.
+  if (notListed(row) && !reading) {
+    return 'not_listed'
+  }
   if (!row?.models) {
     return reading ? 'reading' : 'never_read'
   }
@@ -64,15 +73,19 @@ function catalogState(row: CatalogRow | undefined): AgentProviderCatalogDto['sta
   return lastAttemptFailed(row) ? 'failed' : 'current'
 }
 
-/** One provider's answer: the stored list, or the built-in one while none is stored. */
+/**
+ * One provider's answer: the stored list, or the built-in one while none is stored or the provider
+ * lists none for this sign-in.
+ */
 export function providerCatalog(
   provider: CatalogProvider,
   authentication: CatalogAuthentication,
   row: CatalogRow | undefined,
 ): AgentProviderCatalogDto {
-  const stored = row?.models ?? null
+  const state = catalogState(row)
+  const stored = state === 'not_listed' ? null : (row?.models ?? null)
   return {
-    state: catalogState(row),
+    state,
     authentication,
     source: stored ? row!.source : null,
     read_in: stored ? row!.readIn : null,

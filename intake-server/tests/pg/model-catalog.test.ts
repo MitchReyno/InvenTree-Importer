@@ -314,6 +314,7 @@ test('an alias-only guest reply after a stored list shows the built-in list and 
     provider: 'claude',
     invalidate: true,
   })
+  time.advance(1)
   await round(catalog)
   const answer = await readModelCatalog(fixture.api.pool, fixture.config)
   assert.equal(answer.claude.state, 'not_listed')

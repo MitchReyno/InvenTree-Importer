@@ -125,10 +125,13 @@ function representative(entries: ClaudeCliEntry[]) {
  * to, in first-seen order, and `default` marks the model the CLI's default resolves to.
  *
  * A reply naming no model by its exact ID is the CLI's built-in alias list, which it answers when
- * it couldn't reach Anthropic (the offline 2.1.319 reply). It isn't the account's list, so it is
- * refused as `unavailable` and the last good list stays.
+ * it couldn't reach Anthropic or doesn't know the account, as with a setup token. It isn't the
+ * account's list, so it is refused as `aliasesOnly`: `unavailable` unless the caller knows why.
  */
-export function claudeCliModels(models: unknown): AgentCatalogModelDto[] {
+export function claudeCliModels(
+  models: unknown,
+  aliasesOnly: AgentCatalogFailure = 'unavailable',
+): AgentCatalogModelDto[] {
   const groups = new Map<string, ClaudeCliEntry[]>()
   let defaultId: string | undefined
   let exactEntries = 0
@@ -148,7 +151,7 @@ export function claudeCliModels(models: unknown): AgentCatalogModelDto[] {
     groups.set(entry.id, group)
   }
   if (exactEntries === 0) {
-    throw new CatalogReadError('unavailable')
+    throw new CatalogReadError(aliasesOnly)
   }
   const folded = [...groups.entries()].map(([id, entries]) => {
     const chosen = representative(entries)

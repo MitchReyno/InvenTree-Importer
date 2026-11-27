@@ -130865,6 +130865,10 @@
                 "type": "string"
               },
               {
+                "const": "not_listed",
+                "type": "string"
+              },
+              {
                 "const": "never_read",
                 "type": "string"
               }
@@ -130971,6 +130975,10 @@
                   },
                   {
                     "const": "unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "not_listed",
                     "type": "string"
                   }
                 ]
@@ -131093,6 +131101,10 @@
                     "type": "string"
                   },
                   {
+                    "const": "not_listed",
+                    "type": "string"
+                  },
+                  {
                     "const": "never_read",
                     "type": "string"
                   }
@@ -131199,6 +131211,10 @@
                       },
                       {
                         "const": "unavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "not_listed",
                         "type": "string"
                       }
                     ]
@@ -131313,6 +131329,10 @@
                     "type": "string"
                   },
                   {
+                    "const": "not_listed",
+                    "type": "string"
+                  },
+                  {
                     "const": "never_read",
                     "type": "string"
                   }
@@ -131419,6 +131439,10 @@
                       },
                       {
                         "const": "unavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "not_listed",
                         "type": "string"
                       }
                     ]
