@@ -149,6 +149,12 @@ The supervised consumer `media/render-worker-main.ts` (`figure-render` in `tooli
 
 The Processing read gives each `/2` question's figures a state (`processing/question-figures.ts`): `removed` for a removed photo, otherwise `preparing`, `ready` or `failed` from its view render. `GET /api/v1/batches/:batchId/processing/sessions/:jobId/questions/:questionId/figures/:index/:size` serves the `view` or `thumb` WebP under the session history's scope, 404 for an unknown figure or a removed photo and 409 while it is preparing, after it failed, or once its view is no longer kept.
 
+### Images crops and confirmed images
+
+An Images session's `images/1` crops (recipe `/2`, `bench-intake-view/2`) are rendered for review through the question figures' queue: each crop is a view render keyed by its recipe digest and kept while `processing_proposal_image` (migration `0048`) names it. `GET /api/v1/batches/:id/processing/images` returns each lot's proposals with their crops' render states and the lot's confirmed images, and `GET /api/v1/batches/:batchId/processing/images/:proposalId/crops/:index/:size` serves a rendered crop under the batch's scope.
+
+The operator confirms with the media edit `select_images` (`media/image-selection-edit.ts`): each recipe `/2` must name a present, ready original of the batch with its digest and page size and fit its page; it becomes a derived crop through `media_derivation` and a decode command, reusing a queued or ready derivation of the same recipe. The set is appended to `media_image_selection` and its items (one Part image, up to eight ordered stock images); the latest row is the lot's current set, and an empty row clears it. The media worker derives a recipe `/2` as the decoder's lossless PNG crop. Removing a photo writes a new set without its crops for each affected lot; restoring it keeps them cleared. These selections create no effect yet: preparation and approval take them up in PR-F.
+
 ### Removed evidence
 
 Migration `0031` adds append-only `media_evidence_removal`: one row per remove or restore of an evidence item, under the media revision and actor. An item's latest row is its state, and no row means present. Bytes, versions, notes, links and history are kept; the immutability trigger refuses UPDATE and DELETE. `media/removal.ts` owns the state reads and `versionRemovedSql`, the SQL check other modules use; `media/removal-edit.ts` owns the `remove` and `restore` edits that `media/edit.ts` dispatches.

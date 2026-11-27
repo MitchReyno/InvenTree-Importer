@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import zlib from 'node:zlib'
 import sharp from 'sharp'
 import { MEDIA_TOOLCHAIN, type MediaLitViewRecipeDto } from '@invimport/contracts/media'
-import { decode } from '../src/decode.ts'
+import { decode, pngChunksIntact } from '../src/decode.ts'
 import { renderLitCrop } from '../src/lit-crop.ts'
 import { MONTAGE_GEOMETRY, renderPreview } from '../src/preview.ts'
 import type { PreviewCropOutcome, PreviewInput } from '../src/decoder-protocol.ts'
@@ -313,7 +313,13 @@ test('a declared page that is not its PNG is malformed even when no crop uses it
     end,
   ])
   const trailingBytes = Buffer.concat([valid, Buffer.from([0])])
+  // A 14-byte IHDR still names 50 x 40 where the header check reads it, so the scan refuses it.
+  const longHeader = pngFrom([
+    pngChunk('IHDR', Buffer.concat([header.data, Buffer.alloc(1)])),
+    ...chunks.slice(1),
+  ])
   const cases = [
+    longHeader,
     twoPalettes,
     trailingBytes,
     // An ancillary chunk ahead of IHDR, and a file that stops cleanly before IEND.
@@ -345,6 +351,30 @@ test('a declared page that is not its PNG is malformed even when no crop uses it
       toolchain: MEDIA_TOOLCHAIN,
     })
   }
+})
+
+test('the chunk scan itself refuses what the header check would otherwise catch first', async () => {
+  const valid = await sharp({
+    create: { width: 50, height: 40, channels: 3, background: '#2050c0' },
+  })
+    .png()
+    .toBuffer()
+  const chunks = pngChunks(valid)
+  const [header] = chunks
+  assert.equal(pngChunksIntact(valid), true)
+  // Ahead of the header check: a wrong signature, and a chunk before IHDR.
+  const signature = Buffer.from(valid)
+  signature[1] ^= 0xff
+  assert.equal(pngChunksIntact(signature), false)
+  assert.equal(pngChunksIntact(pngFrom([pngChunk('tEXt', Buffer.from('a\0b')), ...chunks])), false)
+  // An IHDR one byte too long or short, each with a correct CRC.
+  const longer = Buffer.concat([header.data, Buffer.alloc(1)])
+  assert.equal(pngChunksIntact(pngFrom([pngChunk('IHDR', longer), ...chunks.slice(1)])), false)
+  const shorter = header.data.subarray(0, 12)
+  assert.equal(pngChunksIntact(pngFrom([pngChunk('IHDR', shorter), ...chunks.slice(1)])), false)
+  // A lone IHDR, and bytes that stop inside the IHDR chunk.
+  assert.equal(pngChunksIntact(pngFrom([header])), false)
+  assert.equal(pngChunksIntact(valid.subarray(0, 20)), false)
 })
 
 test('a crop at the page edge reports the corner guard', async () => {

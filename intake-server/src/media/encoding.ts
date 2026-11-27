@@ -3,11 +3,14 @@ import type { PoolClient } from 'pg'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { idempotent, type CommandScope } from '#/db/authority.ts'
 
-/** Media-v1 adds bounded integer pixels/pages without changing stock-v1 canonical bytes. */
+/**
+ * Media-v1 adds bounded integer pixels/pages without changing stock-v1 canonical bytes. A view's
+ * straightening angle may be negative; safe integers keep the same text either way.
+ */
 export function canonicalMedia(value: unknown): string {
   if (typeof value === 'number') {
-    if (!Number.isSafeInteger(value) || value < 0) {
-      throw new Error('media_requires_nonnegative_integer_scalars')
+    if (!Number.isSafeInteger(value)) {
+      throw new Error('media_requires_safe_integer_scalars')
     }
     return String(value)
   }

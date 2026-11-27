@@ -49,6 +49,17 @@ export function questionFigureImage(
   return `/api/v1/batches/${job}/questions/${encodeURIComponent(questionId)}/figures/${index}/${size}`
 }
 
+/** A proposed Images crop as the app renders it from its original: the `view` or its `thumb`. */
+export function imagesCropImage(
+  batchId: string,
+  proposalId: string,
+  index: number,
+  size: QuestionFigureSize,
+) {
+  const proposal = `${encodeURIComponent(batchId)}/processing/images/${encodeURIComponent(proposalId)}`
+  return `/api/v1/batches/${proposal}/crops/${index}/${size}`
+}
+
 /** `onConfirmed` runs once the change is confirmed, whether by this request or its exact retry. */
 export type EditMedia = (
   change: MediaEditDto['change'],

@@ -1,7 +1,11 @@
 import type { MediaInputContextDto } from '@invimport/contracts/media'
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
-import type { CaptureSnapshotDto, MediaRecipeDto, MediaSnapshotDto } from '@invimport/contracts'
+import type {
+  CaptureSnapshotDto,
+  MediaDerivedRecipeDto,
+  MediaSnapshotDto,
+} from '@invimport/contracts'
 import {
   assertMediaInputManifest,
   MEDIA_INPUT_MAX_BYTES,
@@ -24,7 +28,7 @@ export interface MediaInputVersion {
   digest: string
   byteSize: string
   mediaType: string
-  recipe: MediaRecipeDto | null
+  recipe: MediaDerivedRecipeDto | null
 }
 
 export type MediaAttachmentSelection = MediaSnapshotDto['attachments'][number]

@@ -13,6 +13,7 @@ import {
   mediaVersions,
 } from './schema.ts'
 import { mediaSnapshot } from './read.ts'
+import { clearRemovedImages } from './image-selection-edit.ts'
 import { currentRemovals, retainRemoval, selectionsOfVersions } from './removal.ts'
 
 interface RemovalChange {
@@ -58,8 +59,8 @@ function affectedLots(snapshot: MediaSnapshotDto, ids: ReadonlySet<string>, lotI
 }
 
 /**
- * Records the removal of present items, clears attachment selections of their versions, and
- * marks what relied on them stale. Bytes, history and notes stay; reads leave the items out.
+ * Records the removal of present items, clears attachment selections of their versions and the
+ * confirmed images cropped from them, and marks what relied on them stale. Bytes, history and notes stay; reads leave the items out.
  */
 export async function removeEvidence(
   client: PoolClient,
@@ -101,6 +102,12 @@ export async function removeEvidence(
         }),
     )
   }
+  // Confirmed images cropped from them leave the lots' current images in the same way.
+  await clearRemovedImages(client, binding, {
+    batchId: change.batchId,
+    revision: change.revision,
+    evidenceIds: ids,
+  })
   await evidenceRemoved(client, {
     batchId: change.batchId,
     evidenceIds: [...ids].sort(),
@@ -145,7 +152,7 @@ async function restoreGrouping(client: PoolClient, binding: CaptureBinding, chan
 
 /**
  * Restores removed items as a new event. Stale proposals stay stale; the Examine lead receives
- * each restored original as new evidence. A cleared attachment selection stays cleared.
+ * each restored original as new evidence. A cleared attachment selection or image stays cleared.
  */
 export async function restoreEvidence(
   client: PoolClient,

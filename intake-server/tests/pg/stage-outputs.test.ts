@@ -1209,7 +1209,8 @@ test('the synthetic /7 drivers hand over, release and cite the photo, and publis
   assert.ok(shown.includes('proposal') && shown.includes('photo_view'))
   assert.ok(!shown.includes('photo_release'))
 
-  // Images publishes no recipes yet, and its repeated quantity question returns Research's.
+  // Without the decoder Images publishes no recipes, and its repeated quantity question returns
+  // Research's.
   assert.equal(
     await runSessionTurn(deps, images.attemptId, new AbortController().signal),
     'finished',

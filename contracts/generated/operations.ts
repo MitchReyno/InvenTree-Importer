@@ -276,6 +276,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/batches/{id}/processing/images",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "ProcessingImagesReview"
+    }
+  ],
+  [
     "POST /api/v1/batches/{id}/processing/{jobId}/cancellation",
     {
       "timeoutMs": 10000,

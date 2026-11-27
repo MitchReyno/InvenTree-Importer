@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto'
 import { strictJson } from '@invimport/contracts/json'
 import {
+  assertMediaGridOutputHeader,
+  assertMediaLogoMatchOutputHeader,
   assertMediaOutputHeader,
+  assertMediaPreviewOutputHeader,
   assertMediaRenditionOutputHeader,
   assertMediaViewOutputHeader,
   expectedRenditionSizes,
@@ -10,6 +13,9 @@ import {
   viewLayout,
   type MediaOutputPageDto,
   type MediaOutputRenditionDto,
+  type MediaGridOutputHeaderDto,
+  type MediaLogoMatchOutputHeaderDto,
+  type MediaPreviewOutputHeaderDto,
   type MediaViewOutputHeaderDto,
 } from '@invimport/contracts/media'
 import {
@@ -18,6 +24,9 @@ import {
   type DecodedMedia,
   type DecodedPage,
   type DecodedRendition,
+  type GridResult,
+  type LogoMatchResult,
+  type PreviewResult,
   type RenderedPage,
   type RenditionResult,
   type ViewImage,
@@ -263,4 +272,65 @@ export function parseViewOutput(
     throw new Error('decoder_output_trailing_bytes')
   }
   return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, view, thumb, preview }
+}
+
+type FailedImageOperation = { state: 'malformed' | 'limit_exceeded'; toolchain: string }
+
+/**
+ * A one-image result of an image tool's operation: its header, then exactly the PNG it describes
+ * under `key`. A failed operation is its header alone.
+ */
+function oneImageOutput<Header extends { state: string }>(
+  bytes: Buffer,
+  assertHeader: (value: unknown) => asserts value is Header,
+  key: 'montage' | 'image' | 'sheet',
+): { failed: FailedImageOperation } | { header: Header; image: ViewImage } {
+  const headerEnd = bytes.indexOf(10)
+  if (headerEnd < 0 || headerEnd > MEDIA_DECODER_HEADER_MAX_BYTES) {
+    throw new Error('invalid_decoder_header')
+  }
+  const header = strictJson(bytes.subarray(0, headerEnd).toString('utf8'))
+  assertHeader(header)
+  const payload = bytes.subarray(headerEnd + 1)
+  if (header.state !== 'ready') {
+    if (payload.length) {
+      throw new Error('decoder_output_trailing_bytes')
+    }
+    return {
+      failed: { state: header.state as FailedImageOperation['state'], toolchain: MEDIA_TOOLCHAIN },
+    }
+  }
+  const item = (header as unknown as Record<string, ViewOutputImageDto>)[key]
+  const image = viewImage(item, payload, { width: item.width, height: item.height, format: 'png' })
+  return { header, image }
+}
+
+/** A `preview_images` result: the labelled montage and each crop's outcome. */
+export function parsePreviewOutput(bytes: Buffer): PreviewResult {
+  const output = oneImageOutput(bytes, assertMediaPreviewOutputHeader, 'montage')
+  if ('failed' in output) {
+    return output.failed
+  }
+  const header = output.header as Extract<MediaPreviewOutputHeaderDto, { state: 'ready' }>
+  return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, montage: output.image, crops: header.crops }
+}
+
+/** An `inspect_region` result: the grid PNG and what it drew, in page pixels. */
+export function parseGridOutput(bytes: Buffer): GridResult {
+  const output = oneImageOutput(bytes, assertMediaGridOutputHeader, 'image')
+  if ('failed' in output) {
+    return output.failed
+  }
+  const header = output.header as Extract<MediaGridOutputHeaderDto, { state: 'ready' }>
+  return { ...header, toolchain: MEDIA_TOOLCHAIN, image: output.image }
+}
+
+/** A `match_logo` result: the ranked candidates and their sheet. */
+export function parseLogoMatchOutput(bytes: Buffer): LogoMatchResult {
+  const output = oneImageOutput(bytes, assertMediaLogoMatchOutputHeader, 'sheet')
+  if ('failed' in output) {
+    return output.failed
+  }
+  const header = output.header as Extract<MediaLogoMatchOutputHeaderDto, { state: 'ready' }>
+  return { ...header, toolchain: MEDIA_TOOLCHAIN, sheet: output.image }
 }

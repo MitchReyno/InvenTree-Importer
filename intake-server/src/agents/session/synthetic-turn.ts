@@ -16,6 +16,10 @@ export interface SyntheticResult {
   brief?: { revision: string; entries: unknown[]; next_page_token: string | null }
   /** fetch_evidence: the exact source to cite once the image was delivered. */
   source?: Record<string, unknown>
+  /** A refused call's code. */
+  error?: string
+  /** preview_images: each crop as it would be derived, or why it was refused. */
+  crops?: { state: string }[]
 }
 
 /**
@@ -228,6 +232,82 @@ async function publishStageOutput(
   }
 }
 
+/**
+ * A `/7` Images session's output: the lot's first photo fetched, its first page previewed as a
+ * whole-page stock image with no adjustments, and proposed through `propose_images`. A lot with no
+ * delivered photo, or a worker without image tools, publishes nothing; a refused preview fails the turn.
+ */
+async function publishImages(
+  manifest: SessionDriverContext['manifest'],
+  items: NonNullable<SyntheticResult['items']>,
+  call: Call,
+) {
+  const lot = manifest as LotInput
+  const photo = decodeMediaInputs(
+    Buffer.from(manifest.media.manifest, 'utf8'),
+    Buffer.from(manifest.media.sha256, 'hex'),
+  ).versions.find((version) => version.kind === 'original')
+  if (!photo) {
+    return
+  }
+  const fetched = await call('fetch_evidence', {
+    evidence_id: photo.evidenceId,
+    version_id: photo.versionId,
+  })
+  const page = fetched.pages?.[0]
+  if (!fetched.ok || !fetched.delivered || !fetched.source || !page) {
+    return
+  }
+  const recipe = {
+    version: 'bench-intake-view/2',
+    source_version_id: photo.versionId,
+    source_digest: photo.digest,
+    page: page.page,
+    page_width: page.width,
+    page_height: page.height,
+    view: {
+      region: { x: 0, y: 0, width: page.width, height: page.height },
+      quarter_turns: 0,
+      straighten_millidegrees: 0,
+    },
+    light: {
+      white_balance: false,
+      contrast_clip_permille: null,
+      gamma_thousandths: null,
+      sharpen: false,
+    },
+  }
+  const previewed = await call('preview_images', { crops: [{ label: 'stock', recipe }] })
+  // A worker without image tools publishes nothing; any other refused preview fails the turn
+  // rather than ending it as if Images had nothing to propose.
+  if (previewed.error === 'tool_unavailable') {
+    return
+  }
+  if (!previewed.ok || previewed.crops?.[0]?.state !== 'rendered') {
+    throw new Error('synthetic_images_preview_refused')
+  }
+  const published = await call('propose_images', {
+    proposal: {
+      schema_version: 'images/1',
+      subject_id: lot.subject_id,
+      summary: 'Synthetic images: the whole first photo as a stock image.',
+      sources: [fetched.source],
+      relies_on: {
+        fields: ['identity'],
+        sources: [
+          fetched.source,
+          ...lot.pinned_proposal_ids.map((id) => ({ kind: 'proposal', proposal_id: id })),
+          ...items.map((item) => ({ kind: 'inbox_item', inbox_item_id: item.id })),
+        ],
+      },
+      images: [{ role: 'stock_image', recipe }],
+    },
+  })
+  if (!published.ok) {
+    throw new Error('synthetic_images_refused')
+  }
+}
+
 /** The text's first `count` code points, so no surrogate pair is split as a UTF-16 cut would. */
 function firstCodePoints(text: string, count: number) {
   return [...text].slice(0, count).join('')
@@ -267,7 +347,13 @@ export async function syntheticTurn(
   const read = await call('read_inbox', { after_seq: '0' })
   const items = read.items ?? []
   const note = evidenceNotes(context.manifest.notes, context.manifest.batch_id)[0]
-  if (
+  const stageImages =
+    context.manifest.schema_version === 'bench-intake-input/7' &&
+    context.manifest.stage === 'images' &&
+    context.manifest.subject_id !== null
+  if (stageImages) {
+    await publishImages(context.manifest, items, call)
+  } else if (
     note &&
     context.manifest.subject_id &&
     context.manifest.schema_version === 'bench-intake-input/7'

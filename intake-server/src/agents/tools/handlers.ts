@@ -23,6 +23,12 @@ import {
   type SessionReadLotArgsDto,
   type SessionReadGuideArgsDto,
   type SessionReadVocabularyArgsDto,
+  type SessionInspectRegionArgsDto,
+  type SessionMatchLogoArgsDto,
+  type SessionPreviewImagesArgsDto,
+  type SessionProposeImagesArgsDto,
+  type SessionToolImageDto,
+  type ProcessingInputV7Dto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
   webPageUrlAccepted,
@@ -96,6 +102,18 @@ import {
   type PreviewRow,
 } from '#/media/figure-renders.ts'
 import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
+import { DecoderDispatcherBusyError } from '#/media/dispatcher-client.ts'
+import { MEDIA_PREVIEW_MAX_BYTES, PREVIEW_MAX_PAGES } from '@invimport/contracts/media'
+import {
+  lotEvidenceIds,
+  namedToolPage,
+  recipePages,
+  requireDecoderLabel,
+  requireRegionInPage,
+  type DeliverableVersion,
+  type SessionImageOperations,
+  type ToolPage,
+} from './image-tools.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
 
@@ -125,6 +143,10 @@ export interface SessionToolContext {
   cropCacheDir?: string
   /** How long an `ask` preview waits for its renders; `FIGURE_PREVIEW_WAIT_MS` by default. */
   figurePreviewWaitMs?: number
+  /** The decoder operations behind the image tools; without them those tools are unavailable. */
+  imageOperations?: SessionImageOperations
+  /** Image tool calls this worker is running now; beyond `IMAGE_TOOLS_AT_ONCE` one is refused. */
+  imageToolsRunning?: { count: number }
 }
 
 /** An `ask` preview waits at most this long for the media worker to render its figures. */
@@ -978,6 +1000,137 @@ function publishedProposal(principal: SessionPrincipal, args: unknown): Retained
     throw refusal
   }
   return proposal
+}
+
+/** An Images session's `images/1`, refused unless this is a `/7` Images session. */
+function imagesProposal(principal: SessionPrincipal, args: unknown): ImagesProposalDto {
+  if (
+    principal.manifest.schema_version !== 'bench-intake-input/7' ||
+    principal.manifest.stage !== 'images'
+  ) {
+    refuse('tool_not_allowed', 'Only an Images session proposes images.')
+  }
+  const { proposal } = validated<SessionProposeImagesArgsDto>('SessionProposeImagesArgs', args)
+  refuseUnstorableText(proposal, '/proposal')
+  refuseRepeatedRecipes(proposal)
+  refuseUncitedRecipeSources(proposal)
+  const refusal = stageOutputRefusal(principal.manifest as ProcessingInputV7Dto, proposal)
+  if (refusal) {
+    throw refusal
+  }
+  return proposal
+}
+
+type ImagesProposalDto = SessionProposeImagesArgsDto['proposal']
+
+/**
+ * Every recipe's photo must be in the lot's scope now, not only once delivered: a photo moved to
+ * another lot can't be proposed for this one.
+ */
+async function requireLotScope(
+  client: PoolClient,
+  batchId: string,
+  lotId: string,
+  pages: ToolPage[],
+  pageOf: number[],
+) {
+  const inScope = await lotEvidenceIds(client, batchId, lotId)
+  for (const [index, pageIndex] of pageOf.entries()) {
+    if (!inScope.has(pages[pageIndex].evidenceId)) {
+      throw new ToolRefusal(
+        'source_not_delivered',
+        'A recipe names a photo that is no longer in this lot.',
+        [
+          {
+            path: `/proposal/images/${index}/recipe/source_version_id`,
+            rule: 'lot_scope',
+            reason: 'The photo is not in this lot now.',
+          },
+        ],
+      )
+    }
+  }
+}
+
+/**
+ * Each recipe's photo must be one of the proposal's cited sources, so removing that photo stales
+ * the proposal as removing any cited source does.
+ */
+function refuseUncitedRecipeSources(proposal: ImagesProposalDto) {
+  const cited = new Set(
+    proposal.sources.flatMap((source) =>
+      source.kind === 'media_version' ? [source.version_id] : [],
+    ),
+  )
+  for (const [index, image] of proposal.images.entries()) {
+    if (!cited.has(image.recipe.source_version_id)) {
+      throw new ToolRefusal(
+        'validation_failed',
+        'Cite each crop’s photo in the proposal’s sources.',
+        [
+          {
+            path: `/proposal/images/${index}/recipe/source_version_id`,
+            rule: 'cited',
+            reason: 'Add this photo’s fetch_evidence source to sources.',
+          },
+        ],
+      )
+    }
+  }
+}
+
+/** Two crops with the same recipe would be one derived crop, which can't take two places. */
+function refuseRepeatedRecipes(proposal: ImagesProposalDto) {
+  const seen = new Set<string>()
+  for (const [index, image] of proposal.images.entries()) {
+    const digest = figureRecipeDigest(image.recipe).toString('hex')
+    if (seen.has(digest)) {
+      throw new ToolRefusal(
+        'validation_failed',
+        'Two crops have the same recipe; propose it once.',
+        [
+          {
+            path: `/proposal/images/${index}/recipe`,
+            rule: 'unique',
+            reason: 'An earlier crop has this recipe.',
+          },
+        ],
+      )
+    }
+    seen.add(digest)
+  }
+}
+
+/**
+ * Keeps each crop of a published `images/1` in order, and queues the app's rendering of each for
+ * the Images step: the decoder's `render_view` with recipe `/2`'s light step, as derivation uses.
+ */
+async function storeProposalImages(
+  client: PoolClient,
+  batchId: string,
+  proposalId: string,
+  proposal: ImagesProposalDto,
+) {
+  for (const [index, image] of proposal.images.entries()) {
+    await client.query(
+      `INSERT INTO public.processing_proposal_image(
+         proposal_id, image_index, batch_id, version_id, page, recipe_digest)
+       VALUES($1,$2,$3,$4,$5,$6)`,
+      [
+        proposalId,
+        index + 1,
+        batchId,
+        image.recipe.source_version_id,
+        image.recipe.page,
+        figureRecipeDigest(image.recipe),
+      ],
+    )
+  }
+  await enqueueFigureRenders(
+    client,
+    batchId,
+    proposal.images.map((image) => ({ recipe: image.recipe })),
+  )
 }
 
 /**
@@ -2002,6 +2155,353 @@ async function previewOutput(
   }
 }
 
+/**
+ * A worker runs at most this many image tool calls at once, so the pages they read and the
+ * packets they build stay bounded whatever the dispatcher's queue; another call is refused at once.
+ */
+export const IMAGE_TOOLS_AT_ONCE = 2
+
+/** `inspect_region` draws its grid this wide when the agent doesn't say. */
+export const DEFAULT_GRID_PREVIEW_WIDTH = 1200
+/** `match_logo` returns this many candidates when the agent doesn't say. */
+export const DEFAULT_LOGO_CANDIDATES = 10
+
+/** Which `/7` stages have each image tool, as "Stage tool sets" lists them. */
+const IMAGE_TOOL_STAGES = {
+  inspect_region: ['examine', 'images'],
+  match_logo: ['examine', 'research'],
+  preview_images: ['images'],
+} as const
+
+type ImageToolName = keyof typeof IMAGE_TOOL_STAGES
+
+function requireImageToolStage(principal: SessionPrincipal, tool: ImageToolName) {
+  const stages: readonly string[] = IMAGE_TOOL_STAGES[tool]
+  const stageInput = principal.manifest.schema_version === 'bench-intake-input/7'
+  if (!stageInput || !stages.includes(principal.manifest.stage as string)) {
+    refuse('tool_not_allowed', `This session has no ${tool} tool.`)
+  }
+}
+
+/** What a decoder operation produced: the result's fields and its one image, or why it failed. */
+type ImageOperationOutcome =
+  | {
+      kind: 'ready'
+      fields: Record<string, unknown>
+      image: { bytes: Buffer; width: number; height: number }
+    }
+  | { kind: 'malformed' | 'limit_exceeded' }
+
+/** An image tool's checked request: the pages it reads and the operation it runs on them. */
+interface ImageToolPlan {
+  pages: ToolPage[]
+  run: (pages: Buffer[]) => Promise<ImageOperationOutcome>
+  /** What the agent is told when the decoder finds the request malformed or over its limits. */
+  refused: { malformed: string; limit_exceeded: string }
+}
+
+/**
+ * An image tool's final decision, once its image is ready to send: under the batch's share lock,
+ * then the session's, as `finishEvidenceFetch` takes them, the session must still be running and
+ * none of its photos removed, so a removal either commits first and withholds the image or waits.
+ */
+async function finishImageTool(
+  context: SessionToolContext,
+  token: string,
+  versionIds: readonly string[],
+): Promise<{ kind: 'sent'; pending: number } | { kind: 'refused'; output: SessionToolOutput }> {
+  try {
+    const pending = await transaction(context.pool, async (client) => {
+      const found =
+        (await resolveSessionCapability(client, token)) ??
+        refuse('capability_refused', 'This session capability is not valid.')
+      await shareBatchStream(client, found.batchId)
+      await requireRunningSession(client, token, found)
+      await refuseRemovedVersions(client, found.batchId, versionIds)
+      return pendingSessionInbox(client, found.lineageId!)
+    })
+    return { kind: 'sent', pending }
+  } catch (error) {
+    if (error instanceof ToolRefusal) {
+      return { kind: 'refused', output: await refusalOutput(context, token, error) }
+    }
+    throw error
+  }
+}
+
+/**
+ * Runs an image tool: the session's authority and the request are checked in a transaction, the
+ * page previews are read and the decoder runs outside it, and the image comes back within the
+ * run's image budget. Nothing is recorded: these images grant no citation.
+ */
+async function runImageTool(
+  context: SessionToolContext,
+  token: string,
+  plan: (
+    client: PoolClient,
+    principal: SessionPrincipal,
+    deliverable: DeliverableVersion[],
+    operations: SessionImageOperations,
+  ) => Promise<ImageToolPlan>,
+): Promise<SessionToolOutput> {
+  const operations = context.imageOperations
+  const store = context.store
+  let checked: ImageToolPlan | undefined
+  const authorized = await withSession(
+    context,
+    token,
+    { capture: false },
+    async (client, principal) => {
+      if (!operations || !store) {
+        refuse('tool_unavailable', 'The image tools are not available on this worker.')
+      }
+      const deliverable = await deliverableVersions(client, principal)
+      checked = await plan(client, principal, deliverable, operations!)
+      return ok(client, principal)
+    },
+  )
+  if (!checked || !authorized.result.ok) {
+    return authorized
+  }
+  const pending = authorized.result.pending_inbox
+
+  const refused = (error: SessionToolErrorDto, message: string): SessionToolOutput => ({
+    result: { ok: false, error, message, pending_inbox: pending },
+  })
+
+  // Limits that need no decoding are refused before any page is read.
+  const run = capabilityDigest(token).toString('hex')
+  if ((context.imageBudget.get(run) ?? 0) >= SESSION_IMAGE_BUDGET_BYTES) {
+    return refused(
+      'capacity_reached',
+      'This run’s image budget is used up, so nothing was rendered. Continue without it.',
+    )
+  }
+  const pageBytes = checked.pages.reduce((total, page) => total + page.previewBytes, 0)
+  if (pageBytes > MEDIA_PREVIEW_MAX_BYTES) {
+    return refused(
+      'validation_failed',
+      'These pages are too large to render together; use fewer pages at a time.',
+    )
+  }
+  const running = (context.imageToolsRunning ??= { count: 0 })
+  if (running.count >= IMAGE_TOOLS_AT_ONCE) {
+    return refused('capacity_reached', 'The image renderer is busy. Try again in a minute.')
+  }
+  // The slot is held until the image is encoded and authorized, or the call fails.
+  running.count += 1
+  try {
+    return await renderAndDeliver(context, token, run, checked, store!, refused)
+  } finally {
+    running.count -= 1
+  }
+}
+
+/** Reads every page, settling all reads before a failure propagates so none is left running. */
+async function readPages(store: BlobStore, pages: ToolPage[]) {
+  const settled = await Promise.allSettled(pages.map((page) => store.read(page.previewDigest)))
+  const failed = settled.find((item) => item.status === 'rejected')
+  if (failed) {
+    throw failed.reason
+  }
+  return settled.map((item) => (item as PromiseFulfilledResult<Buffer>).value)
+}
+
+/** Decodes, encodes within the run's budget and makes the final check, holding the caller's slot. */
+async function renderAndDeliver(
+  context: SessionToolContext,
+  token: string,
+  run: string,
+  checked: ImageToolPlan,
+  store: BlobStore,
+  refused: (error: SessionToolErrorDto, message: string) => SessionToolOutput,
+): Promise<SessionToolOutput> {
+  let outcome: ImageOperationOutcome
+  try {
+    outcome = await checked.run(await readPages(store, checked.pages))
+  } catch (error) {
+    if (error instanceof DecoderDispatcherBusyError) {
+      return refused('capacity_reached', 'The image renderer is busy. Try again in a minute.')
+    }
+    throw error
+  }
+  if (outcome.kind !== 'ready') {
+    return refused('validation_failed', checked.refused[outcome.kind])
+  }
+  const image = await boundedImage(outcome.image.bytes, outcome.image, AGENT_IMAGE_LONG_EDGE, true)
+  if (!image || !reserveImageBudget(context, run, image.bytes.length)) {
+    return refused(
+      'capacity_reached',
+      'This run’s image budget is used up, so the image was not sent. Continue without it.',
+    )
+  }
+  // The session may have ended, or the operator removed a photo, while the image was made.
+  const versionIds = checked.pages.map((page) => page.versionId)
+  const still = await finishImageTool(context, token, versionIds)
+  if (still.kind === 'refused') {
+    releaseImageBudget(context, run, image.bytes.length)
+    return still.output
+  }
+  const described: SessionToolImageDto = {
+    width: image.width,
+    height: image.height,
+    media_type: image.mediaType,
+    sha256: sha256(image.bytes).toString('hex'),
+    scale: image.scale,
+  }
+  return {
+    result: {
+      ok: true,
+      pending_inbox: still.pending,
+      ...outcome.fields,
+      images: [described],
+    },
+    images: [{ mediaType: image.mediaType, base64: image.bytes.toString('base64') }],
+  }
+}
+
+function inspectRegionPlan(args: unknown) {
+  return async (
+    client: PoolClient,
+    principal: SessionPrincipal,
+    deliverable: DeliverableVersion[],
+    operations: SessionImageOperations,
+  ): Promise<ImageToolPlan> => {
+    requireImageToolStage(principal, 'inspect_region')
+    const input = validated<SessionInspectRegionArgsDto>('SessionInspectRegionArgs', args)
+    const page = await namedToolPage(client, principal.batchId, deliverable, input)
+    if (input.region) {
+      requireRegionInPage(input.region, page, '/region')
+    }
+    if (input.object) {
+      requireRegionInPage(input.object, page, '/object')
+    }
+    for (const [index, box] of (input.boxes ?? []).entries()) {
+      requireDecoderLabel(box.name, `/boxes/${index}/name`)
+      requireRegionInPage(box.box, page, `/boxes/${index}/box`)
+    }
+    return {
+      pages: [page],
+      refused: {
+        malformed: 'The grid could not be drawn for that page or region.',
+        limit_exceeded: 'That region is too large to draw a grid over.',
+      },
+      run: async ([bytes]) => {
+        const result = await operations.grid({
+          version: 'media-grid/1',
+          digest: page.previewDigest,
+          bytes,
+          width: page.width,
+          height: page.height,
+          region: input.region ?? null,
+          preview_width: input.preview_width ?? DEFAULT_GRID_PREVIEW_WIDTH,
+          step: input.step ?? null,
+          object: input.object ?? null,
+          boxes: input.boxes ?? [],
+        })
+        if (result.state !== 'ready') {
+          return { kind: result.state }
+        }
+        const { image, state: _state, toolchain: _toolchain, ...grid } = result
+        return { kind: 'ready', fields: { grid }, image }
+      },
+    }
+  }
+}
+
+function matchLogoPlan(args: unknown) {
+  return async (
+    client: PoolClient,
+    principal: SessionPrincipal,
+    deliverable: DeliverableVersion[],
+    operations: SessionImageOperations,
+  ): Promise<ImageToolPlan> => {
+    requireImageToolStage(principal, 'match_logo')
+    const input = validated<SessionMatchLogoArgsDto>('SessionMatchLogoArgs', args)
+    const page = await namedToolPage(client, principal.batchId, deliverable, input)
+    requireRegionInPage(input.view.region, page, '/view/region')
+    return {
+      pages: [page],
+      refused: {
+        malformed: 'That view doesn’t fit its page once turned and straightened.',
+        limit_exceeded: 'That view is too large to match.',
+      },
+      run: async ([bytes]) => {
+        const result = await operations.logo({
+          version: 'media-logo-match/1',
+          digest: page.previewDigest,
+          bytes,
+          width: page.width,
+          height: page.height,
+          view: input.view,
+          top: input.top ?? DEFAULT_LOGO_CANDIDATES,
+        })
+        if (result.state !== 'ready') {
+          return { kind: result.state }
+        }
+        return { kind: 'ready', fields: { candidates: result.candidates }, image: result.sheet }
+      },
+    }
+  }
+}
+
+function previewImagesPlan(args: unknown) {
+  return async (
+    client: PoolClient,
+    principal: SessionPrincipal,
+    deliverable: DeliverableVersion[],
+    operations: SessionImageOperations,
+  ): Promise<ImageToolPlan> => {
+    requireImageToolStage(principal, 'preview_images')
+    const input = validated<SessionPreviewImagesArgsDto>('SessionPreviewImagesArgs', args)
+    for (const [index, crop] of input.crops.entries()) {
+      requireDecoderLabel(crop.label, `/crops/${index}/label`)
+    }
+    const { pages, pageOf } = await recipePages(
+      client,
+      principal.batchId,
+      deliverable,
+      input.crops.map((crop, index) => ({ recipe: crop.recipe, path: `/crops/${index}/recipe` })),
+    )
+    if (pages.length > PREVIEW_MAX_PAGES) {
+      refuse(
+        'validation_failed',
+        `A preview renders crops from at most ${PREVIEW_MAX_PAGES} pages; preview fewer at a time.`,
+      )
+    }
+    return {
+      pages,
+      refused: {
+        malformed: 'The decoder found a crop that doesn’t fit its page.',
+        limit_exceeded: 'These crops are too large to preview together; preview fewer at a time.',
+      },
+      run: async (bytes) => {
+        const result = await operations.preview({
+          version: 'media-preview/1',
+          pages: pages.map((page, index) => ({
+            source_version_id: page.versionId,
+            source_digest: page.versionDigest,
+            page: page.page,
+            digest: page.previewDigest,
+            width: page.width,
+            height: page.height,
+            bytes: bytes[index],
+          })),
+          crops: input.crops.map((crop, index) => ({
+            label: crop.label,
+            page: pageOf[index],
+            recipe: crop.recipe,
+          })),
+        })
+        if (result.state !== 'ready') {
+          return { kind: result.state }
+        }
+        return { kind: 'ready', fields: { crops: result.crops }, image: result.montage }
+      },
+    }
+  }
+}
+
 export function sessionTools(context: SessionToolContext) {
   const writer = (principal: SessionPrincipal) => ({
     config: context.config,
@@ -2020,6 +2520,111 @@ export function sessionTools(context: SessionToolContext) {
       await appendSessionOutbox(client, principal.attemptId, item(result.id))
     }
     return result
+  }
+
+  /**
+   * Checks and stores a proposal under the call's capture lock: its lot, its delivered and current
+   * sources, then the message, row and outbox item, and what a lead's identity queues. Returns its
+   * ID and the stream to publish the change on.
+   */
+  const publish = async (
+    client: PoolClient,
+    principal: SessionPrincipal,
+    capture: LockedCapture,
+    onWriter: boolean,
+    proposal: RetainedSessionProposalDto,
+  ) => {
+    refuseUnacceptedWebPages(proposal)
+    // The lead session proposes for any live lot of its batch; a lot session for its own lot.
+    const lots = capture.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+    if (
+      principal.subjectId === null
+        ? !lots.includes(proposal.subject_id)
+        : proposal.subject_id !== principal.subjectId
+    ) {
+      refuse('validation_failed', 'A proposal must be for this session’s lot.')
+    }
+    await requireDeliveredSources(client, context, principal, proposal)
+    // A `/7` lot session publishes nothing for a lot Review retired.
+    if (
+      principal.manifest.schema_version === 'bench-intake-input/7' &&
+      principal.subjectId !== null &&
+      (await lotRetired(client, principal.subjectId))
+    ) {
+      refuse('stale', 'Your lot was retired in Review; there is nothing more to publish for it.')
+    }
+    await requireCurrentReliance(client, principal, proposal)
+    await requireOwnMarkings(client, principal.batchId, proposal)
+    requireOwnObservationSet(principal, proposal)
+    await refuseRemovedSources(client, principal.batchId, [
+      ...proposalCitations(proposal),
+      ...proposal.relies_on.sources,
+      ...markedObservations(proposal),
+    ])
+    const estimate = leadEstimate(principal, proposal)
+    if (estimate && !onWriter) {
+      refuse('tool_not_allowed', 'This worker cannot write the lot’s estimate.')
+    }
+    // A stable `/7` identity retires the lot's earlier ones and releases their successors in
+    // its own transaction, which needs the writer; without it, it isn't stored at all.
+    if (
+      !onWriter &&
+      principal.subjectId === null &&
+      principal.manifest.schema_version === 'bench-intake-input/7' &&
+      proposal.schema_version === 'examine-identity/1' &&
+      reliedObservationSet(proposal) !== null
+    ) {
+      refuse('tool_not_allowed', 'This worker cannot publish the lot’s identity.')
+    }
+    const envelope = await sealSessionEnvelope(client, principal, 'proposal', proposal)
+    await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
+    const { messageId, streamId } = await retainSessionMessage(client, capture, principal, envelope)
+    const value = sealed(proposal)
+    const id = randomUUID()
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(processingProposals).values({
+        id,
+        attemptId: principal.attemptId,
+        messageId,
+        valueBytes: value.bytes,
+        valueDigest: value.digest,
+        reliesOn: proposal.relies_on,
+      }),
+    )
+    await appendSessionOutbox(client, principal.attemptId, {
+      kind: 'proposal',
+      payload: { proposal_id: id },
+    })
+    // Every `/7` identity keeps its lot as it saw it, stable or not, for the claim and Review
+    // gate to compare: an identity built on it rests on that lot too.
+    if (
+      proposal.schema_version === 'examine-identity/1' &&
+      principal.manifest.schema_version === 'bench-intake-input/7'
+    ) {
+      await recordIdentityBasis(
+        client,
+        principal.batchId,
+        proposal.subject_id,
+        id,
+        proposal.relies_on.sources.flatMap((source) =>
+          source.kind === 'observation_set' ? [source.lot_id] : [],
+        ),
+      )
+    }
+    // A stable identity from the lead session starts the lot's Research and Images. It
+    // takes the media and job locks, so it runs before the estimate publishes to the stream.
+    if (onWriter && principal.subjectId === null) {
+      await refuseRelyingOnRetired(client, principal, proposal, id)
+      await queueSuccessors(() =>
+        onLeadIdentity(client, context.config, capture.snapshot, proposal, id),
+      )
+    }
+    // Examine's estimate reaches Review as the lot's estimated quantity, unless the
+    // identity it came with is already stale (it relied on an older observation set).
+    if (estimate && !(await proposalStale(client, id))) {
+      await recordLotEstimate(client, writer(principal), proposal.subject_id, estimate)
+    }
+    return { id, streamId }
   }
 
   return {
@@ -2222,104 +2827,7 @@ export function sessionTools(context: SessionToolContext) {
         { capture: true, leadWriter: true },
         async (client, principal, capture, onWriter) => {
           const proposal = publishedProposal(principal, args)
-          refuseUnacceptedWebPages(proposal)
-          // The lead session proposes for any live lot of its batch; a lot session for its own lot.
-          const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
-          if (
-            principal.subjectId === null
-              ? !lots.includes(proposal.subject_id)
-              : proposal.subject_id !== principal.subjectId
-          ) {
-            refuse('validation_failed', 'A proposal must be for this session’s lot.')
-          }
-          await requireDeliveredSources(client, context, principal, proposal)
-          // A `/7` lot session publishes nothing for a lot Review retired.
-          if (
-            principal.manifest.schema_version === 'bench-intake-input/7' &&
-            principal.subjectId !== null &&
-            (await lotRetired(client, principal.subjectId))
-          ) {
-            refuse(
-              'stale',
-              'Your lot was retired in Review; there is nothing more to publish for it.',
-            )
-          }
-          await requireCurrentReliance(client, principal, proposal)
-          await requireOwnMarkings(client, principal.batchId, proposal)
-          requireOwnObservationSet(principal, proposal)
-          await refuseRemovedSources(client, principal.batchId, [
-            ...proposalCitations(proposal),
-            ...proposal.relies_on.sources,
-            ...markedObservations(proposal),
-          ])
-          const estimate = leadEstimate(principal, proposal)
-          if (estimate && !onWriter) {
-            refuse('tool_not_allowed', 'This worker cannot write the lot’s estimate.')
-          }
-          // A stable `/7` identity retires the lot's earlier ones and releases their successors in
-          // its own transaction, which needs the writer; without it, it isn't stored at all.
-          if (
-            !onWriter &&
-            principal.subjectId === null &&
-            principal.manifest.schema_version === 'bench-intake-input/7' &&
-            proposal.schema_version === 'examine-identity/1' &&
-            reliedObservationSet(proposal) !== null
-          ) {
-            refuse('tool_not_allowed', 'This worker cannot publish the lot’s identity.')
-          }
-          const envelope = await sealSessionEnvelope(client, principal, 'proposal', proposal)
-          await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
-          const { messageId, streamId } = await retainSessionMessage(
-            client,
-            capture!,
-            principal,
-            envelope,
-          )
-          const value = sealed(proposal)
-          const id = randomUUID()
-          await executeDatabaseQuery(
-            queryDatabase(client).insert(processingProposals).values({
-              id,
-              attemptId: principal.attemptId,
-              messageId,
-              valueBytes: value.bytes,
-              valueDigest: value.digest,
-              reliesOn: proposal.relies_on,
-            }),
-          )
-          await appendSessionOutbox(client, principal.attemptId, {
-            kind: 'proposal',
-            payload: { proposal_id: id },
-          })
-          // Every `/7` identity keeps its lot as it saw it, stable or not, for the claim and Review
-          // gate to compare: an identity built on it rests on that lot too.
-          if (
-            proposal.schema_version === 'examine-identity/1' &&
-            principal.manifest.schema_version === 'bench-intake-input/7'
-          ) {
-            await recordIdentityBasis(
-              client,
-              principal.batchId,
-              proposal.subject_id,
-              id,
-              proposal.relies_on.sources.flatMap((source) =>
-                source.kind === 'observation_set' ? [source.lot_id] : [],
-              ),
-            )
-          }
-          // A stable identity from the lead session starts the lot's Research and Images. It
-          // takes the media and job locks, so it runs before the estimate publishes to the stream.
-          if (onWriter && principal.subjectId === null) {
-            await refuseRelyingOnRetired(client, principal, proposal, id)
-            await queueSuccessors(() =>
-              onLeadIdentity(client, context.config, capture!.snapshot, proposal, id),
-            )
-          }
-          // Examine's estimate reaches Review as the lot's estimated quantity, unless the
-          // identity it came with is already stale (it relied on an older observation set).
-          if (estimate && !(await proposalStale(client, id))) {
-            await recordLotEstimate(client, writer(principal), proposal.subject_id, estimate)
-          }
+          const { id, streamId } = await publish(client, principal, capture!, onWriter, proposal)
           await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
           return ok(client, principal, { id })
         },
@@ -2479,5 +2987,38 @@ export function sessionTools(context: SessionToolContext) {
 
     fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> =>
       fetchEvidenceImage(context, token, capabilityDigest(token).toString('hex'), args),
+
+    inspect_region: (token: string, args: unknown) =>
+      runImageTool(context, token, inspectRegionPlan(args)),
+
+    match_logo: (token: string, args: unknown) => runImageTool(context, token, matchLogoPlan(args)),
+
+    preview_images: (token: string, args: unknown) =>
+      runImageTool(context, token, previewImagesPlan(args)),
+
+    propose_images: (token: string, args: unknown) =>
+      withSession(
+        context,
+        token,
+        { capture: true },
+        async (client, principal, capture, onWriter) => {
+          const proposal = imagesProposal(principal, args)
+          const deliverable = await deliverableVersions(client, principal)
+          const { pages, pageOf } = await recipePages(
+            client,
+            principal.batchId,
+            deliverable,
+            proposal.images.map((image, index) => ({
+              recipe: image.recipe,
+              path: `/proposal/images/${index}/recipe`,
+            })),
+          )
+          await requireLotScope(client, principal.batchId, proposal.subject_id, pages, pageOf)
+          const { id, streamId } = await publish(client, principal, capture!, onWriter, proposal)
+          await storeProposalImages(client, principal.batchId, id, proposal)
+          await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
+          return ok(client, principal, { id })
+        },
+      ),
   }
 }

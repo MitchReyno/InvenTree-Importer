@@ -13,6 +13,7 @@ import type { BlobStore } from '#/media/blob-store.ts'
 import { resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { sessionTools, type SessionToolOutput } from './handlers.ts'
 import { ASK_GUIDANCE } from './ask-guidance.ts'
+import type { SessionImageOperations } from './image-tools.ts'
 
 const DEFAULT_STATUS_INTERVAL_MS = 2000
 
@@ -74,6 +75,26 @@ const TOOLS = {
     description:
       'Fetch a delivered evidence image within the per-run image budget. Successful byte delivery includes source: copy that complete reference unchanged into citations.',
   },
+  inspect_region: {
+    schema: 'SessionInspectRegionArgs',
+    description:
+      'Draw a grid labelled in page-preview pixels over a delivered page, or a region of it, to read exact positions. Add proposed boxes, and the object’s bounds, to see each box’s margins and whether it clips the object or is off centre. Coordinates are those fetch_evidence and recipes use. The image is for you to look at; cite only fetched evidence.',
+  },
+  match_logo: {
+    schema: 'SessionMatchLogoArgs',
+    description:
+      'Rank the bundled chip logo set against a maker’s mark: give a view of a delivered page (region in page-preview pixels, quarter turns and straightening) cropped tightly round the mark. Returns the best candidates with scores and a sheet comparing them. A shortlist, not an identification: confirm a maker before naming it.',
+  },
+  preview_images: {
+    schema: 'SessionPreviewImagesArgs',
+    description:
+      'Render up to 8 crop recipes (bench-intake-view/2) on one labelled montage, each exactly as the app would derive it from the original, with its size, whether the corner guard shrank it, and its white-balance gains or why white balance was refused. Check crops here before proposing them.',
+  },
+  propose_images: {
+    schema: 'SessionProposeImagesArgs',
+    description:
+      'Publish images/1 for your lot: the Part image, stock images and extras as crop recipes on its original photos, each with its role and any flags such as soft focus. The app renders them for the operator, who confirms them; nothing is attached before that.',
+  },
   read_inbox: {
     schema: 'SessionReadInboxArgs',
     description:
@@ -113,6 +134,13 @@ const STAGE_LOT_ONLY = new Set(['read_lot'])
 const STAGE_ONLY = new Set(['read_guide'])
 /** Tools only a `/7` Research session has. */
 const STAGE_RESEARCH_ONLY = new Set(['read_vocabulary'])
+/** The image tools each `/7` stage has, as "Stage tool sets" lists them. */
+const STAGE_IMAGE_TOOLS: Record<string, readonly string[]> = {
+  inspect_region: ['examine', 'images'],
+  match_logo: ['examine', 'research'],
+  preview_images: ['images'],
+  propose_images: ['images'],
+}
 
 /** Whether a principal is offered a tool: its sealed input and stage decide. */
 function offered(name: string, principal: SessionPrincipal) {
@@ -129,6 +157,10 @@ function offered(name: string, principal: SessionPrincipal) {
   }
   if (STAGE_RESEARCH_ONLY.has(name)) {
     return stageInput && principal.manifest.stage === 'research'
+  }
+  const imageStages = STAGE_IMAGE_TOOLS[name]
+  if (imageStages) {
+    return stageInput && imageStages.includes(principal.manifest.stage as string)
   }
   return true
 }
@@ -191,6 +223,7 @@ export interface SessionToolServerOptions {
   store?: BlobStore
   evidenceImage?: 'original' | 'preview'
   statusIntervalMs?: number
+  imageOperations?: SessionImageOperations
 }
 
 /** The worker's loopback MCP endpoint. The web process never hosts it. */
@@ -206,6 +239,8 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
     statusIntervalMs: options.statusIntervalMs ?? DEFAULT_STATUS_INTERVAL_MS,
     imageBudget: new Map(),
     deliveredMedia,
+    imageOperations: options.imageOperations,
+    imageToolsRunning: { count: 0 },
   })
   const hostGuard = localhostHostValidation()
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 })
