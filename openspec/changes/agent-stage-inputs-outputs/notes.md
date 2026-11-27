@@ -216,6 +216,32 @@ The guide table's rows can't be changed or deleted, but a row could still be add
 - **The ask picture wording.** The base keeps BI-019's ask guidance as approved, which asks for a caption "naming what to look at and why it is shown", while a figure has separate `caption` and `why` fields. The `ask` tool's schema names both; a later profile may say so in the base.
 - **The session page doesn't list vocabulary entries.** The brief on the session page (PR-H) shows the entries it knows; a Research brief's vocabulary entries are left out of the opened card, and its collapsed line doesn't count them.
 
+## Task 10 (PR-E2): image tools, `propose_images` and the Images review
+
+### Decisions the plan left open
+
+- **Where the review's pictures come from.** `propose_images` queues each crop as an unmarked view render in the question figures' queue (`processing_figure_render`, rendered by `render_view` with recipe `/2`'s light step), and `processing_proposal_image` keeps the view while the proposal names it. `preview_images` stays synchronous through `media-preview/1`; the decoder's own tests prove its crops and the derived crop are the same pixels.
+- **Confirming is a media edit.** `select_images` (`media/image-selection-edit.ts`) takes the recipes the operator keeps, derives each through the ordinary derivation path (reusing a queued or ready derivation of the same recipe; a failed one is never reused, so it can't be replayed), and appends the lot's set to `media_image_selection`. Items name the derivation (`derivation_id`), since a new crop has no version until the worker publishes it; the derived version has the same id. The set holds one Part image and up to eight ordered stock images, and creates no effect: PR-F reads it.
+- **A selected crop whose derivation fails stays in the set** and reads as failed in the review; preparation is to block on it (PR-F).
+- **Redo is a chat message.** "Ask Images to redo one" sends an operator chat message to the proposal's Images session naming the crop, its role and source, and what to change.
+- **Extras aren't attached.** The board shows an "Attach to the Part" checkbox on an extra, but the plan's selection keeps only a Part image and stock images, and PR-F has no effect for a Part attachment from Images. An extra is shown with its flags and the line "Extras aren't attached; crop it yourself in Capture to keep one." Open item below.
+- **Crops have no title.** `images/1` gives a crop no name, so each card is titled "Crop N" where the board names it.
+- **The tool profile.** The image tools join `native-session-stage-tools/1` without a new tool profile, as `read_guide` and `read_vocabulary` did in PR-G1: no configuration seals `/7` before PR-G2.
+- **Negative angles in media recipes.** `canonicalMedia` refused negative integers, so a recipe `/2` straightened anticlockwise couldn't be retained; it now accepts any safe integer. Bytes it accepted before are unchanged.
+- **The PR-E1 open item** is closed: recipe `/2` is now a derived version's recipe (`MediaDerivedRecipe` in `MediaVersion`, the snapshot's derivations and the media-input manifest), and the server parses the preview, grid and logo-match outputs (`media/decoder-output.ts`). PR-E1's other open item, two PNG header cases covered only by the header check, has a 14-byte IHDR case and a direct chunk-scan test.
+
+### Departures
+
+- **2026-11-27, task 10:** the server tool tests (`tests/pg/image-tools.test.ts`) were written after the handlers, not before; a negative control (the Images-only check removed from `preview_images`) made them fail. The relay, media selection and frontend tests failed first.
+- **2026-11-27, task 10:** the worktree was installed with `pnpm install --frozen-lockfile --offline`, as in task 2, because contracts changed; the lockfile is unchanged.
+- **2026-11-27, task 10:** the relay stages the image tools' replies on the `shared-vm-agent/3` tool-worker route the coordinator has today; the packaged `/4` worker and the dispatcher in the coordinator are task 11's, as the task says.
+
+### Open items
+
+- An extra crop has no way to be attached; attaching one to the Part would need a selection role and a PR-F effect.
+- The coordinator doesn't yet refuse image tools without a dispatcher socket; that comes with mounting the socket (task 11).
+- The relay accepts any image type listed in a reply's `images`; the host sends only PNG or JPEG.
+
 ## Task 5 (PR-E1) status
 
 Merged in #274. Task 5 (PR-E1) adds recipe `/2` and the decoder operations behind `inspect_region`, `preview_images` and `match_logo`; nothing outside tests calls them yet. Task 1 (PR-A) is recorded above.
