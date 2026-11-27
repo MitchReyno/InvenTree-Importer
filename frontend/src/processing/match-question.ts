@@ -93,8 +93,8 @@ export function matchAnswerRefusal(failure: unknown) {
 export const BATCH_ADD_STOCK_OPTION = 'add_stock_1'
 
 /**
- * Open questions the batch answer "Add stock to each" can take: each asks about candidates, and
- * its first option adds stock to an exact Part candidate.
+ * Open questions the batch answer "Add stock to each" can take: each asks about one candidate,
+ * an exact Part, and its first option adds stock to it.
  */
 export function batchAddStockQuestions(questions: readonly MatchQuestionDto[]) {
   return questions.filter((question) => {
@@ -103,9 +103,12 @@ export function batchAddStockQuestions(questions: readonly MatchQuestionDto[]) {
     }
     const [step] = question.steps
     const first = step?.answer.kind === 'choice' ? step.answer.options[0] : undefined
-    const [part] = partCandidates(question.candidates)
+    // Only a lot whose one candidate is an exact Part: with any other, adding stock to the first
+    // would choose between candidates the operator hasn't seen.
+    const parts = partCandidates(question.candidates)
+    const only = question.candidates.length === 1 && parts.length === 1
 
-    return first?.id === BATCH_ADD_STOCK_OPTION && part?.verdict === 'exact'
+    return first?.id === BATCH_ADD_STOCK_OPTION && only && parts[0].verdict === 'exact'
   })
 }
 

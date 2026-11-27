@@ -513,6 +513,33 @@ describe('Processing › Match', () => {
     )
   })
 
+  test('a lot with two exact candidates is left out of adding stock to each', async () => {
+    const read = midway()
+    const second = id(202)
+    read.lots[1] = matchLot(capacitor, {
+      state: 'question',
+      keys: [capacitorKey],
+      verdict: 'exact',
+      candidates: [cap0210],
+      waits: ['research', 'images'],
+      question_id: second,
+    })
+    read.questions.push(
+      question(second, capacitor, {
+        revision: '5',
+        title: 'This looks like existing Part CAP-0210',
+        keys: [capacitorKey],
+        candidates: [cap0210, part('211', 'CAP-0211', '100nF 0603 X5R', capacitorKey)],
+        notes: [],
+      }),
+    )
+    validate('BatchMatch', read)
+    mount(clientFor(read))
+
+    await screen.findByRole('table')
+    expect(screen.queryByRole('region', { name: 'Several exact matches' })).toBeNull()
+  })
+
   test('Check InvenTree again, Search again and Change send their commands', async () => {
     const user = userEvent.setup()
     const client = clientFor(midway())

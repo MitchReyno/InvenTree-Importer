@@ -85,21 +85,25 @@ export function coveredOf(result: Pick<MatchResult, 'candidates' | 'contribution
 }
 
 /**
- * What an open question shows, as canonical text: what a decision covers, and every gap of each
- * Part, so a repeat search that finds a Part has lost its supplier Part asks afresh.
+ * What an open question shows, as canonical text: what a decision covers, and each candidate's
+ * verdict, matched keys and gaps, so a repeat search that changes any of them asks afresh.
  */
 export function questionCoveredOf(result: Pick<MatchResult, 'candidates' | 'contribution'>) {
-  const gaps = result.candidates.map((candidate) =>
-    candidate.kind === 'part'
-      ? `${candidate.part.pk}:${candidate.missing
-          .map((missing) =>
-            missing.kind === 'parameter' ? `parameter:${missing.template}` : missing.kind,
-          )
-          .sort()
-          .join(',')}:${candidate.parameters_known}`
-      : candidate.lot_id,
+  // Each candidate as the question quotes it: its verdict, what matched and every gap.
+  const quoted = result.candidates.map((candidate) =>
+    canonicalRecord(
+      candidate.kind === 'part'
+        ? {
+            pk: candidate.part.pk,
+            verdict: candidate.verdict,
+            matched_by: candidate.matched_by,
+            missing: candidate.missing,
+            parameters_known: candidate.parameters_known,
+          }
+        : { lot_id: candidate.lot_id, matched_by: candidate.matched_by },
+    ),
   )
-  return canonicalRecord([coveredOf(result), ...gaps.sort()])
+  return canonicalRecord([coveredOf(result), ...quoted.sort()])
 }
 
 /** The stage modes a decision sets, given the Part it targets. */

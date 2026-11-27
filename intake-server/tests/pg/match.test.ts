@@ -1001,3 +1001,23 @@ test('a question asked of an Examine identity since made stale waits for the nex
     false,
   )
 })
+
+test('archiving a batch mid-search neither blocks its settlement nor the requests behind it', async (t) => {
+  const { fixture, fake, reader } = await matchFixture(t)
+  const first = await operatorLots(fixture, MPN)
+  await settleMatch(fixture, reader)
+  assert.equal((await stageJobs(fixture, first.a.id)).length, 2)
+  // RES-0144 appears, so the next search opens a question; the batch is archived before it settles.
+  await fake.seedMatch(RES_0144)
+  await fixture.http(`/batches/${first.capture.batch.id}/match/checks`, { lot_ids: [first.a.id] })
+  await first.capture.edit({ kind: 'batch', archived: true })
+  const second = await operatorLots(fixture, '1N4148W-7-F')
+  const settled = await settleMatch(fixture, reader)
+  assert.ok(settled.includes('question'), JSON.stringify(settled))
+  assert.equal(
+    (await readMatch(fixture, second.capture.batch.id)).lots.find(
+      (lot) => lot.lot_id === second.a.id,
+    )!.state,
+    'clear',
+  )
+})

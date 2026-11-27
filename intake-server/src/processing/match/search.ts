@@ -10,7 +10,7 @@ import type {
   MatchQuestionNoteDto,
   MatchReasonDto,
 } from '@invimport/contracts'
-import { MAX_MATCH_CANDIDATES, MAX_MATCH_CANDIDATE_STOCK } from '@invimport/contracts'
+import { MAX_MATCH_CANDIDATES, MAX_MATCH_CANDIDATE_STOCK, validate } from '@invimport/contracts'
 import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import type {
@@ -230,6 +230,15 @@ async function searchKey(
     }
     case 'batch_code':
       return
+  }
+}
+
+/** A candidate the contract refuses, such as a stock quantity it can't hold, can't be searched. */
+function requireCandidate(candidate: MatchCandidateDto) {
+  try {
+    validate('MatchCandidate', candidate)
+  } catch {
+    throw new Unavailable()
   }
 }
 
@@ -531,6 +540,10 @@ export function matchSearch(pool: Pool, config: ProcessingConfig, reader: MatchR
           lot_label: lot.lotLabel,
           matched_by: lot.matched,
         })
+      }
+      // Whatever InvenTree sent must fit the contract before it is stored in a question.
+      for (const found of candidates) {
+        requireCandidate(found)
       }
       return { ...base, searched: 'remote', candidates, verdict: verdictOf(candidates, undefined) }
     } catch (error) {

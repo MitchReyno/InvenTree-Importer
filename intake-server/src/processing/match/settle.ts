@@ -186,20 +186,31 @@ export async function recordOutcome(
  */
 export async function tellOutcome(
   client: PoolClient,
-  batchId: string,
+  snapshot: Pick<CaptureSnapshotDto, 'id' | 'archived' | 'revision'>,
   lotId: string,
   from: bigint,
   to: bigint,
-  briefRevision: string,
+  /** The stages the new outcome skips, if it has one: they have nothing left to do. */
+  skipped: readonly string[] = [],
 ) {
-  // A lot's first outcome changes nothing a session was sealed with.
-  if (from === 0n) {
+  // A lot's first outcome changes nothing a session was sealed with, and an archived batch's
+  // sessions are told nothing.
+  if (from === 0n || snapshot.archived) {
     return
   }
+  const batchId = snapshot.id
+  const briefRevision = snapshot.revision
+  // Work already sealed under the new outcome reads it from its own input.
   const lineages = await client.query<{ id: string }>(
-    `SELECT id FROM public.processing_job
-     WHERE batch_id=$1 AND subject_id=$2 AND stage IN ('research','images') ORDER BY id`,
-    [batchId, lotId],
+    `SELECT j.id FROM public.processing_job j
+     JOIN public.processing_attempt a ON a.id=j.current_attempt_id
+     JOIN public.processing_input i ON i.id=a.input_id
+     WHERE j.batch_id=$1 AND j.subject_id=$2 AND j.stage IN ('research','images')
+       AND NOT (j.stage = ANY($3::text[]))
+       AND (convert_from(i.manifest_bytes,'UTF8')::jsonb #>> '{match,outcome,revision}')
+           IS DISTINCT FROM $4
+     ORDER BY j.id`,
+    [batchId, lotId, [...skipped], to.toString()],
   )
   for (const lineage of lineages.rows) {
     await notifyRevision(
@@ -269,6 +280,14 @@ export async function queueWithinSavepoint(
     await client.query('ROLLBACK TO SAVEPOINT match_queue')
     return []
   }
+}
+
+/** The stages an outcome skips. */
+export function skippedStages(outcome: MatchOutcomeDto | undefined) {
+  if (!outcome) {
+    return []
+  }
+  return LOT_STAGES.filter((stage) => outcome[stage].mode === 'skipped')
 }
 
 /** A refusal the app expects, such as media still preparing, rather than a failure. */
@@ -460,13 +479,14 @@ export async function settleInTransaction(
     }
   }
   if (outcomeRevision !== row.outcomeRevision) {
+    const current = await currentOutcome(client, { ...row, outcomeRevision })
     await tellOutcome(
       client,
-      row.batchId,
+      snapshot,
       row.lotId,
       row.outcomeRevision,
       outcomeRevision,
-      snapshot.revision,
+      skippedStages(current?.outcome),
     )
   }
   await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: row.batchId })
@@ -518,15 +538,24 @@ export async function settlePendingSearches(
   limit = MATCH_SWEEP_LIMIT,
 ) {
   const outcomes: string[] = []
+  let failure: unknown
   for (const request of await pendingRequests(pool, config, limit)) {
-    if (await discardIfReplaced(pool, request)) {
-      outcomes.push('discarded')
-      continue
+    // One request that fails to settle is retried by the next sweep; it never holds up the rest.
+    try {
+      if (await discardIfReplaced(pool, request)) {
+        outcomes.push('discarded')
+        continue
+      }
+      const result = await search(request)
+      outcomes.push(
+        await transaction(pool, (client) => settleInTransaction(client, config, request, result)),
+      )
+    } catch (error) {
+      failure ??= error
     }
-    const result = await search(request)
-    outcomes.push(
-      await transaction(pool, (client) => settleInTransaction(client, config, request, result)),
-    )
+  }
+  if (failure !== undefined) {
+    throw failure
   }
   return outcomes
 }

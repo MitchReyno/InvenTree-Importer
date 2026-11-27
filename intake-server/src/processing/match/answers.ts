@@ -30,6 +30,7 @@ import {
   lotsMedia,
   queueWithinSavepoint,
   recordOutcome,
+  skippedStages,
   tellOutcome,
 } from './settle.ts'
 import { decodeIdentity, lockMatch, readMatch, searchPending, type MatchRow } from './state.ts'
@@ -90,7 +91,7 @@ function plan(question: QuestionRow, choice: Choice): Planned {
 
 /**
  * Whether the question can still be answered: it is the lot's open question, asked from the
- * search the answer names, and no newer search has been requested since.
+ * search the answer names. A newer search that found the same keeps it answerable once settled.
  */
 function stillAnswerable(row: MatchRow | undefined, planned: Planned) {
   return (
@@ -380,11 +381,11 @@ async function settleAnswer(
   )
   await tellOutcome(
     client,
-    row.batchId,
+    snapshot,
     row.lotId,
     row.outcomeRevision,
     revision,
-    snapshot.revision,
+    skippedStages(outcome),
   )
   await queueWithinSavepoint(
     client,
