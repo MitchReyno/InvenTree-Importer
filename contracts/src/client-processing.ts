@@ -4,6 +4,7 @@ import type {
   ProcessingAnswerDto,
 } from './processing.ts'
 import type { SessionInboxSubmissionDto, SessionReplacementDto } from './sessions.ts'
+import type { MatchAnswerDto, MatchBatchAnswerDto, MatchCheckDto } from './match.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient, commandHeaders } from './client-runtime.ts'
 
@@ -52,6 +53,53 @@ export function processingClient(
         client.POST('/api/v1/batches/{id}/questions/{questionId}/answers', {
           params: { path: { id, questionId } },
           body: input,
+          headers: commandHeaders(key),
+        }),
+      ),
+
+    /** The batch's Match step: each lot's search, outcome and questions. */
+    match: (id: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/match', {
+          params: { path: { id } },
+        }),
+      ),
+
+    answerMatch: (id: string, questionId: string, input: MatchAnswerDto, key: string) =>
+      successfulData(
+        client.POST('/api/v1/batches/{id}/match/questions/{questionId}/answers', {
+          params: { path: { id, questionId } },
+          body: input,
+          headers: commandHeaders(key),
+        }),
+      ),
+
+    /** Several exact matches answered at once, all or nothing. */
+    answerMatches: (id: string, input: MatchBatchAnswerDto, key: string) =>
+      successfulData(
+        client.POST('/api/v1/batches/{id}/match/answers', {
+          params: { path: { id } },
+          body: input,
+          headers: commandHeaders(key),
+        }),
+      ),
+
+    /** Check InvenTree again for the lots named. */
+    checkMatches: (id: string, input: MatchCheckDto, key: string) =>
+      successfulData(
+        client.POST('/api/v1/batches/{id}/match/checks', {
+          params: { path: { id } },
+          body: input,
+          headers: commandHeaders(key),
+        }),
+      ),
+
+    /** Decide again: asks a decided lot's match question afresh. */
+    reopenMatch: (id: string, lotId: string, key: string) =>
+      successfulData(
+        client.POST('/api/v1/batches/{id}/match/lots/{lotId}/question', {
+          params: { path: { id, lotId } },
+          body: {},
           headers: commandHeaders(key),
         }),
       ),

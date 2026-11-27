@@ -62,6 +62,8 @@ type Props = {
   /** The bars stay still while the read they come from is not current. */
   still?: boolean
   onOpenSession: (jobId: string) => void
+  /** A `/7` batch's Match step, with its open questions, in place of Inventory. */
+  matchStep?: { questions: number }
 }
 
 /** A step's bar, with the same states and fill as the masthead's activity popover. */
@@ -92,6 +94,7 @@ export function ProcessingOverview({
   attention,
   attentionUnavailable = false,
   lots,
+  matchStep,
   startedAt,
   lotsFormed,
   sessionLimit,
@@ -148,6 +151,13 @@ export function ProcessingOverview({
                 </a>
               </li>
             ))}
+            {matchStep && (
+              <li>
+                <a href={batchHref(batchId, { tab: 'processing', step: 'match' })}>
+                  {matchStep.questions > 0 ? `Match · ${matchStep.questions} need you` : 'Match'}
+                </a>
+              </li>
+            )}
           </StepLabels>
           {instructions}
           {queue}
@@ -166,7 +176,7 @@ export function ProcessingOverview({
         {lots.length > 0 && (
           <Card aria-label="Lots">
             <CardTitle>Lots</CardTitle>
-            <LotTable batchId={batchId} lots={lots} />
+            <LotTable batchId={batchId} lots={lots} inventory={!matchStep} />
           </Card>
         )}
 

@@ -20,7 +20,8 @@ export type StaleReason =
 /** Who made a change, and the brief revision a `/7` session sees it at. */
 export interface RevisionContext {
   /** `app` when the app found a mismatch without knowing who made the change. */
-  origin: { by: 'operator' } | { by: 'session'; attemptId: string } | { by: 'app' }
+  origin:
+    { by: 'operator' } | { by: 'session'; attemptId: string } | { by: 'app' } | { by: 'match' }
   briefRevision: string
 }
 
@@ -120,6 +121,9 @@ async function revisionSource(
   }
   if (origin.by === 'app') {
     return { kind: 'app' }
+  }
+  if (origin.by === 'match') {
+    return { kind: 'match' }
   }
   const rows = await client.query<{ stage: 'examine' | 'research' | 'images' }>(
     `SELECT j.stage FROM public.processing_attempt a

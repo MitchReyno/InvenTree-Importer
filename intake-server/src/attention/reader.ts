@@ -7,6 +7,7 @@ import { processingRepository } from '#/processing/repository.ts'
 import { manualRepository } from '#/review/repository.ts'
 import type { ManualConfig } from '#/review/authority.ts'
 import { projectAttention } from './projection.ts'
+import { readBatchMatch } from '#/processing/match/read.ts'
 
 /**
  * Reads the same processing, review, manual and records projections the batch screens use. Each is its
@@ -24,11 +25,12 @@ export function attentionReader(
   const manual = manualRepository(pool, manualConfig)
 
   return async (batchId: string): Promise<BatchAttentionDto> => {
-    const [processingSnapshot, operatorReview, workspace, records] = await Promise.all([
+    const [processingSnapshot, operatorReview, workspace, records, match] = await Promise.all([
       processing.read(batchId),
       review.read(batchId),
       manual.workspace(batchId),
       readRecords(batchId),
+      readBatchMatch(pool, processingConfig, batchId),
     ])
 
     return projectAttention({
@@ -37,6 +39,7 @@ export function attentionReader(
       review: operatorReview,
       manual: workspace,
       records,
+      match,
     })
   }
 }

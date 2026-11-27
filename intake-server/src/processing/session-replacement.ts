@@ -13,6 +13,7 @@ import { isSessionProfile } from './session-policy.ts'
 import { batchInputVersion } from './stage-policy.ts'
 import { createSessionAttempt, prepareSessionAttempt } from './session-attempts.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
+import { matchGate } from './match/gate.ts'
 import { supersedeJobAttempts } from './supersede.ts'
 import {
   REPLACEABLE_STATES,
@@ -110,6 +111,15 @@ export async function replaceSession(
         const match = sealedMatch(inputRow)
         if (!(await pinnedIdentityCurrent(client, pinned))) {
           fail('identity_waiting', 409)
+        }
+        // A `/7` lot stage restarts only while Match allows it under the outcome it was sealed with.
+        if (
+          match &&
+          job.subject_id !== null &&
+          (job.stage === 'research' || job.stage === 'images') &&
+          !(await matchGate(client, job.subject_id, job.stage, match)).allowed
+        ) {
+          fail('match_waiting', 409)
         }
         // The replacement follows the batch's lead's sealed version, not the configuration.
         const inputVersion = await batchInputVersion(client, config, batchId)

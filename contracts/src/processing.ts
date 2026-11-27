@@ -1131,6 +1131,7 @@ export const START_FRESH_REFUSALS = [
   'session_reap_pending',
   'inventory_waiting',
   'identity_waiting',
+  'match_waiting',
   'agent_profile_retired',
   'unsupported_processing_stage',
   'agent_settings_required',
@@ -1207,6 +1208,8 @@ export const ProcessingSnapshot = object({
   cursor: object({ stream_id: Id, sequence: CursorSequence }),
   /** The batch's agents are paused: its sessions start no new work until resumed. */
   paused: Type.Optional(Type.Literal(true)),
+  /** Present when the batch follows `/7`'s pipeline, whose Match step replaces Inventory. */
+  pipeline: Type.Optional(Type.Literal('match')),
 })
 export const ProcessingReceipt = object({
   batch_id: Id,

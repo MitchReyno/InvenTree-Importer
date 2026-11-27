@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { createServer } from '#/api/server.ts'
 import { registerCapture } from '#/capture/routes.ts'
+import { matchCaptureHooks } from '#/processing/match/commands.ts'
 import { lockCaptureForEdit } from '#/capture/repository.ts'
 import { registerAgents } from '#/agents/routes.ts'
 import { registerProcessing } from '#/processing/routes.ts'
@@ -178,7 +179,7 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
           return payload
         })
       }
-      registerCapture(app, api.pool, config)
+      registerCapture(app, api.pool, config, undefined, undefined, matchCaptureHooks(config))
       registerProcessing(app, api.pool, config, lockCaptureForEdit)
       registerAgents(app, api.pool, config)
       if (web.live) {

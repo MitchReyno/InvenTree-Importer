@@ -89,6 +89,241 @@ function listPath(operation: ListOperation) {
   return `${target.path}?${query.toString()}`
 }
 
+interface MatchPage {
+  limit: number
+  offset: number
+}
+
+/**
+ * Match's bounded list reads. Each kind has a fixed path, fixed parameters and only the filters
+ * named here, checked against the pinned InvenTree 1.5.0 / API 530 schema.
+ */
+export type MatchListOperation =
+  | ({ kind: 'search_parts'; search: string } & MatchPage)
+  | ({
+      kind: 'list_manufacturer_parts'
+      mpn?: string
+      manufacturer?: string
+      part?: string
+    } & MatchPage)
+  | ({ kind: 'list_supplier_parts'; sku?: string; supplier?: string; part?: string } & MatchPage)
+  | ({ kind: 'list_stock'; part?: string; batch?: string; nsn_tag?: string } & MatchPage)
+  | ({ kind: 'list_part_parameters'; part: string } & MatchPage)
+  | ({ kind: 'list_part_attachments'; part: string } & MatchPage)
+  | { kind: 'list_category_parameters'; category: string }
+export type MatchListKind = MatchListOperation['kind']
+/**
+ * The pinned API offers no ordering for category mappings, so they are read in one response of
+ * at most this many rows and sorted by the caller; a larger set is never merged from pages.
+ */
+export const CATEGORY_PARAMETERS_MAX = 100
+/** The importer's canonical NSN stock tag. */
+export const NSN_TAG_PATTERN = /^nsn:[0-9]{4}-[0-9]{2}-[0-9]{3}-[0-9]{4}$/
+const MAX_PK = 9223372036854775807n
+
+type MatchValue = 'pk' | 'text' | 'nsn_tag'
+type MatchQueryEntry =
+  | { fixed: string; value: string }
+  | { param: string; property: string; value: MatchValue; required: boolean }
+
+interface MatchListShape {
+  path: string
+  /** Paged kinds take the caller's limit and offset; the others send one fixed bound. */
+  paged: boolean
+  /** At least one optional filter must be present, so no kind can list a whole table. */
+  needsFilter: boolean
+  query: readonly MatchQueryEntry[]
+}
+
+function fixed(name: string, value: string): MatchQueryEntry {
+  return { fixed: name, value }
+}
+
+function filter(
+  property: string,
+  param: string,
+  value: MatchValue,
+  required = false,
+): MatchQueryEntry {
+  return { param, property, value, required }
+}
+
+const MATCH_LISTS: Record<MatchListKind, MatchListShape> = {
+  search_parts: {
+    path: '/api/part/',
+    paged: true,
+    needsFilter: false,
+    query: [fixed('ordering', 'name'), filter('search', 'search', 'text', true)],
+  },
+  list_manufacturer_parts: {
+    path: '/api/company/part/manufacturer/',
+    paged: true,
+    needsFilter: true,
+    query: [
+      fixed('manufacturer_detail', 'true'),
+      fixed('part_detail', 'true'),
+      fixed('ordering', 'MPN'),
+      filter('mpn', 'MPN', 'text'),
+      filter('manufacturer', 'manufacturer', 'pk'),
+      filter('part', 'part', 'pk'),
+    ],
+  },
+  list_supplier_parts: {
+    path: '/api/company/part/',
+    paged: true,
+    needsFilter: true,
+    query: [
+      fixed('supplier_detail', 'true'),
+      fixed('part_detail', 'true'),
+      fixed('ordering', 'SKU'),
+      filter('sku', 'SKU', 'text'),
+      filter('supplier', 'supplier', 'pk'),
+      filter('part', 'part', 'pk'),
+    ],
+  },
+  list_stock: {
+    path: '/api/stock/',
+    paged: true,
+    needsFilter: true,
+    // Without include_variants=false a Part filter also returns its variants' stock.
+    query: [
+      fixed('include_variants', 'false'),
+      fixed('part_detail', 'true'),
+      fixed('ordering', 'part'),
+      filter('part', 'part', 'pk'),
+      filter('batch', 'batch', 'text'),
+      filter('nsn_tag', 'tags__name', 'nsn_tag'),
+    ],
+  },
+  list_part_parameters: {
+    path: '/api/parameter/',
+    paged: true,
+    needsFilter: false,
+    query: [
+      fixed('model_type', 'part'),
+      filter('part', 'model_id', 'pk', true),
+      fixed('ordering', 'template'),
+    ],
+  },
+  list_part_attachments: {
+    path: '/api/attachment/',
+    paged: true,
+    needsFilter: false,
+    query: [
+      fixed('model_type', 'part'),
+      filter('part', 'model_id', 'pk', true),
+      fixed('ordering', 'upload_date'),
+    ],
+  },
+  list_category_parameters: {
+    path: '/api/part/category/parameters/',
+    paged: false,
+    needsFilter: false,
+    query: [filter('category', 'category', 'pk', true)],
+  },
+}
+
+function isPk(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    new RegExp(PositivePk.pattern!).test(value) &&
+    BigInt(value) <= MAX_PK
+  )
+}
+
+function isSearchText(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length >= 1 &&
+    [...value].length <= LIST_SEARCH_MAX_CHARACTERS &&
+    !/[\x00-\x1f\x7f]/.test(value)
+  )
+}
+
+function validPage(operation: Record<string, unknown>) {
+  const { limit, offset } = operation
+  return (
+    typeof limit === 'number' &&
+    Number.isSafeInteger(limit) &&
+    limit >= 1 &&
+    limit <= LIST_MAX_PAGE_SIZE &&
+    typeof offset === 'number' &&
+    Number.isSafeInteger(offset) &&
+    offset >= 0 &&
+    offset <= LIST_MAX_OFFSET
+  )
+}
+
+function validMatchValue(kind: MatchValue, value: unknown) {
+  if (kind === 'pk') {
+    return isPk(value)
+  }
+  if (kind === 'nsn_tag') {
+    return typeof value === 'string' && NSN_TAG_PATTERN.test(value)
+  }
+  return isSearchText(value)
+}
+
+function refuseMatchList(): never {
+  throw new Error('list_operation_refused')
+}
+
+/**
+ * Validates a Match list read and builds its path, refusing before any request is sent. Exported
+ * so a reader can tell its own invalid operation from a target failure.
+ */
+export function matchListPath(operation: MatchListOperation, timeoutMs = LIST_MAX_TIMEOUT_MS) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > LIST_MAX_TIMEOUT_MS) {
+    refuseMatchList()
+  }
+  if (!operation || typeof operation !== 'object' || Array.isArray(operation)) {
+    refuseMatchList()
+  }
+  const fields = operation as unknown as Record<string, unknown>
+  if (typeof fields.kind !== 'string' || !Object.hasOwn(MATCH_LISTS, fields.kind)) {
+    refuseMatchList()
+  }
+  const shape = MATCH_LISTS[fields.kind as MatchListKind]
+  const allowed = new Set(['kind'])
+  if (shape.paged) {
+    allowed.add('limit')
+    allowed.add('offset')
+  }
+  for (const entry of shape.query) {
+    if ('property' in entry) {
+      allowed.add(entry.property)
+    }
+  }
+  const unknownProperty = Object.keys(fields).some((name) => !allowed.has(name))
+  if (unknownProperty || (shape.paged && !validPage(fields))) {
+    refuseMatchList()
+  }
+
+  const query = new URLSearchParams()
+  let filters = 0
+  for (const entry of shape.query) {
+    if ('fixed' in entry) {
+      query.set(entry.fixed, entry.value)
+      continue
+    }
+    const value = fields[entry.property]
+    if (value === undefined && !entry.required) {
+      continue
+    }
+    if (!validMatchValue(entry.value, value)) {
+      refuseMatchList()
+    }
+    query.set(entry.param, value as string)
+    filters += 1
+  }
+  if (shape.needsFilter && filters === 0) {
+    refuseMatchList()
+  }
+  query.set('limit', String(shape.paged ? fields.limit : CATEGORY_PARAMETERS_MAX))
+  query.set('offset', String(shape.paged ? fields.offset : 0))
+  return `${shape.path}?${query.toString()}`
+}
+
 const READ_PATHS = {
   get_part: 'part',
   get_tagged_part: 'part',
@@ -343,6 +578,15 @@ export function inventoryTransport(
         throw new Error('list_operation_refused')
       }
       return request(listPath(operation), 'GET', undefined, {}, timeoutMs)
+    },
+    /** Match list reads, under the same bounds and timeout rule as `list`. */
+    async matchList(
+      binding: TargetBinding,
+      operation: MatchListOperation,
+      timeoutMs = LIST_MAX_TIMEOUT_MS,
+    ) {
+      assertBinding(binding)
+      return request(matchListPath(operation, timeoutMs), 'GET', undefined, {}, timeoutMs)
     },
     async sendStock(binding: TargetBinding, retainedRequestBytes: string) {
       assertBinding(binding)

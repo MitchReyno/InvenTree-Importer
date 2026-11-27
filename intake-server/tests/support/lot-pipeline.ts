@@ -16,8 +16,30 @@ import sharp from 'sharp'
 import { BlobStore } from '#/media/blob-store.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
 import { transaction } from '#/db/database.ts'
+import { settlePendingSearches } from '#/processing/match/settle.ts'
+import { matchSearch } from '#/processing/match/search.ts'
+import type { MatchReader } from '#/inventory/match-reads.ts'
 
 export type Fixture = Awaited<ReturnType<typeof processingFixture>>
+
+/**
+ * Settles every committed Match search as the API's sweep would, on the API's role, with the
+ * InvenTree reader given (none: every remote read is unavailable).
+ */
+export async function settleMatch(fixture: Fixture, reader?: MatchReader) {
+  const outcomes: string[] = []
+  for (;;) {
+    const settled = await settlePendingSearches(
+      fixture.api.pool,
+      fixture.config,
+      matchSearch(fixture.api.pool, fixture.config, reader),
+    )
+    if (!settled.length) {
+      return outcomes
+    }
+    outcomes.push(...settled)
+  }
+}
 
 /** A plain 768×512 photo whose image the session can be given, published to the store. */
 async function storedPhoto(fixture: Fixture, store: BlobStore) {
@@ -131,7 +153,18 @@ export async function formedBatch(
     [batchId],
   )
   const leadAttempt = lead.rows[0].current_attempt_id
-  assert.equal(await runSessionTurn(deps, leadAttempt, new AbortController().signal), 'finished')
+  const leadTurn = await runSessionTurn(deps, leadAttempt, new AbortController().signal)
+  if (leadTurn !== 'finished') {
+    const failures = await fixture.db.pool.query(
+      'SELECT diagnostic FROM agent_session_failure WHERE attempt_id=$1',
+      [leadAttempt],
+    )
+    assert.fail(`lead turn ${leadTurn}: ${JSON.stringify(failures.rows)}`)
+  }
+  // Under `/7` the lead's identities request Match searches, which the API settles.
+  if (stageInputs) {
+    await settleMatch(fixture)
+  }
   const read = async () => (await fixture.http(`/batches/${batchId}`)).value as CaptureSnapshotDto
   const lot = async (label: string) => (await read()).lots.find((item) => item.label === label)!
   const successors = async (lotId: string) =>

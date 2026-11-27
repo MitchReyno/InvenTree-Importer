@@ -2,7 +2,8 @@ import type { BatchAttentionDto } from '@invimport/contracts'
 import type { BatchTab, ProcessingStep } from '#/navigation/batch-route'
 import { formatCount } from '#/components/ui'
 
-type Step = Exclude<ProcessingStep, 'overview'>
+/** The steps whose work the attention read counts per step; Match counts its own. */
+type Step = Exclude<ProcessingStep, 'overview' | 'match'>
 
 /** A batch tab, or one of its sub-tabs as `<tab>/<view>`. */
 export type TabKey =
@@ -80,6 +81,13 @@ export function tabCount(tab: TabKey, input: TabCountInput): TabCount | undefine
       return stepCount(processing.steps.images)
     case 'processing/inventory':
       return stepCount(processing.steps.inventory)
+    case 'processing/match': {
+      const questions = processing.match?.questions ?? 0
+
+      return questions > 0
+        ? count(questions, plural(questions, 'question', 'questions'), 'warn')
+        : undefined
+    }
     case 'review':
       return count(review.to_check, 'to check', 'default')
     case 'review/lots':
@@ -118,7 +126,14 @@ export function tabCount(tab: TabKey, input: TabCountInput): TabCount | undefine
  * A step's status icon: a spinner while any attempt runs, a cross while one has failed, and a tick
  * only once every job is ready with none failed.
  */
-export function stepStatus(step: Step, attention: BatchAttentionDto | undefined) {
+export function stepStatus(
+  step: Exclude<ProcessingStep, 'overview'>,
+  attention: BatchAttentionDto | undefined,
+) {
+  if (step === 'match') {
+    // Match has no jobs: it is working while any lot's search is pending.
+    return (attention?.processing.match?.searching ?? 0) > 0 ? ('running' as const) : undefined
+  }
   const work = attention?.processing.steps[step]
   if (!work) {
     return undefined

@@ -9,6 +9,7 @@ import {
   type ManualWorkspaceDto,
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
+  type BatchMatchDto,
 } from '@invimport/contracts'
 import { STEP_BY_STAGE, activeSubjectJobs, countStageWork } from '#/processing/steps.ts'
 
@@ -18,6 +19,8 @@ export type AttentionSources = {
   review: OperatorReviewDto
   manual: ManualWorkspaceDto
   records: BatchRecordsDto
+  /** The batch's Match step, for a batch whose pipeline has one. */
+  match?: BatchMatchDto
 }
 
 const STEP_LABEL: Record<string, string> = {
@@ -54,8 +57,23 @@ function questionItems({ batchId, processing }: AttentionSources): AttentionItem
     })
 }
 
+/** Open match questions, oldest first, routed to the Match step. */
+function matchQuestionItems({ batchId, match }: AttentionSources): AttentionItemDto[] {
+  return (match?.questions ?? [])
+    .filter((question) => question.state === 'open')
+    .map((question) => ({
+      key: `match:${question.id}`,
+      group: 'question' as const,
+      tab: 'processing' as const,
+      title: question.title,
+      detail: question.steps[0].assumption,
+      question: { steps: question.steps.map(stepSummary) },
+      route: `${batchId}/processing/match/${question.id}`,
+    }))
+}
+
 /** What Needs you shows of a step: its answer kind, how many options and the assumption. */
-function stepSummary(step: QuestionViewStep) {
+function stepSummary(step: Pick<QuestionViewStep, 'answer' | 'assumption'>) {
   return {
     kind: step.answer.kind,
     ...(step.answer.kind === 'choice' ? { options: step.answer.options.length } : {}),
@@ -165,7 +183,7 @@ function stepWork(processing: ProcessingSnapshotDto | undefined, review: Operato
 
 /** Tab counts and need-you items projected together, so badges and the panel agree. */
 export function projectAttention(sources: AttentionSources): BatchAttentionDto {
-  const questions = questionItems(sources)
+  const questions = [...matchQuestionItems(sources), ...questionItems(sources)]
   const failedJobs = failedJobItems(sources)
   const changed = changedLotItems(sources)
   const decisions = decisionItems(sources)
@@ -186,6 +204,15 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
       lots: sources.review.lots.length,
       paused: sources.processing?.paused === true,
       steps: stepWork(sources.processing, sources.review),
+      ...(sources.match?.pipeline === 'match'
+        ? {
+            match: {
+              questions: sources.match.questions.filter((question) => question.state === 'open')
+                .length,
+              searching: sources.match.lots.filter((lot) => lot.state === 'searching').length,
+            },
+          }
+        : {}),
     },
     review: {
       to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,

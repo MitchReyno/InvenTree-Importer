@@ -2626,6 +2626,446 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description BatchMatch */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchMatch"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/match/questions/{questionId}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    questionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MatchAnswer"];
+                };
+            };
+            responses: {
+                /** @description MatchAnswerReceipt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MatchAnswerReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/match/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MatchBatchAnswer"];
+                };
+            };
+            responses: {
+                /** @description MatchAnswerReceipt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MatchAnswerReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/match/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MatchCheck"];
+                };
+            };
+            responses: {
+                /** @description MatchCheckReceipt */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MatchCheckReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/match/lots/{lotId}/question": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                lotId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    lotId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MatchReopen"];
+                };
+            };
+            responses: {
+                /** @description MatchCheckReceipt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MatchCheckReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{batchId}/media": {
         parameters: {
             query?: never;
@@ -7617,6 +8057,10 @@ export interface components {
                 running: number;
                 lots: number;
                 paused: boolean;
+                match?: {
+                    questions: number;
+                    searching: number;
+                };
                 steps: {
                     examine: {
                         questions: number;
@@ -22825,7 +23269,7 @@ export interface components {
             } | {
                 /** @constant */
                 allowed: false;
-                reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
+                reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "match_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
             };
             proposals: {
                 id: string;
@@ -24535,7 +24979,7 @@ export interface components {
                 } | {
                     /** @constant */
                     allowed: false;
-                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "match_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
                 };
                 proposals: {
                     id: string;
@@ -26222,6 +26666,8 @@ export interface components {
             };
             /** @constant */
             paused?: true;
+            /** @constant */
+            pipeline?: "match";
         };
         ProcessingReceipt: {
             batch_id: string;
@@ -27369,7 +27815,7 @@ export interface components {
                 } | {
                     /** @constant */
                     allowed: false;
-                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "match_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
                 };
                 earlier_attempts: {
                     attempt_id: string;
@@ -31339,7 +31785,7 @@ export interface components {
                 } | {
                     /** @constant */
                     allowed: false;
-                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "match_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
                 };
             };
             entries: ({
@@ -36751,6 +37197,243 @@ export interface components {
                         to_line: number;
                     };
                     markings: string[];
+                } | {
+                    /** @constant */
+                    kind: "match";
+                    match: {
+                        lot_id: string;
+                        identity: {
+                            /** @constant */
+                            kind: "examine";
+                            proposal_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "operator";
+                            /** Format: int64 */
+                            revision: string;
+                        };
+                        state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                        /** Format: int64 */
+                        generation: string;
+                        settled_generation: string | "0";
+                        keys: ({
+                            /** @constant */
+                            kind: "mpn";
+                            mpn: string;
+                            manufacturer?: string;
+                            /** Format: int64 */
+                            manufacturer_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "type";
+                            type: string;
+                            manufacturer: string;
+                        } | {
+                            /** @constant */
+                            kind: "nsn";
+                            nsn: string;
+                        } | {
+                            /** @constant */
+                            kind: "ipn";
+                            ipn: string;
+                        } | {
+                            /** @constant */
+                            kind: "sku";
+                            sku: string;
+                            supplier?: string;
+                            /** Format: int64 */
+                            supplier_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "batch_code";
+                            batch_code: string;
+                        })[];
+                        searchable: boolean;
+                        verdict?: "none" | "exact" | "possible" | "duplicate";
+                        candidates: ({
+                            /** @constant */
+                            kind: "part";
+                            part: {
+                                /** Format: int64 */
+                                pk: string;
+                                name: string;
+                                ipn?: string;
+                                has_image: boolean;
+                            };
+                            verdict: "exact" | "possible" | "duplicate";
+                            matched_by: {
+                                key: {
+                                    /** @constant */
+                                    kind: "mpn";
+                                    mpn: string;
+                                    manufacturer?: string;
+                                    /** Format: int64 */
+                                    manufacturer_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "type";
+                                    type: string;
+                                    manufacturer: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "nsn";
+                                    nsn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "ipn";
+                                    ipn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "sku";
+                                    sku: string;
+                                    supplier?: string;
+                                    /** Format: int64 */
+                                    supplier_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "batch_code";
+                                    batch_code: string;
+                                };
+                                reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                            }[];
+                            missing: ({
+                                /** @constant */
+                                kind: "datasheet";
+                            } | {
+                                /** @constant */
+                                kind: "part_image";
+                            } | {
+                                /** @constant */
+                                kind: "manufacturer_part";
+                            } | {
+                                /** @constant */
+                                kind: "supplier_part";
+                            } | {
+                                /** @constant */
+                                kind: "parameter";
+                                /** Format: int64 */
+                                template: string;
+                                name?: string;
+                            })[];
+                            parameters_known: boolean;
+                            stock: {
+                                /** Format: int64 */
+                                pk: string;
+                                batch: string;
+                                quantity: string | "0";
+                            }[];
+                        } | {
+                            /** @constant */
+                            kind: "lot";
+                            batch_id: string;
+                            batch_title: string;
+                            lot_id: string;
+                            lot_label: string;
+                            matched_by: {
+                                key: {
+                                    /** @constant */
+                                    kind: "mpn";
+                                    mpn: string;
+                                    manufacturer?: string;
+                                    /** Format: int64 */
+                                    manufacturer_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "type";
+                                    type: string;
+                                    manufacturer: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "nsn";
+                                    nsn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "ipn";
+                                    ipn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "sku";
+                                    sku: string;
+                                    supplier?: string;
+                                    /** Format: int64 */
+                                    supplier_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "batch_code";
+                                    batch_code: string;
+                                };
+                                reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                            }[];
+                        })[];
+                        contribution?: {
+                            /** @constant */
+                            readable: true;
+                            run_id: string;
+                            batch_id: string;
+                            stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                        } | {
+                            /** @constant */
+                            readable: false;
+                        };
+                        outcome?: {
+                            /** @constant */
+                            schema_version: "bench-intake-match-outcome/1";
+                            lot_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                            basis: {
+                                /** @constant */
+                                kind: "clear";
+                            } | {
+                                /** @constant */
+                                kind: "decision";
+                                decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                            };
+                            research: {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "full";
+                            } | {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "gaps";
+                                fields: ("datasheet" | "parameters")[];
+                            } | {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "skipped";
+                            };
+                            images: {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "full";
+                            } | {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "stock";
+                                part_image: boolean;
+                            } | {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "skipped";
+                            };
+                        };
+                        target?: {
+                            /** Format: int64 */
+                            part_pk: string;
+                            name: string;
+                        };
+                        waits: ("research" | "images")[];
+                        question_id?: string;
+                        searched_at?: string;
+                        decided_at?: string;
+                    };
                 })[];
             };
         };
@@ -42368,6 +43051,243 @@ export interface components {
                         to_line: number;
                     };
                     markings: string[];
+                } | {
+                    /** @constant */
+                    kind: "match";
+                    match: {
+                        lot_id: string;
+                        identity: {
+                            /** @constant */
+                            kind: "examine";
+                            proposal_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "operator";
+                            /** Format: int64 */
+                            revision: string;
+                        };
+                        state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                        /** Format: int64 */
+                        generation: string;
+                        settled_generation: string | "0";
+                        keys: ({
+                            /** @constant */
+                            kind: "mpn";
+                            mpn: string;
+                            manufacturer?: string;
+                            /** Format: int64 */
+                            manufacturer_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "type";
+                            type: string;
+                            manufacturer: string;
+                        } | {
+                            /** @constant */
+                            kind: "nsn";
+                            nsn: string;
+                        } | {
+                            /** @constant */
+                            kind: "ipn";
+                            ipn: string;
+                        } | {
+                            /** @constant */
+                            kind: "sku";
+                            sku: string;
+                            supplier?: string;
+                            /** Format: int64 */
+                            supplier_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "batch_code";
+                            batch_code: string;
+                        })[];
+                        searchable: boolean;
+                        verdict?: "none" | "exact" | "possible" | "duplicate";
+                        candidates: ({
+                            /** @constant */
+                            kind: "part";
+                            part: {
+                                /** Format: int64 */
+                                pk: string;
+                                name: string;
+                                ipn?: string;
+                                has_image: boolean;
+                            };
+                            verdict: "exact" | "possible" | "duplicate";
+                            matched_by: {
+                                key: {
+                                    /** @constant */
+                                    kind: "mpn";
+                                    mpn: string;
+                                    manufacturer?: string;
+                                    /** Format: int64 */
+                                    manufacturer_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "type";
+                                    type: string;
+                                    manufacturer: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "nsn";
+                                    nsn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "ipn";
+                                    ipn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "sku";
+                                    sku: string;
+                                    supplier?: string;
+                                    /** Format: int64 */
+                                    supplier_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "batch_code";
+                                    batch_code: string;
+                                };
+                                reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                            }[];
+                            missing: ({
+                                /** @constant */
+                                kind: "datasheet";
+                            } | {
+                                /** @constant */
+                                kind: "part_image";
+                            } | {
+                                /** @constant */
+                                kind: "manufacturer_part";
+                            } | {
+                                /** @constant */
+                                kind: "supplier_part";
+                            } | {
+                                /** @constant */
+                                kind: "parameter";
+                                /** Format: int64 */
+                                template: string;
+                                name?: string;
+                            })[];
+                            parameters_known: boolean;
+                            stock: {
+                                /** Format: int64 */
+                                pk: string;
+                                batch: string;
+                                quantity: string | "0";
+                            }[];
+                        } | {
+                            /** @constant */
+                            kind: "lot";
+                            batch_id: string;
+                            batch_title: string;
+                            lot_id: string;
+                            lot_label: string;
+                            matched_by: {
+                                key: {
+                                    /** @constant */
+                                    kind: "mpn";
+                                    mpn: string;
+                                    manufacturer?: string;
+                                    /** Format: int64 */
+                                    manufacturer_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "type";
+                                    type: string;
+                                    manufacturer: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "nsn";
+                                    nsn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "ipn";
+                                    ipn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "sku";
+                                    sku: string;
+                                    supplier?: string;
+                                    /** Format: int64 */
+                                    supplier_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "batch_code";
+                                    batch_code: string;
+                                };
+                                reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                            }[];
+                        })[];
+                        contribution?: {
+                            /** @constant */
+                            readable: true;
+                            run_id: string;
+                            batch_id: string;
+                            stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                        } | {
+                            /** @constant */
+                            readable: false;
+                        };
+                        outcome?: {
+                            /** @constant */
+                            schema_version: "bench-intake-match-outcome/1";
+                            lot_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                            basis: {
+                                /** @constant */
+                                kind: "clear";
+                            } | {
+                                /** @constant */
+                                kind: "decision";
+                                decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                            };
+                            research: {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "full";
+                            } | {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "gaps";
+                                fields: ("datasheet" | "parameters")[];
+                            } | {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "skipped";
+                            };
+                            images: {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "full";
+                            } | {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "stock";
+                                part_image: boolean;
+                            } | {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "skipped";
+                            };
+                        };
+                        target?: {
+                            /** Format: int64 */
+                            part_pk: string;
+                            name: string;
+                        };
+                        waits: ("research" | "images")[];
+                        question_id?: string;
+                        searched_at?: string;
+                        decided_at?: string;
+                    };
                 })[];
                 next_page_token: string | null;
                 newer: {
@@ -44897,6 +45817,243 @@ export interface components {
                     to_line: number;
                 };
                 markings: string[];
+            } | {
+                /** @constant */
+                kind: "match";
+                match: {
+                    lot_id: string;
+                    identity: {
+                        /** @constant */
+                        kind: "examine";
+                        proposal_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "operator";
+                        /** Format: int64 */
+                        revision: string;
+                    };
+                    state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                    /** Format: int64 */
+                    generation: string;
+                    settled_generation: string | "0";
+                    keys: ({
+                        /** @constant */
+                        kind: "mpn";
+                        mpn: string;
+                        manufacturer?: string;
+                        /** Format: int64 */
+                        manufacturer_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "type";
+                        type: string;
+                        manufacturer: string;
+                    } | {
+                        /** @constant */
+                        kind: "nsn";
+                        nsn: string;
+                    } | {
+                        /** @constant */
+                        kind: "ipn";
+                        ipn: string;
+                    } | {
+                        /** @constant */
+                        kind: "sku";
+                        sku: string;
+                        supplier?: string;
+                        /** Format: int64 */
+                        supplier_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "batch_code";
+                        batch_code: string;
+                    })[];
+                    searchable: boolean;
+                    verdict?: "none" | "exact" | "possible" | "duplicate";
+                    candidates: ({
+                        /** @constant */
+                        kind: "part";
+                        part: {
+                            /** Format: int64 */
+                            pk: string;
+                            name: string;
+                            ipn?: string;
+                            has_image: boolean;
+                        };
+                        verdict: "exact" | "possible" | "duplicate";
+                        matched_by: {
+                            key: {
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            };
+                            reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                        }[];
+                        missing: ({
+                            /** @constant */
+                            kind: "datasheet";
+                        } | {
+                            /** @constant */
+                            kind: "part_image";
+                        } | {
+                            /** @constant */
+                            kind: "manufacturer_part";
+                        } | {
+                            /** @constant */
+                            kind: "supplier_part";
+                        } | {
+                            /** @constant */
+                            kind: "parameter";
+                            /** Format: int64 */
+                            template: string;
+                            name?: string;
+                        })[];
+                        parameters_known: boolean;
+                        stock: {
+                            /** Format: int64 */
+                            pk: string;
+                            batch: string;
+                            quantity: string | "0";
+                        }[];
+                    } | {
+                        /** @constant */
+                        kind: "lot";
+                        batch_id: string;
+                        batch_title: string;
+                        lot_id: string;
+                        lot_label: string;
+                        matched_by: {
+                            key: {
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            };
+                            reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                        }[];
+                    })[];
+                    contribution?: {
+                        /** @constant */
+                        readable: true;
+                        run_id: string;
+                        batch_id: string;
+                        stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                    } | {
+                        /** @constant */
+                        readable: false;
+                    };
+                    outcome?: {
+                        /** @constant */
+                        schema_version: "bench-intake-match-outcome/1";
+                        lot_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                        basis: {
+                            /** @constant */
+                            kind: "clear";
+                        } | {
+                            /** @constant */
+                            kind: "decision";
+                            decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                        };
+                        research: {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "full";
+                        } | {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "gaps";
+                            fields: ("datasheet" | "parameters")[];
+                        } | {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "skipped";
+                        };
+                        images: {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "full";
+                        } | {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "stock";
+                            part_image: boolean;
+                        } | {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "skipped";
+                        };
+                    };
+                    target?: {
+                        /** Format: int64 */
+                        part_pk: string;
+                        name: string;
+                    };
+                    waits: ("research" | "images")[];
+                    question_id?: string;
+                    searched_at?: string;
+                    decided_at?: string;
+                };
             })[];
         };
         SealedBrief: {
@@ -46669,6 +47826,243 @@ export interface components {
                         to_line: number;
                     };
                     markings: string[];
+                } | {
+                    /** @constant */
+                    kind: "match";
+                    match: {
+                        lot_id: string;
+                        identity: {
+                            /** @constant */
+                            kind: "examine";
+                            proposal_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "operator";
+                            /** Format: int64 */
+                            revision: string;
+                        };
+                        state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                        /** Format: int64 */
+                        generation: string;
+                        settled_generation: string | "0";
+                        keys: ({
+                            /** @constant */
+                            kind: "mpn";
+                            mpn: string;
+                            manufacturer?: string;
+                            /** Format: int64 */
+                            manufacturer_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "type";
+                            type: string;
+                            manufacturer: string;
+                        } | {
+                            /** @constant */
+                            kind: "nsn";
+                            nsn: string;
+                        } | {
+                            /** @constant */
+                            kind: "ipn";
+                            ipn: string;
+                        } | {
+                            /** @constant */
+                            kind: "sku";
+                            sku: string;
+                            supplier?: string;
+                            /** Format: int64 */
+                            supplier_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "batch_code";
+                            batch_code: string;
+                        })[];
+                        searchable: boolean;
+                        verdict?: "none" | "exact" | "possible" | "duplicate";
+                        candidates: ({
+                            /** @constant */
+                            kind: "part";
+                            part: {
+                                /** Format: int64 */
+                                pk: string;
+                                name: string;
+                                ipn?: string;
+                                has_image: boolean;
+                            };
+                            verdict: "exact" | "possible" | "duplicate";
+                            matched_by: {
+                                key: {
+                                    /** @constant */
+                                    kind: "mpn";
+                                    mpn: string;
+                                    manufacturer?: string;
+                                    /** Format: int64 */
+                                    manufacturer_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "type";
+                                    type: string;
+                                    manufacturer: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "nsn";
+                                    nsn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "ipn";
+                                    ipn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "sku";
+                                    sku: string;
+                                    supplier?: string;
+                                    /** Format: int64 */
+                                    supplier_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "batch_code";
+                                    batch_code: string;
+                                };
+                                reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                            }[];
+                            missing: ({
+                                /** @constant */
+                                kind: "datasheet";
+                            } | {
+                                /** @constant */
+                                kind: "part_image";
+                            } | {
+                                /** @constant */
+                                kind: "manufacturer_part";
+                            } | {
+                                /** @constant */
+                                kind: "supplier_part";
+                            } | {
+                                /** @constant */
+                                kind: "parameter";
+                                /** Format: int64 */
+                                template: string;
+                                name?: string;
+                            })[];
+                            parameters_known: boolean;
+                            stock: {
+                                /** Format: int64 */
+                                pk: string;
+                                batch: string;
+                                quantity: string | "0";
+                            }[];
+                        } | {
+                            /** @constant */
+                            kind: "lot";
+                            batch_id: string;
+                            batch_title: string;
+                            lot_id: string;
+                            lot_label: string;
+                            matched_by: {
+                                key: {
+                                    /** @constant */
+                                    kind: "mpn";
+                                    mpn: string;
+                                    manufacturer?: string;
+                                    /** Format: int64 */
+                                    manufacturer_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "type";
+                                    type: string;
+                                    manufacturer: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "nsn";
+                                    nsn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "ipn";
+                                    ipn: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "sku";
+                                    sku: string;
+                                    supplier?: string;
+                                    /** Format: int64 */
+                                    supplier_pk?: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "batch_code";
+                                    batch_code: string;
+                                };
+                                reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                            }[];
+                        })[];
+                        contribution?: {
+                            /** @constant */
+                            readable: true;
+                            run_id: string;
+                            batch_id: string;
+                            stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                        } | {
+                            /** @constant */
+                            readable: false;
+                        };
+                        outcome?: {
+                            /** @constant */
+                            schema_version: "bench-intake-match-outcome/1";
+                            lot_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                            basis: {
+                                /** @constant */
+                                kind: "clear";
+                            } | {
+                                /** @constant */
+                                kind: "decision";
+                                decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                            };
+                            research: {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "full";
+                            } | {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "gaps";
+                                fields: ("datasheet" | "parameters")[];
+                            } | {
+                                /** @constant */
+                                stage: "research";
+                                /** @constant */
+                                mode: "skipped";
+                            };
+                            images: {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "full";
+                            } | {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "stock";
+                                part_image: boolean;
+                            } | {
+                                /** @constant */
+                                stage: "images";
+                                /** @constant */
+                                mode: "skipped";
+                            };
+                        };
+                        target?: {
+                            /** Format: int64 */
+                            part_pk: string;
+                            name: string;
+                        };
+                        waits: ("research" | "images")[];
+                        question_id?: string;
+                        searched_at?: string;
+                        decided_at?: string;
+                    };
                 })[];
             }[];
         };
@@ -48430,6 +49824,243 @@ export interface components {
                     to_line: number;
                 };
                 markings: string[];
+            } | {
+                /** @constant */
+                kind: "match";
+                match: {
+                    lot_id: string;
+                    identity: {
+                        /** @constant */
+                        kind: "examine";
+                        proposal_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "operator";
+                        /** Format: int64 */
+                        revision: string;
+                    };
+                    state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                    /** Format: int64 */
+                    generation: string;
+                    settled_generation: string | "0";
+                    keys: ({
+                        /** @constant */
+                        kind: "mpn";
+                        mpn: string;
+                        manufacturer?: string;
+                        /** Format: int64 */
+                        manufacturer_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "type";
+                        type: string;
+                        manufacturer: string;
+                    } | {
+                        /** @constant */
+                        kind: "nsn";
+                        nsn: string;
+                    } | {
+                        /** @constant */
+                        kind: "ipn";
+                        ipn: string;
+                    } | {
+                        /** @constant */
+                        kind: "sku";
+                        sku: string;
+                        supplier?: string;
+                        /** Format: int64 */
+                        supplier_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "batch_code";
+                        batch_code: string;
+                    })[];
+                    searchable: boolean;
+                    verdict?: "none" | "exact" | "possible" | "duplicate";
+                    candidates: ({
+                        /** @constant */
+                        kind: "part";
+                        part: {
+                            /** Format: int64 */
+                            pk: string;
+                            name: string;
+                            ipn?: string;
+                            has_image: boolean;
+                        };
+                        verdict: "exact" | "possible" | "duplicate";
+                        matched_by: {
+                            key: {
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            };
+                            reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                        }[];
+                        missing: ({
+                            /** @constant */
+                            kind: "datasheet";
+                        } | {
+                            /** @constant */
+                            kind: "part_image";
+                        } | {
+                            /** @constant */
+                            kind: "manufacturer_part";
+                        } | {
+                            /** @constant */
+                            kind: "supplier_part";
+                        } | {
+                            /** @constant */
+                            kind: "parameter";
+                            /** Format: int64 */
+                            template: string;
+                            name?: string;
+                        })[];
+                        parameters_known: boolean;
+                        stock: {
+                            /** Format: int64 */
+                            pk: string;
+                            batch: string;
+                            quantity: string | "0";
+                        }[];
+                    } | {
+                        /** @constant */
+                        kind: "lot";
+                        batch_id: string;
+                        batch_title: string;
+                        lot_id: string;
+                        lot_label: string;
+                        matched_by: {
+                            key: {
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            };
+                            reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                        }[];
+                    })[];
+                    contribution?: {
+                        /** @constant */
+                        readable: true;
+                        run_id: string;
+                        batch_id: string;
+                        stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                    } | {
+                        /** @constant */
+                        readable: false;
+                    };
+                    outcome?: {
+                        /** @constant */
+                        schema_version: "bench-intake-match-outcome/1";
+                        lot_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                        basis: {
+                            /** @constant */
+                            kind: "clear";
+                        } | {
+                            /** @constant */
+                            kind: "decision";
+                            decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                        };
+                        research: {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "full";
+                        } | {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "gaps";
+                            fields: ("datasheet" | "parameters")[];
+                        } | {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "skipped";
+                        };
+                        images: {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "full";
+                        } | {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "stock";
+                            part_image: boolean;
+                        } | {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "skipped";
+                        };
+                    };
+                    target?: {
+                        /** Format: int64 */
+                        part_pk: string;
+                        name: string;
+                    };
+                    waits: ("research" | "images")[];
+                    question_id?: string;
+                    searched_at?: string;
+                    decided_at?: string;
+                };
             })[];
         };
         SessionBriefPage: {
@@ -50199,6 +51830,243 @@ export interface components {
                     to_line: number;
                 };
                 markings: string[];
+            } | {
+                /** @constant */
+                kind: "match";
+                match: {
+                    lot_id: string;
+                    identity: {
+                        /** @constant */
+                        kind: "examine";
+                        proposal_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "operator";
+                        /** Format: int64 */
+                        revision: string;
+                    };
+                    state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                    /** Format: int64 */
+                    generation: string;
+                    settled_generation: string | "0";
+                    keys: ({
+                        /** @constant */
+                        kind: "mpn";
+                        mpn: string;
+                        manufacturer?: string;
+                        /** Format: int64 */
+                        manufacturer_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "type";
+                        type: string;
+                        manufacturer: string;
+                    } | {
+                        /** @constant */
+                        kind: "nsn";
+                        nsn: string;
+                    } | {
+                        /** @constant */
+                        kind: "ipn";
+                        ipn: string;
+                    } | {
+                        /** @constant */
+                        kind: "sku";
+                        sku: string;
+                        supplier?: string;
+                        /** Format: int64 */
+                        supplier_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "batch_code";
+                        batch_code: string;
+                    })[];
+                    searchable: boolean;
+                    verdict?: "none" | "exact" | "possible" | "duplicate";
+                    candidates: ({
+                        /** @constant */
+                        kind: "part";
+                        part: {
+                            /** Format: int64 */
+                            pk: string;
+                            name: string;
+                            ipn?: string;
+                            has_image: boolean;
+                        };
+                        verdict: "exact" | "possible" | "duplicate";
+                        matched_by: {
+                            key: {
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            };
+                            reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                        }[];
+                        missing: ({
+                            /** @constant */
+                            kind: "datasheet";
+                        } | {
+                            /** @constant */
+                            kind: "part_image";
+                        } | {
+                            /** @constant */
+                            kind: "manufacturer_part";
+                        } | {
+                            /** @constant */
+                            kind: "supplier_part";
+                        } | {
+                            /** @constant */
+                            kind: "parameter";
+                            /** Format: int64 */
+                            template: string;
+                            name?: string;
+                        })[];
+                        parameters_known: boolean;
+                        stock: {
+                            /** Format: int64 */
+                            pk: string;
+                            batch: string;
+                            quantity: string | "0";
+                        }[];
+                    } | {
+                        /** @constant */
+                        kind: "lot";
+                        batch_id: string;
+                        batch_title: string;
+                        lot_id: string;
+                        lot_label: string;
+                        matched_by: {
+                            key: {
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            };
+                            reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                        }[];
+                    })[];
+                    contribution?: {
+                        /** @constant */
+                        readable: true;
+                        run_id: string;
+                        batch_id: string;
+                        stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                    } | {
+                        /** @constant */
+                        readable: false;
+                    };
+                    outcome?: {
+                        /** @constant */
+                        schema_version: "bench-intake-match-outcome/1";
+                        lot_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                        basis: {
+                            /** @constant */
+                            kind: "clear";
+                        } | {
+                            /** @constant */
+                            kind: "decision";
+                            decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                        };
+                        research: {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "full";
+                        } | {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "gaps";
+                            fields: ("datasheet" | "parameters")[];
+                        } | {
+                            /** @constant */
+                            stage: "research";
+                            /** @constant */
+                            mode: "skipped";
+                        };
+                        images: {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "full";
+                        } | {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "stock";
+                            part_image: boolean;
+                        } | {
+                            /** @constant */
+                            stage: "images";
+                            /** @constant */
+                            mode: "skipped";
+                        };
+                    };
+                    target?: {
+                        /** Format: int64 */
+                        part_pk: string;
+                        name: string;
+                    };
+                    waits: ("research" | "images")[];
+                    question_id?: string;
+                    searched_at?: string;
+                    decided_at?: string;
+                };
             })[];
             next_page_token: string | null;
             newer: {
@@ -52104,6 +53972,243 @@ export interface components {
                             to_line: number;
                         };
                         markings: string[];
+                    } | {
+                        /** @constant */
+                        kind: "match";
+                        match: {
+                            lot_id: string;
+                            identity: {
+                                /** @constant */
+                                kind: "examine";
+                                proposal_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "operator";
+                                /** Format: int64 */
+                                revision: string;
+                            };
+                            state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                            /** Format: int64 */
+                            generation: string;
+                            settled_generation: string | "0";
+                            keys: ({
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            })[];
+                            searchable: boolean;
+                            verdict?: "none" | "exact" | "possible" | "duplicate";
+                            candidates: ({
+                                /** @constant */
+                                kind: "part";
+                                part: {
+                                    /** Format: int64 */
+                                    pk: string;
+                                    name: string;
+                                    ipn?: string;
+                                    has_image: boolean;
+                                };
+                                verdict: "exact" | "possible" | "duplicate";
+                                matched_by: {
+                                    key: {
+                                        /** @constant */
+                                        kind: "mpn";
+                                        mpn: string;
+                                        manufacturer?: string;
+                                        /** Format: int64 */
+                                        manufacturer_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "type";
+                                        type: string;
+                                        manufacturer: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "nsn";
+                                        nsn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "ipn";
+                                        ipn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "sku";
+                                        sku: string;
+                                        supplier?: string;
+                                        /** Format: int64 */
+                                        supplier_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "batch_code";
+                                        batch_code: string;
+                                    };
+                                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                                }[];
+                                missing: ({
+                                    /** @constant */
+                                    kind: "datasheet";
+                                } | {
+                                    /** @constant */
+                                    kind: "part_image";
+                                } | {
+                                    /** @constant */
+                                    kind: "manufacturer_part";
+                                } | {
+                                    /** @constant */
+                                    kind: "supplier_part";
+                                } | {
+                                    /** @constant */
+                                    kind: "parameter";
+                                    /** Format: int64 */
+                                    template: string;
+                                    name?: string;
+                                })[];
+                                parameters_known: boolean;
+                                stock: {
+                                    /** Format: int64 */
+                                    pk: string;
+                                    batch: string;
+                                    quantity: string | "0";
+                                }[];
+                            } | {
+                                /** @constant */
+                                kind: "lot";
+                                batch_id: string;
+                                batch_title: string;
+                                lot_id: string;
+                                lot_label: string;
+                                matched_by: {
+                                    key: {
+                                        /** @constant */
+                                        kind: "mpn";
+                                        mpn: string;
+                                        manufacturer?: string;
+                                        /** Format: int64 */
+                                        manufacturer_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "type";
+                                        type: string;
+                                        manufacturer: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "nsn";
+                                        nsn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "ipn";
+                                        ipn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "sku";
+                                        sku: string;
+                                        supplier?: string;
+                                        /** Format: int64 */
+                                        supplier_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "batch_code";
+                                        batch_code: string;
+                                    };
+                                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                                }[];
+                            })[];
+                            contribution?: {
+                                /** @constant */
+                                readable: true;
+                                run_id: string;
+                                batch_id: string;
+                                stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                            } | {
+                                /** @constant */
+                                readable: false;
+                            };
+                            outcome?: {
+                                /** @constant */
+                                schema_version: "bench-intake-match-outcome/1";
+                                lot_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                                basis: {
+                                    /** @constant */
+                                    kind: "clear";
+                                } | {
+                                    /** @constant */
+                                    kind: "decision";
+                                    decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                                };
+                                research: {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "full";
+                                } | {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "gaps";
+                                    fields: ("datasheet" | "parameters")[];
+                                } | {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "skipped";
+                                };
+                                images: {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "full";
+                                } | {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "stock";
+                                    part_image: boolean;
+                                } | {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "skipped";
+                                };
+                            };
+                            target?: {
+                                /** Format: int64 */
+                                part_pk: string;
+                                name: string;
+                            };
+                            waits: ("research" | "images")[];
+                            question_id?: string;
+                            searched_at?: string;
+                            decided_at?: string;
+                        };
                     })[];
                 }[];
             };
@@ -53991,6 +56096,243 @@ export interface components {
                             to_line: number;
                         };
                         markings: string[];
+                    } | {
+                        /** @constant */
+                        kind: "match";
+                        match: {
+                            lot_id: string;
+                            identity: {
+                                /** @constant */
+                                kind: "examine";
+                                proposal_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "operator";
+                                /** Format: int64 */
+                                revision: string;
+                            };
+                            state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                            /** Format: int64 */
+                            generation: string;
+                            settled_generation: string | "0";
+                            keys: ({
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            })[];
+                            searchable: boolean;
+                            verdict?: "none" | "exact" | "possible" | "duplicate";
+                            candidates: ({
+                                /** @constant */
+                                kind: "part";
+                                part: {
+                                    /** Format: int64 */
+                                    pk: string;
+                                    name: string;
+                                    ipn?: string;
+                                    has_image: boolean;
+                                };
+                                verdict: "exact" | "possible" | "duplicate";
+                                matched_by: {
+                                    key: {
+                                        /** @constant */
+                                        kind: "mpn";
+                                        mpn: string;
+                                        manufacturer?: string;
+                                        /** Format: int64 */
+                                        manufacturer_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "type";
+                                        type: string;
+                                        manufacturer: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "nsn";
+                                        nsn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "ipn";
+                                        ipn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "sku";
+                                        sku: string;
+                                        supplier?: string;
+                                        /** Format: int64 */
+                                        supplier_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "batch_code";
+                                        batch_code: string;
+                                    };
+                                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                                }[];
+                                missing: ({
+                                    /** @constant */
+                                    kind: "datasheet";
+                                } | {
+                                    /** @constant */
+                                    kind: "part_image";
+                                } | {
+                                    /** @constant */
+                                    kind: "manufacturer_part";
+                                } | {
+                                    /** @constant */
+                                    kind: "supplier_part";
+                                } | {
+                                    /** @constant */
+                                    kind: "parameter";
+                                    /** Format: int64 */
+                                    template: string;
+                                    name?: string;
+                                })[];
+                                parameters_known: boolean;
+                                stock: {
+                                    /** Format: int64 */
+                                    pk: string;
+                                    batch: string;
+                                    quantity: string | "0";
+                                }[];
+                            } | {
+                                /** @constant */
+                                kind: "lot";
+                                batch_id: string;
+                                batch_title: string;
+                                lot_id: string;
+                                lot_label: string;
+                                matched_by: {
+                                    key: {
+                                        /** @constant */
+                                        kind: "mpn";
+                                        mpn: string;
+                                        manufacturer?: string;
+                                        /** Format: int64 */
+                                        manufacturer_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "type";
+                                        type: string;
+                                        manufacturer: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "nsn";
+                                        nsn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "ipn";
+                                        ipn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "sku";
+                                        sku: string;
+                                        supplier?: string;
+                                        /** Format: int64 */
+                                        supplier_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "batch_code";
+                                        batch_code: string;
+                                    };
+                                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                                }[];
+                            })[];
+                            contribution?: {
+                                /** @constant */
+                                readable: true;
+                                run_id: string;
+                                batch_id: string;
+                                stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                            } | {
+                                /** @constant */
+                                readable: false;
+                            };
+                            outcome?: {
+                                /** @constant */
+                                schema_version: "bench-intake-match-outcome/1";
+                                lot_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                                basis: {
+                                    /** @constant */
+                                    kind: "clear";
+                                } | {
+                                    /** @constant */
+                                    kind: "decision";
+                                    decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                                };
+                                research: {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "full";
+                                } | {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "gaps";
+                                    fields: ("datasheet" | "parameters")[];
+                                } | {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "skipped";
+                                };
+                                images: {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "full";
+                                } | {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "stock";
+                                    part_image: boolean;
+                                } | {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "skipped";
+                                };
+                            };
+                            target?: {
+                                /** Format: int64 */
+                                part_pk: string;
+                                name: string;
+                            };
+                            waits: ("research" | "images")[];
+                            question_id?: string;
+                            searched_at?: string;
+                            decided_at?: string;
+                        };
                     })[];
                 }[];
             };
@@ -56183,6 +58525,243 @@ export interface components {
                             to_line: number;
                         };
                         markings: string[];
+                    } | {
+                        /** @constant */
+                        kind: "match";
+                        match: {
+                            lot_id: string;
+                            identity: {
+                                /** @constant */
+                                kind: "examine";
+                                proposal_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "operator";
+                                /** Format: int64 */
+                                revision: string;
+                            };
+                            state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                            /** Format: int64 */
+                            generation: string;
+                            settled_generation: string | "0";
+                            keys: ({
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            })[];
+                            searchable: boolean;
+                            verdict?: "none" | "exact" | "possible" | "duplicate";
+                            candidates: ({
+                                /** @constant */
+                                kind: "part";
+                                part: {
+                                    /** Format: int64 */
+                                    pk: string;
+                                    name: string;
+                                    ipn?: string;
+                                    has_image: boolean;
+                                };
+                                verdict: "exact" | "possible" | "duplicate";
+                                matched_by: {
+                                    key: {
+                                        /** @constant */
+                                        kind: "mpn";
+                                        mpn: string;
+                                        manufacturer?: string;
+                                        /** Format: int64 */
+                                        manufacturer_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "type";
+                                        type: string;
+                                        manufacturer: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "nsn";
+                                        nsn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "ipn";
+                                        ipn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "sku";
+                                        sku: string;
+                                        supplier?: string;
+                                        /** Format: int64 */
+                                        supplier_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "batch_code";
+                                        batch_code: string;
+                                    };
+                                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                                }[];
+                                missing: ({
+                                    /** @constant */
+                                    kind: "datasheet";
+                                } | {
+                                    /** @constant */
+                                    kind: "part_image";
+                                } | {
+                                    /** @constant */
+                                    kind: "manufacturer_part";
+                                } | {
+                                    /** @constant */
+                                    kind: "supplier_part";
+                                } | {
+                                    /** @constant */
+                                    kind: "parameter";
+                                    /** Format: int64 */
+                                    template: string;
+                                    name?: string;
+                                })[];
+                                parameters_known: boolean;
+                                stock: {
+                                    /** Format: int64 */
+                                    pk: string;
+                                    batch: string;
+                                    quantity: string | "0";
+                                }[];
+                            } | {
+                                /** @constant */
+                                kind: "lot";
+                                batch_id: string;
+                                batch_title: string;
+                                lot_id: string;
+                                lot_label: string;
+                                matched_by: {
+                                    key: {
+                                        /** @constant */
+                                        kind: "mpn";
+                                        mpn: string;
+                                        manufacturer?: string;
+                                        /** Format: int64 */
+                                        manufacturer_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "type";
+                                        type: string;
+                                        manufacturer: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "nsn";
+                                        nsn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "ipn";
+                                        ipn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "sku";
+                                        sku: string;
+                                        supplier?: string;
+                                        /** Format: int64 */
+                                        supplier_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "batch_code";
+                                        batch_code: string;
+                                    };
+                                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                                }[];
+                            })[];
+                            contribution?: {
+                                /** @constant */
+                                readable: true;
+                                run_id: string;
+                                batch_id: string;
+                                stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                            } | {
+                                /** @constant */
+                                readable: false;
+                            };
+                            outcome?: {
+                                /** @constant */
+                                schema_version: "bench-intake-match-outcome/1";
+                                lot_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                                basis: {
+                                    /** @constant */
+                                    kind: "clear";
+                                } | {
+                                    /** @constant */
+                                    kind: "decision";
+                                    decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                                };
+                                research: {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "full";
+                                } | {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "gaps";
+                                    fields: ("datasheet" | "parameters")[];
+                                } | {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "skipped";
+                                };
+                                images: {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "full";
+                                } | {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "stock";
+                                    part_image: boolean;
+                                } | {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "skipped";
+                                };
+                            };
+                            target?: {
+                                /** Format: int64 */
+                                part_pk: string;
+                                name: string;
+                            };
+                            waits: ("research" | "images")[];
+                            question_id?: string;
+                            searched_at?: string;
+                            decided_at?: string;
+                        };
                     })[];
                 }[];
             };
@@ -58076,6 +60655,243 @@ export interface components {
                             to_line: number;
                         };
                         markings: string[];
+                    } | {
+                        /** @constant */
+                        kind: "match";
+                        match: {
+                            lot_id: string;
+                            identity: {
+                                /** @constant */
+                                kind: "examine";
+                                proposal_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "operator";
+                                /** Format: int64 */
+                                revision: string;
+                            };
+                            state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                            /** Format: int64 */
+                            generation: string;
+                            settled_generation: string | "0";
+                            keys: ({
+                                /** @constant */
+                                kind: "mpn";
+                                mpn: string;
+                                manufacturer?: string;
+                                /** Format: int64 */
+                                manufacturer_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "type";
+                                type: string;
+                                manufacturer: string;
+                            } | {
+                                /** @constant */
+                                kind: "nsn";
+                                nsn: string;
+                            } | {
+                                /** @constant */
+                                kind: "ipn";
+                                ipn: string;
+                            } | {
+                                /** @constant */
+                                kind: "sku";
+                                sku: string;
+                                supplier?: string;
+                                /** Format: int64 */
+                                supplier_pk?: string;
+                            } | {
+                                /** @constant */
+                                kind: "batch_code";
+                                batch_code: string;
+                            })[];
+                            searchable: boolean;
+                            verdict?: "none" | "exact" | "possible" | "duplicate";
+                            candidates: ({
+                                /** @constant */
+                                kind: "part";
+                                part: {
+                                    /** Format: int64 */
+                                    pk: string;
+                                    name: string;
+                                    ipn?: string;
+                                    has_image: boolean;
+                                };
+                                verdict: "exact" | "possible" | "duplicate";
+                                matched_by: {
+                                    key: {
+                                        /** @constant */
+                                        kind: "mpn";
+                                        mpn: string;
+                                        manufacturer?: string;
+                                        /** Format: int64 */
+                                        manufacturer_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "type";
+                                        type: string;
+                                        manufacturer: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "nsn";
+                                        nsn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "ipn";
+                                        ipn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "sku";
+                                        sku: string;
+                                        supplier?: string;
+                                        /** Format: int64 */
+                                        supplier_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "batch_code";
+                                        batch_code: string;
+                                    };
+                                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                                }[];
+                                missing: ({
+                                    /** @constant */
+                                    kind: "datasheet";
+                                } | {
+                                    /** @constant */
+                                    kind: "part_image";
+                                } | {
+                                    /** @constant */
+                                    kind: "manufacturer_part";
+                                } | {
+                                    /** @constant */
+                                    kind: "supplier_part";
+                                } | {
+                                    /** @constant */
+                                    kind: "parameter";
+                                    /** Format: int64 */
+                                    template: string;
+                                    name?: string;
+                                })[];
+                                parameters_known: boolean;
+                                stock: {
+                                    /** Format: int64 */
+                                    pk: string;
+                                    batch: string;
+                                    quantity: string | "0";
+                                }[];
+                            } | {
+                                /** @constant */
+                                kind: "lot";
+                                batch_id: string;
+                                batch_title: string;
+                                lot_id: string;
+                                lot_label: string;
+                                matched_by: {
+                                    key: {
+                                        /** @constant */
+                                        kind: "mpn";
+                                        mpn: string;
+                                        manufacturer?: string;
+                                        /** Format: int64 */
+                                        manufacturer_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "type";
+                                        type: string;
+                                        manufacturer: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "nsn";
+                                        nsn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "ipn";
+                                        ipn: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "sku";
+                                        sku: string;
+                                        supplier?: string;
+                                        /** Format: int64 */
+                                        supplier_pk?: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "batch_code";
+                                        batch_code: string;
+                                    };
+                                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                                }[];
+                            })[];
+                            contribution?: {
+                                /** @constant */
+                                readable: true;
+                                run_id: string;
+                                batch_id: string;
+                                stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                            } | {
+                                /** @constant */
+                                readable: false;
+                            };
+                            outcome?: {
+                                /** @constant */
+                                schema_version: "bench-intake-match-outcome/1";
+                                lot_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                                basis: {
+                                    /** @constant */
+                                    kind: "clear";
+                                } | {
+                                    /** @constant */
+                                    kind: "decision";
+                                    decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                                };
+                                research: {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "full";
+                                } | {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "gaps";
+                                    fields: ("datasheet" | "parameters")[];
+                                } | {
+                                    /** @constant */
+                                    stage: "research";
+                                    /** @constant */
+                                    mode: "skipped";
+                                };
+                                images: {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "full";
+                                } | {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "stock";
+                                    part_image: boolean;
+                                } | {
+                                    /** @constant */
+                                    stage: "images";
+                                    /** @constant */
+                                    mode: "skipped";
+                                };
+                            };
+                            target?: {
+                                /** Format: int64 */
+                                part_pk: string;
+                                name: string;
+                            };
+                            waits: ("research" | "images")[];
+                            question_id?: string;
+                            searched_at?: string;
+                            decided_at?: string;
+                        };
                     })[];
                 }[];
             };
@@ -58503,6 +61319,1094 @@ export interface components {
                 part_image: boolean;
             };
         };
+        MatchKey: {
+            /** @constant */
+            kind: "mpn";
+            mpn: string;
+            manufacturer?: string;
+            /** Format: int64 */
+            manufacturer_pk?: string;
+        } | {
+            /** @constant */
+            kind: "type";
+            type: string;
+            manufacturer: string;
+        } | {
+            /** @constant */
+            kind: "nsn";
+            nsn: string;
+        } | {
+            /** @constant */
+            kind: "ipn";
+            ipn: string;
+        } | {
+            /** @constant */
+            kind: "sku";
+            sku: string;
+            supplier?: string;
+            /** Format: int64 */
+            supplier_pk?: string;
+        } | {
+            /** @constant */
+            kind: "batch_code";
+            batch_code: string;
+        };
+        MatchIdentity: {
+            /** @constant */
+            kind: "examine";
+            proposal_id: string;
+        } | {
+            /** @constant */
+            kind: "operator";
+            /** Format: int64 */
+            revision: string;
+        };
+        MatchCandidate: {
+            /** @constant */
+            kind: "part";
+            part: {
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                ipn?: string;
+                has_image: boolean;
+            };
+            verdict: "exact" | "possible" | "duplicate";
+            matched_by: {
+                key: {
+                    /** @constant */
+                    kind: "mpn";
+                    mpn: string;
+                    manufacturer?: string;
+                    /** Format: int64 */
+                    manufacturer_pk?: string;
+                } | {
+                    /** @constant */
+                    kind: "type";
+                    type: string;
+                    manufacturer: string;
+                } | {
+                    /** @constant */
+                    kind: "nsn";
+                    nsn: string;
+                } | {
+                    /** @constant */
+                    kind: "ipn";
+                    ipn: string;
+                } | {
+                    /** @constant */
+                    kind: "sku";
+                    sku: string;
+                    supplier?: string;
+                    /** Format: int64 */
+                    supplier_pk?: string;
+                } | {
+                    /** @constant */
+                    kind: "batch_code";
+                    batch_code: string;
+                };
+                reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+            }[];
+            missing: ({
+                /** @constant */
+                kind: "datasheet";
+            } | {
+                /** @constant */
+                kind: "part_image";
+            } | {
+                /** @constant */
+                kind: "manufacturer_part";
+            } | {
+                /** @constant */
+                kind: "supplier_part";
+            } | {
+                /** @constant */
+                kind: "parameter";
+                /** Format: int64 */
+                template: string;
+                name?: string;
+            })[];
+            parameters_known: boolean;
+            stock: {
+                /** Format: int64 */
+                pk: string;
+                batch: string;
+                quantity: string | "0";
+            }[];
+        } | {
+            /** @constant */
+            kind: "lot";
+            batch_id: string;
+            batch_title: string;
+            lot_id: string;
+            lot_label: string;
+            matched_by: {
+                key: {
+                    /** @constant */
+                    kind: "mpn";
+                    mpn: string;
+                    manufacturer?: string;
+                    /** Format: int64 */
+                    manufacturer_pk?: string;
+                } | {
+                    /** @constant */
+                    kind: "type";
+                    type: string;
+                    manufacturer: string;
+                } | {
+                    /** @constant */
+                    kind: "nsn";
+                    nsn: string;
+                } | {
+                    /** @constant */
+                    kind: "ipn";
+                    ipn: string;
+                } | {
+                    /** @constant */
+                    kind: "sku";
+                    sku: string;
+                    supplier?: string;
+                    /** Format: int64 */
+                    supplier_pk?: string;
+                } | {
+                    /** @constant */
+                    kind: "batch_code";
+                    batch_code: string;
+                };
+                reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+            }[];
+        };
+        MatchLot: {
+            lot_id: string;
+            identity: {
+                /** @constant */
+                kind: "examine";
+                proposal_id: string;
+            } | {
+                /** @constant */
+                kind: "operator";
+                /** Format: int64 */
+                revision: string;
+            };
+            state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+            /** Format: int64 */
+            generation: string;
+            settled_generation: string | "0";
+            keys: ({
+                /** @constant */
+                kind: "mpn";
+                mpn: string;
+                manufacturer?: string;
+                /** Format: int64 */
+                manufacturer_pk?: string;
+            } | {
+                /** @constant */
+                kind: "type";
+                type: string;
+                manufacturer: string;
+            } | {
+                /** @constant */
+                kind: "nsn";
+                nsn: string;
+            } | {
+                /** @constant */
+                kind: "ipn";
+                ipn: string;
+            } | {
+                /** @constant */
+                kind: "sku";
+                sku: string;
+                supplier?: string;
+                /** Format: int64 */
+                supplier_pk?: string;
+            } | {
+                /** @constant */
+                kind: "batch_code";
+                batch_code: string;
+            })[];
+            searchable: boolean;
+            verdict?: "none" | "exact" | "possible" | "duplicate";
+            candidates: ({
+                /** @constant */
+                kind: "part";
+                part: {
+                    /** Format: int64 */
+                    pk: string;
+                    name: string;
+                    ipn?: string;
+                    has_image: boolean;
+                };
+                verdict: "exact" | "possible" | "duplicate";
+                matched_by: {
+                    key: {
+                        /** @constant */
+                        kind: "mpn";
+                        mpn: string;
+                        manufacturer?: string;
+                        /** Format: int64 */
+                        manufacturer_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "type";
+                        type: string;
+                        manufacturer: string;
+                    } | {
+                        /** @constant */
+                        kind: "nsn";
+                        nsn: string;
+                    } | {
+                        /** @constant */
+                        kind: "ipn";
+                        ipn: string;
+                    } | {
+                        /** @constant */
+                        kind: "sku";
+                        sku: string;
+                        supplier?: string;
+                        /** Format: int64 */
+                        supplier_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "batch_code";
+                        batch_code: string;
+                    };
+                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                }[];
+                missing: ({
+                    /** @constant */
+                    kind: "datasheet";
+                } | {
+                    /** @constant */
+                    kind: "part_image";
+                } | {
+                    /** @constant */
+                    kind: "manufacturer_part";
+                } | {
+                    /** @constant */
+                    kind: "supplier_part";
+                } | {
+                    /** @constant */
+                    kind: "parameter";
+                    /** Format: int64 */
+                    template: string;
+                    name?: string;
+                })[];
+                parameters_known: boolean;
+                stock: {
+                    /** Format: int64 */
+                    pk: string;
+                    batch: string;
+                    quantity: string | "0";
+                }[];
+            } | {
+                /** @constant */
+                kind: "lot";
+                batch_id: string;
+                batch_title: string;
+                lot_id: string;
+                lot_label: string;
+                matched_by: {
+                    key: {
+                        /** @constant */
+                        kind: "mpn";
+                        mpn: string;
+                        manufacturer?: string;
+                        /** Format: int64 */
+                        manufacturer_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "type";
+                        type: string;
+                        manufacturer: string;
+                    } | {
+                        /** @constant */
+                        kind: "nsn";
+                        nsn: string;
+                    } | {
+                        /** @constant */
+                        kind: "ipn";
+                        ipn: string;
+                    } | {
+                        /** @constant */
+                        kind: "sku";
+                        sku: string;
+                        supplier?: string;
+                        /** Format: int64 */
+                        supplier_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "batch_code";
+                        batch_code: string;
+                    };
+                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                }[];
+            })[];
+            contribution?: {
+                /** @constant */
+                readable: true;
+                run_id: string;
+                batch_id: string;
+                stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+            } | {
+                /** @constant */
+                readable: false;
+            };
+            outcome?: {
+                /** @constant */
+                schema_version: "bench-intake-match-outcome/1";
+                lot_id: string;
+                /** Format: int64 */
+                revision: string;
+                basis: {
+                    /** @constant */
+                    kind: "clear";
+                } | {
+                    /** @constant */
+                    kind: "decision";
+                    decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                };
+                research: {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "full";
+                } | {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "gaps";
+                    fields: ("datasheet" | "parameters")[];
+                } | {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "skipped";
+                };
+                images: {
+                    /** @constant */
+                    stage: "images";
+                    /** @constant */
+                    mode: "full";
+                } | {
+                    /** @constant */
+                    stage: "images";
+                    /** @constant */
+                    mode: "stock";
+                    part_image: boolean;
+                } | {
+                    /** @constant */
+                    stage: "images";
+                    /** @constant */
+                    mode: "skipped";
+                };
+            };
+            target?: {
+                /** Format: int64 */
+                part_pk: string;
+                name: string;
+            };
+            waits: ("research" | "images")[];
+            question_id?: string;
+            searched_at?: string;
+            decided_at?: string;
+        };
+        MatchQuestion: {
+            id: string;
+            lot_id: string;
+            /** Format: int64 */
+            revision: string;
+            state: "open" | "answered" | "superseded";
+            kind: "candidates" | "contribution" | "unresolved" | "target_lost";
+            title: string;
+            reason: string;
+            steps: {
+                id: string;
+                prompt: string;
+                assumption: string;
+                answer: {
+                    /** @constant */
+                    kind: "choice";
+                    options: {
+                        id: string;
+                        label: string;
+                        detail?: string;
+                    }[];
+                    other: boolean;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                };
+            }[];
+            keys: ({
+                /** @constant */
+                kind: "mpn";
+                mpn: string;
+                manufacturer?: string;
+                /** Format: int64 */
+                manufacturer_pk?: string;
+            } | {
+                /** @constant */
+                kind: "type";
+                type: string;
+                manufacturer: string;
+            } | {
+                /** @constant */
+                kind: "nsn";
+                nsn: string;
+            } | {
+                /** @constant */
+                kind: "ipn";
+                ipn: string;
+            } | {
+                /** @constant */
+                kind: "sku";
+                sku: string;
+                supplier?: string;
+                /** Format: int64 */
+                supplier_pk?: string;
+            } | {
+                /** @constant */
+                kind: "batch_code";
+                batch_code: string;
+            })[];
+            candidates: ({
+                /** @constant */
+                kind: "part";
+                part: {
+                    /** Format: int64 */
+                    pk: string;
+                    name: string;
+                    ipn?: string;
+                    has_image: boolean;
+                };
+                verdict: "exact" | "possible" | "duplicate";
+                matched_by: {
+                    key: {
+                        /** @constant */
+                        kind: "mpn";
+                        mpn: string;
+                        manufacturer?: string;
+                        /** Format: int64 */
+                        manufacturer_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "type";
+                        type: string;
+                        manufacturer: string;
+                    } | {
+                        /** @constant */
+                        kind: "nsn";
+                        nsn: string;
+                    } | {
+                        /** @constant */
+                        kind: "ipn";
+                        ipn: string;
+                    } | {
+                        /** @constant */
+                        kind: "sku";
+                        sku: string;
+                        supplier?: string;
+                        /** Format: int64 */
+                        supplier_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "batch_code";
+                        batch_code: string;
+                    };
+                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                }[];
+                missing: ({
+                    /** @constant */
+                    kind: "datasheet";
+                } | {
+                    /** @constant */
+                    kind: "part_image";
+                } | {
+                    /** @constant */
+                    kind: "manufacturer_part";
+                } | {
+                    /** @constant */
+                    kind: "supplier_part";
+                } | {
+                    /** @constant */
+                    kind: "parameter";
+                    /** Format: int64 */
+                    template: string;
+                    name?: string;
+                })[];
+                parameters_known: boolean;
+                stock: {
+                    /** Format: int64 */
+                    pk: string;
+                    batch: string;
+                    quantity: string | "0";
+                }[];
+            } | {
+                /** @constant */
+                kind: "lot";
+                batch_id: string;
+                batch_title: string;
+                lot_id: string;
+                lot_label: string;
+                matched_by: {
+                    key: {
+                        /** @constant */
+                        kind: "mpn";
+                        mpn: string;
+                        manufacturer?: string;
+                        /** Format: int64 */
+                        manufacturer_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "type";
+                        type: string;
+                        manufacturer: string;
+                    } | {
+                        /** @constant */
+                        kind: "nsn";
+                        nsn: string;
+                    } | {
+                        /** @constant */
+                        kind: "ipn";
+                        ipn: string;
+                    } | {
+                        /** @constant */
+                        kind: "sku";
+                        sku: string;
+                        supplier?: string;
+                        /** Format: int64 */
+                        supplier_pk?: string;
+                    } | {
+                        /** @constant */
+                        kind: "batch_code";
+                        batch_code: string;
+                    };
+                    reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                }[];
+            })[];
+            notes: {
+                stage: "examine" | "research";
+                kind: "alias" | "relation" | "negative";
+                text: string;
+            }[];
+            contribution?: {
+                /** @constant */
+                readable: true;
+                run_id: string;
+                batch_id: string;
+                stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+            } | {
+                /** @constant */
+                readable: false;
+            };
+            asked_at: string;
+            answer?: {
+                answered_at: string;
+                decision?: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                /** Format: int64 */
+                part_pk?: string;
+                text?: string;
+                /** @constant */
+                batch?: true;
+            };
+        };
+        BatchMatch: {
+            batch_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            pipeline: "match" | "inventory";
+            lots: {
+                lot_id: string;
+                identity: {
+                    /** @constant */
+                    kind: "examine";
+                    proposal_id: string;
+                } | {
+                    /** @constant */
+                    kind: "operator";
+                    /** Format: int64 */
+                    revision: string;
+                };
+                state: "searching" | "unavailable" | "clear" | "question" | "decided" | "held";
+                /** Format: int64 */
+                generation: string;
+                settled_generation: string | "0";
+                keys: ({
+                    /** @constant */
+                    kind: "mpn";
+                    mpn: string;
+                    manufacturer?: string;
+                    /** Format: int64 */
+                    manufacturer_pk?: string;
+                } | {
+                    /** @constant */
+                    kind: "type";
+                    type: string;
+                    manufacturer: string;
+                } | {
+                    /** @constant */
+                    kind: "nsn";
+                    nsn: string;
+                } | {
+                    /** @constant */
+                    kind: "ipn";
+                    ipn: string;
+                } | {
+                    /** @constant */
+                    kind: "sku";
+                    sku: string;
+                    supplier?: string;
+                    /** Format: int64 */
+                    supplier_pk?: string;
+                } | {
+                    /** @constant */
+                    kind: "batch_code";
+                    batch_code: string;
+                })[];
+                searchable: boolean;
+                verdict?: "none" | "exact" | "possible" | "duplicate";
+                candidates: ({
+                    /** @constant */
+                    kind: "part";
+                    part: {
+                        /** Format: int64 */
+                        pk: string;
+                        name: string;
+                        ipn?: string;
+                        has_image: boolean;
+                    };
+                    verdict: "exact" | "possible" | "duplicate";
+                    matched_by: {
+                        key: {
+                            /** @constant */
+                            kind: "mpn";
+                            mpn: string;
+                            manufacturer?: string;
+                            /** Format: int64 */
+                            manufacturer_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "type";
+                            type: string;
+                            manufacturer: string;
+                        } | {
+                            /** @constant */
+                            kind: "nsn";
+                            nsn: string;
+                        } | {
+                            /** @constant */
+                            kind: "ipn";
+                            ipn: string;
+                        } | {
+                            /** @constant */
+                            kind: "sku";
+                            sku: string;
+                            supplier?: string;
+                            /** Format: int64 */
+                            supplier_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "batch_code";
+                            batch_code: string;
+                        };
+                        reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                    }[];
+                    missing: ({
+                        /** @constant */
+                        kind: "datasheet";
+                    } | {
+                        /** @constant */
+                        kind: "part_image";
+                    } | {
+                        /** @constant */
+                        kind: "manufacturer_part";
+                    } | {
+                        /** @constant */
+                        kind: "supplier_part";
+                    } | {
+                        /** @constant */
+                        kind: "parameter";
+                        /** Format: int64 */
+                        template: string;
+                        name?: string;
+                    })[];
+                    parameters_known: boolean;
+                    stock: {
+                        /** Format: int64 */
+                        pk: string;
+                        batch: string;
+                        quantity: string | "0";
+                    }[];
+                } | {
+                    /** @constant */
+                    kind: "lot";
+                    batch_id: string;
+                    batch_title: string;
+                    lot_id: string;
+                    lot_label: string;
+                    matched_by: {
+                        key: {
+                            /** @constant */
+                            kind: "mpn";
+                            mpn: string;
+                            manufacturer?: string;
+                            /** Format: int64 */
+                            manufacturer_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "type";
+                            type: string;
+                            manufacturer: string;
+                        } | {
+                            /** @constant */
+                            kind: "nsn";
+                            nsn: string;
+                        } | {
+                            /** @constant */
+                            kind: "ipn";
+                            ipn: string;
+                        } | {
+                            /** @constant */
+                            kind: "sku";
+                            sku: string;
+                            supplier?: string;
+                            /** Format: int64 */
+                            supplier_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "batch_code";
+                            batch_code: string;
+                        };
+                        reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                    }[];
+                })[];
+                contribution?: {
+                    /** @constant */
+                    readable: true;
+                    run_id: string;
+                    batch_id: string;
+                    stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                } | {
+                    /** @constant */
+                    readable: false;
+                };
+                outcome?: {
+                    /** @constant */
+                    schema_version: "bench-intake-match-outcome/1";
+                    lot_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                    basis: {
+                        /** @constant */
+                        kind: "clear";
+                    } | {
+                        /** @constant */
+                        kind: "decision";
+                        decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                    };
+                    research: {
+                        /** @constant */
+                        stage: "research";
+                        /** @constant */
+                        mode: "full";
+                    } | {
+                        /** @constant */
+                        stage: "research";
+                        /** @constant */
+                        mode: "gaps";
+                        fields: ("datasheet" | "parameters")[];
+                    } | {
+                        /** @constant */
+                        stage: "research";
+                        /** @constant */
+                        mode: "skipped";
+                    };
+                    images: {
+                        /** @constant */
+                        stage: "images";
+                        /** @constant */
+                        mode: "full";
+                    } | {
+                        /** @constant */
+                        stage: "images";
+                        /** @constant */
+                        mode: "stock";
+                        part_image: boolean;
+                    } | {
+                        /** @constant */
+                        stage: "images";
+                        /** @constant */
+                        mode: "skipped";
+                    };
+                };
+                target?: {
+                    /** Format: int64 */
+                    part_pk: string;
+                    name: string;
+                };
+                waits: ("research" | "images")[];
+                question_id?: string;
+                searched_at?: string;
+                decided_at?: string;
+            }[];
+            questions: {
+                id: string;
+                lot_id: string;
+                /** Format: int64 */
+                revision: string;
+                state: "open" | "answered" | "superseded";
+                kind: "candidates" | "contribution" | "unresolved" | "target_lost";
+                title: string;
+                reason: string;
+                steps: {
+                    id: string;
+                    prompt: string;
+                    assumption: string;
+                    answer: {
+                        /** @constant */
+                        kind: "choice";
+                        options: {
+                            id: string;
+                            label: string;
+                            detail?: string;
+                        }[];
+                        other: boolean;
+                    } | {
+                        /** @constant */
+                        kind: "number";
+                    } | {
+                        /** @constant */
+                        kind: "text";
+                    };
+                }[];
+                keys: ({
+                    /** @constant */
+                    kind: "mpn";
+                    mpn: string;
+                    manufacturer?: string;
+                    /** Format: int64 */
+                    manufacturer_pk?: string;
+                } | {
+                    /** @constant */
+                    kind: "type";
+                    type: string;
+                    manufacturer: string;
+                } | {
+                    /** @constant */
+                    kind: "nsn";
+                    nsn: string;
+                } | {
+                    /** @constant */
+                    kind: "ipn";
+                    ipn: string;
+                } | {
+                    /** @constant */
+                    kind: "sku";
+                    sku: string;
+                    supplier?: string;
+                    /** Format: int64 */
+                    supplier_pk?: string;
+                } | {
+                    /** @constant */
+                    kind: "batch_code";
+                    batch_code: string;
+                })[];
+                candidates: ({
+                    /** @constant */
+                    kind: "part";
+                    part: {
+                        /** Format: int64 */
+                        pk: string;
+                        name: string;
+                        ipn?: string;
+                        has_image: boolean;
+                    };
+                    verdict: "exact" | "possible" | "duplicate";
+                    matched_by: {
+                        key: {
+                            /** @constant */
+                            kind: "mpn";
+                            mpn: string;
+                            manufacturer?: string;
+                            /** Format: int64 */
+                            manufacturer_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "type";
+                            type: string;
+                            manufacturer: string;
+                        } | {
+                            /** @constant */
+                            kind: "nsn";
+                            nsn: string;
+                        } | {
+                            /** @constant */
+                            kind: "ipn";
+                            ipn: string;
+                        } | {
+                            /** @constant */
+                            kind: "sku";
+                            sku: string;
+                            supplier?: string;
+                            /** Format: int64 */
+                            supplier_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "batch_code";
+                            batch_code: string;
+                        };
+                        reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                    }[];
+                    missing: ({
+                        /** @constant */
+                        kind: "datasheet";
+                    } | {
+                        /** @constant */
+                        kind: "part_image";
+                    } | {
+                        /** @constant */
+                        kind: "manufacturer_part";
+                    } | {
+                        /** @constant */
+                        kind: "supplier_part";
+                    } | {
+                        /** @constant */
+                        kind: "parameter";
+                        /** Format: int64 */
+                        template: string;
+                        name?: string;
+                    })[];
+                    parameters_known: boolean;
+                    stock: {
+                        /** Format: int64 */
+                        pk: string;
+                        batch: string;
+                        quantity: string | "0";
+                    }[];
+                } | {
+                    /** @constant */
+                    kind: "lot";
+                    batch_id: string;
+                    batch_title: string;
+                    lot_id: string;
+                    lot_label: string;
+                    matched_by: {
+                        key: {
+                            /** @constant */
+                            kind: "mpn";
+                            mpn: string;
+                            manufacturer?: string;
+                            /** Format: int64 */
+                            manufacturer_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "type";
+                            type: string;
+                            manufacturer: string;
+                        } | {
+                            /** @constant */
+                            kind: "nsn";
+                            nsn: string;
+                        } | {
+                            /** @constant */
+                            kind: "ipn";
+                            ipn: string;
+                        } | {
+                            /** @constant */
+                            kind: "sku";
+                            sku: string;
+                            supplier?: string;
+                            /** Format: int64 */
+                            supplier_pk?: string;
+                        } | {
+                            /** @constant */
+                            kind: "batch_code";
+                            batch_code: string;
+                        };
+                        reason: "mpn_and_manufacturer" | "mpn_only" | "type_and_manufacturer" | "nsn_stock_tag" | "ipn" | "sku" | "batch_code" | "name";
+                    }[];
+                })[];
+                notes: {
+                    stage: "examine" | "research";
+                    kind: "alias" | "relation" | "negative";
+                    text: string;
+                }[];
+                contribution?: {
+                    /** @constant */
+                    readable: true;
+                    run_id: string;
+                    batch_id: string;
+                    stock: "created" | "not_created" | "uncertain" | "deleted" | "unavailable";
+                } | {
+                    /** @constant */
+                    readable: false;
+                };
+                asked_at: string;
+                answer?: {
+                    answered_at: string;
+                    decision?: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                    /** Format: int64 */
+                    part_pk?: string;
+                    text?: string;
+                    /** @constant */
+                    batch?: true;
+                };
+            }[];
+        };
+        MatchAnswer: {
+            /** Format: int64 */
+            expected_question_revision: string;
+            steps: {
+                step_id: string;
+                value: {
+                    /** @constant */
+                    kind: "choice";
+                    option_id: string;
+                } | {
+                    /** @constant */
+                    kind: "choice";
+                    other: string;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                    text: string;
+                };
+            }[];
+        };
+        MatchBatchAnswer: {
+            answers: {
+                question_id: string;
+                /** Format: int64 */
+                expected_question_revision: string;
+                option_id: string;
+            }[];
+        };
+        MatchAnswerReceipt: {
+            batch_id: string;
+            question_ids: string[];
+            /** Format: int64 */
+            capture_revision: string;
+        };
+        MatchCheck: {
+            lot_ids: string[];
+        };
+        MatchReopen: Record<string, never>;
+        MatchCheckReceipt: {
+            batch_id: string;
+            lots: {
+                lot_id: string;
+                /** Format: int64 */
+                generation: string;
+            }[];
+        };
     };
     responses: never;
     parameters: never;
@@ -58785,3 +62689,15 @@ export type ProcessingInputV7 = components['schemas']['ProcessingInputV7']
 export type StageMode = components['schemas']['StageMode']
 export type MatchOutcome = components['schemas']['MatchOutcome']
 export type SealedMatch = components['schemas']['SealedMatch']
+export type MatchKey = components['schemas']['MatchKey']
+export type MatchIdentity = components['schemas']['MatchIdentity']
+export type MatchCandidate = components['schemas']['MatchCandidate']
+export type MatchLot = components['schemas']['MatchLot']
+export type MatchQuestion = components['schemas']['MatchQuestion']
+export type BatchMatch = components['schemas']['BatchMatch']
+export type MatchAnswer = components['schemas']['MatchAnswer']
+export type MatchBatchAnswer = components['schemas']['MatchBatchAnswer']
+export type MatchAnswerReceipt = components['schemas']['MatchAnswerReceipt']
+export type MatchCheck = components['schemas']['MatchCheck']
+export type MatchReopen = components['schemas']['MatchReopen']
+export type MatchCheckReceipt = components['schemas']['MatchCheckReceipt']

@@ -157,9 +157,9 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - **Verification:** intake tiers, frontend checks, and a demo video.
 - **Risks and decisions:** the search strategy and normalisation are open questions. Record the chosen rules in `notes.md`.
 
-- [ ] 3.1 Read the guidelines and the D44–D45 boards. Settle the search endpoints and MPN normalisation.
-- [ ] 3.2 RED: write the Match PG tests and the frontend tests.
-- [ ] 3.3 GREEN: implement the module, questions, modes, queueing and the Match step.
+- [x] 3.1 Read the guidelines and the D44–D45 boards. Settle the search endpoints and MPN normalisation.
+- [x] 3.2 RED: write the Match PG tests and the frontend tests.
+- [x] 3.3 GREEN: implement the module, questions, modes, queueing and the Match step.
 - [ ] 3.4 Run the checks, and record the demo video.
 
 ## 4. Identify mode and identity amendments

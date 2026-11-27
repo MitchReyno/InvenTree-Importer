@@ -382,6 +382,19 @@ async function main() {
       '/api/v1/batches/{id}/questions/{questionId}/answers': {
         post: post('ProcessingAnswer', 'ProcessingAnswerReceipt'),
       },
+      '/api/v1/batches/{id}/match': { get: get('BatchMatch', CAPTURE_TIMEOUT_MS) },
+      '/api/v1/batches/{id}/match/questions/{questionId}/answers': {
+        post: post('MatchAnswer', 'MatchAnswerReceipt', '200', CAPTURE_TIMEOUT_MS),
+      },
+      '/api/v1/batches/{id}/match/answers': {
+        post: post('MatchBatchAnswer', 'MatchAnswerReceipt', '200', CAPTURE_TIMEOUT_MS),
+      },
+      '/api/v1/batches/{id}/match/checks': {
+        post: post('MatchCheck', 'MatchCheckReceipt', '202', CAPTURE_TIMEOUT_MS),
+      },
+      '/api/v1/batches/{id}/match/lots/{lotId}/question': {
+        post: post('MatchReopen', 'MatchCheckReceipt', '200', CAPTURE_TIMEOUT_MS),
+      },
       '/api/v1/batches/{batchId}/media': { get: get('MediaSnapshot') },
       '/api/v1/batches/{batchId}/media/removal-impact': {
         get: {

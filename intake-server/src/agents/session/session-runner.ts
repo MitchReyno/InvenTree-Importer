@@ -2,6 +2,7 @@ import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
 import { retainSessionFailure } from '#/agents/failures.ts'
 import type { AgentSelectionDto, SessionFailureDto } from '@invimport/contracts'
 import { claimPinnedIdentity, lotRetired, successorsCurrent } from '#/processing/stable-identity.ts'
+import { matchGate } from '#/processing/match/gate.ts'
 import { supersedeJobAttempts } from '#/processing/jobs.ts'
 import { join } from 'node:path'
 import { and, eq, inArray, notExists, or, sql } from 'drizzle-orm'
@@ -906,6 +907,23 @@ export async function runSessionTurn(
         await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])
         await publish(client, row.batchId)
         return 'cancelled' as const
+      }
+      // A `/7` lot stage starts or resumes only while Match allows it under the outcome it was
+      // sealed with; otherwise it waits, queued and without a slot, for Match to settle.
+      if (
+        manifest.schema_version === 'bench-intake-input/7' &&
+        manifest.subject_id !== null &&
+        (manifest.stage === 'research' || manifest.stage === 'images') &&
+        !(
+          await matchGate(
+            client,
+            manifest.subject_id,
+            manifest.stage,
+            'match' in manifest ? manifest.match : undefined,
+          )
+        ).allowed
+      ) {
+        return 'waiting' as const
       }
       // A `/7` successor that has run resumes only while its identity is current; otherwise it
       // waits, queued and without a slot, until the lead's next identity releases it.

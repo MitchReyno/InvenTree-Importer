@@ -1,0 +1,471 @@
+import type { Pool } from 'pg'
+import { strictJson } from '@invimport/contracts/json'
+import type {
+  CaptureSnapshotDto,
+  MatchCandidateDto,
+  MatchContributionHitDto,
+  MatchKeyDto,
+  MatchMissingDto,
+  MatchPartCandidateDto,
+  MatchQuestionNoteDto,
+  MatchReasonDto,
+} from '@invimport/contracts'
+import { MAX_MATCH_CANDIDATES, MAX_MATCH_CANDIDATE_STOCK } from '@invimport/contracts'
+import { transaction } from '#/db/database.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
+import type { MatchPart, MatchReader } from '#/inventory/match-reads.ts'
+import type { ProcessingConfig } from '../attempts.ts'
+import { companiesAgree, mpnKey, searchable, strongKey } from './keys.ts'
+import { competingLots, contributionApprovals } from './local-reads.ts'
+import { verdictOf, type MatchResult } from './outcome.ts'
+import type { MatchRequest } from './state.ts'
+
+/** Rows a key's search reads; more would be a key too vague to decide on. */
+const SEARCH_PAGE = 20
+/** Category depth walked for inherited parameter mappings. */
+const MAX_CATEGORY_DEPTH = 16
+/** One search's reads must finish within this budget, or it settles as unavailable. */
+export const MATCH_SEARCH_BUDGET_MS = 30_000
+
+/** A read that failed: the whole search settles as couldn't search. */
+class Unavailable extends Error {}
+
+interface Hit {
+  part: MatchPart
+  matched: { key: MatchKeyDto; reason: MatchReasonDto }[]
+  exact: boolean
+}
+
+function budgeted(deadline: number) {
+  const left = deadline - Date.now()
+  if (left < 1) {
+    throw new Unavailable()
+  }
+  return Math.min(left, 5000)
+}
+
+async function rows<T>(
+  read: Promise<{ kind: 'found'; rows: T[]; count: number } | { kind: 'unavailable' }>,
+) {
+  const result = await read
+  if (result.kind !== 'found') {
+    throw new Unavailable()
+  }
+  return result
+}
+
+function add(
+  hits: Map<string, Hit>,
+  part: MatchPart,
+  key: MatchKeyDto,
+  reason: MatchReasonDto,
+  exact: boolean,
+) {
+  const hit = hits.get(part.pk) ?? { part, matched: [], exact: false }
+  if (hit.matched.length < 16) {
+    hit.matched.push({ key, reason })
+  }
+  hit.exact = hit.exact || exact
+  hits.set(part.pk, hit)
+}
+
+/** The Parts InvenTree holds under one strong key, and how each matched. */
+async function searchKey(
+  reader: MatchReader,
+  key: MatchKeyDto,
+  hits: Map<string, Hit>,
+  deadline: number,
+) {
+  const page = { limit: SEARCH_PAGE, offset: 0 }
+  switch (key.kind) {
+    case 'mpn':
+    case 'type': {
+      const mpn = key.kind === 'mpn' ? key.mpn : key.type
+      const found = await rows(
+        reader.list(
+          {
+            kind: 'list_manufacturer_parts',
+            ...page,
+            mpn,
+            ...(key.kind === 'mpn' && key.manufacturer_pk
+              ? { manufacturer: key.manufacturer_pk }
+              : {}),
+          },
+          budgeted(deadline),
+        ),
+      )
+      for (const row of found.rows) {
+        if (!row.MPN || mpnKey(row.MPN) !== mpnKey(mpn)) {
+          continue
+        }
+        const agrees =
+          key.kind === 'mpn' && key.manufacturer_pk
+            ? row.manufacturer === key.manufacturer_pk
+            : key.manufacturer !== undefined &&
+              companiesAgree(row.manufacturer_name, key.manufacturer)
+        const reason =
+          key.kind === 'type'
+            ? 'type_and_manufacturer'
+            : agrees
+              ? 'mpn_and_manufacturer'
+              : 'mpn_only'
+        add(hits, row.part_detail, key, reason, agrees)
+      }
+      // A Part named by its type or MPN, with no manufacturer Part, is a possible match.
+      const named = await rows(
+        reader.list({ kind: 'search_parts', ...page, search: mpn }, budgeted(deadline)),
+      )
+      for (const part of named.rows) {
+        if (mpnKey(part.name) === mpnKey(mpn) && !hits.has(part.pk)) {
+          add(hits, part, key, 'name', false)
+        }
+      }
+      return
+    }
+    case 'nsn': {
+      const found = await rows(
+        reader.list({ kind: 'list_stock', ...page, nsn_tag: `nsn:${key.nsn}` }, budgeted(deadline)),
+      )
+      for (const stock of found.rows) {
+        const part = stock.part_detail ?? (await single(reader.part(stock.part)))
+        if (part) {
+          add(hits, part, key, 'nsn_stock_tag', true)
+        }
+      }
+      return
+    }
+    case 'ipn': {
+      const found = await rows(
+        reader.list({ kind: 'search_parts', ...page, search: key.ipn }, budgeted(deadline)),
+      )
+      for (const part of found.rows) {
+        if (part.IPN && mpnKey(part.IPN) === mpnKey(key.ipn)) {
+          add(hits, part, key, 'ipn', true)
+        }
+      }
+      return
+    }
+    case 'sku': {
+      const found = await rows(
+        reader.list(
+          {
+            kind: 'list_supplier_parts',
+            ...page,
+            sku: key.sku,
+            ...(key.supplier_pk ? { supplier: key.supplier_pk } : {}),
+          },
+          budgeted(deadline),
+        ),
+      )
+      for (const row of found.rows) {
+        if (mpnKey(row.SKU) !== mpnKey(key.sku)) {
+          continue
+        }
+        const agrees = key.supplier_pk
+          ? row.supplier === key.supplier_pk
+          : key.supplier === undefined || companiesAgree(row.supplier_name, key.supplier)
+        add(hits, row.part_detail, key, 'sku', agrees)
+      }
+      return
+    }
+    case 'batch_code':
+      return
+  }
+}
+
+async function single<T>(
+  read: Promise<{ kind: 'found'; value: T } | { kind: 'not_found' } | { kind: 'unavailable' }>,
+) {
+  const result = await read
+  if (result.kind === 'unavailable') {
+    throw new Unavailable()
+  }
+  return result.kind === 'found' ? result.value : undefined
+}
+
+/** Whether an attachment is a datasheet: its comment, file or link says so. */
+function datasheet(attachment: {
+  attachment: string | null
+  link: string | null
+  comment: string | null
+}) {
+  return [attachment.comment, attachment.attachment, attachment.link].some(
+    (text) => text !== null && /datasheet/i.test(text),
+  )
+}
+
+/**
+ * The key parameters a Part lacks: its category's mappings, and those of the category's
+ * ancestors, that have no value row on the Part. Unknown when the category can't be read or has
+ * more mappings than one response holds; then none is listed as missing.
+ */
+async function missingParameters(reader: MatchReader, part: MatchPart, deadline: number) {
+  if (!part.category) {
+    return { known: true, missing: [] as MatchMissingDto[] }
+  }
+  const chain = new Set<string>()
+  let next: string | null = part.category
+  while (next && chain.size < MAX_CATEGORY_DEPTH) {
+    budgeted(deadline)
+    const category = await reader.category(next)
+    if (category.kind !== 'found') {
+      return { known: false, missing: [] }
+    }
+    chain.add(category.value.pk)
+    next = category.value.parent
+  }
+  const mappings = await reader.list(
+    { kind: 'list_category_parameters', category: part.category },
+    budgeted(deadline),
+  )
+  if (mappings.kind !== 'found') {
+    return { known: false, missing: [] }
+  }
+  const values = await rows(
+    reader.list(
+      { kind: 'list_part_parameters', part: part.pk, limit: 100, offset: 0 },
+      budgeted(deadline),
+    ),
+  )
+  const filled = new Set(
+    values.rows.filter((row) => row.data.trim() !== '').map((row) => row.template),
+  )
+  const templates = [
+    ...new Set(
+      mappings.rows
+        .filter((mapping) => chain.has(mapping.category))
+        .map((mapping) => mapping.template),
+    ),
+  ].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1))
+  return {
+    known: true,
+    missing: templates
+      .filter((template) => !filled.has(template))
+      .map((template): MatchMissingDto => ({ kind: 'parameter', template })),
+  }
+}
+
+/** What InvenTree lacks for one candidate Part, and its stock with the lot's batch codes. */
+async function candidate(
+  reader: MatchReader,
+  hit: Hit,
+  keys: readonly MatchKeyDto[],
+  supplierPk: string | undefined,
+  deadline: number,
+): Promise<MatchPartCandidateDto> {
+  const part = (await single(reader.part(hit.part.pk))) ?? hit.part
+  const missing: MatchMissingDto[] = []
+  const attachments = await rows(
+    reader.list(
+      { kind: 'list_part_attachments', part: part.pk, limit: 100, offset: 0 },
+      budgeted(deadline),
+    ),
+  )
+  if (!attachments.rows.some(datasheet)) {
+    missing.push({ kind: 'datasheet' })
+  }
+  if (!part.has_image) {
+    missing.push({ kind: 'part_image' })
+  }
+  const manufacturer = await rows(
+    reader.list(
+      { kind: 'list_manufacturer_parts', part: part.pk, limit: 1, offset: 0 },
+      budgeted(deadline),
+    ),
+  )
+  if (!manufacturer.count) {
+    missing.push({ kind: 'manufacturer_part' })
+  }
+  if (supplierPk) {
+    const supplier = await rows(
+      reader.list(
+        { kind: 'list_supplier_parts', part: part.pk, supplier: supplierPk, limit: 1, offset: 0 },
+        budgeted(deadline),
+      ),
+    )
+    if (!supplier.count) {
+      missing.push({ kind: 'supplier_part' })
+    }
+  }
+  const parameters = await missingParameters(reader, part, deadline)
+  missing.push(...parameters.missing)
+  const stock: MatchPartCandidateDto['stock'] = []
+  for (const key of keys) {
+    if (key.kind !== 'batch_code' || stock.length >= MAX_MATCH_CANDIDATE_STOCK) {
+      continue
+    }
+    const found = await rows(
+      reader.list(
+        {
+          kind: 'list_stock',
+          part: part.pk,
+          batch: key.batch_code,
+          limit: MAX_MATCH_CANDIDATE_STOCK,
+          offset: 0,
+        },
+        budgeted(deadline),
+      ),
+    )
+    for (const row of found.rows) {
+      if (
+        row.batch &&
+        stock.length < MAX_MATCH_CANDIDATE_STOCK &&
+        !stock.some((item) => item.pk === row.pk)
+      ) {
+        stock.push({
+          pk: row.pk,
+          batch: row.batch,
+          quantity: row.quantity === '0' ? '0' : row.quantity,
+        })
+      }
+    }
+  }
+  return {
+    kind: 'part',
+    part: {
+      pk: part.pk,
+      name: part.name,
+      ...(part.IPN ? { ipn: part.IPN } : {}),
+      has_image: part.has_image,
+    },
+    verdict: stock.length ? 'duplicate' : hit.exact ? 'exact' : 'possible',
+    matched_by: hit.matched,
+    missing: missing.slice(0, 40),
+    parameters_known: parameters.known,
+    stock,
+  }
+}
+
+/** The supplier the batch names, which a candidate should have a supplier Part for. */
+function batchSupplierPk(snapshot: CaptureSnapshotDto) {
+  const latest = (snapshot.context ?? [])
+    .filter((record) => record.subject_id === null)
+    .sort((a, b) => (BigInt(a.version) < BigInt(b.version) ? 1 : -1))[0]
+  const supplier = latest?.value.supplier
+  return supplier?.mode === 'set' ? supplier.value.pk : undefined
+}
+
+/** Match notes of the Examine identity searched, quoted in the question. */
+async function identityNotes(pool: Pool, request: MatchRequest): Promise<MatchQuestionNoteDto[]> {
+  if (request.identity.kind !== 'examine') {
+    return []
+  }
+  const found = await pool.query<{ value_bytes: Buffer }>(
+    'SELECT value_bytes FROM public.processing_proposal WHERE id=$1',
+    [request.identity.proposal_id],
+  )
+  const value = found.rows[0]
+    ? (strictJson(found.rows[0].value_bytes.toString('utf8')) as {
+        match_notes?: { kind: 'alias' | 'relation' | 'negative'; text: string }[]
+      })
+    : undefined
+  return (value?.match_notes ?? [])
+    .slice(0, 32)
+    .map((note) => ({ stage: 'examine', kind: note.kind, text: note.text }))
+}
+
+/** The hit's status as the operator may see it: the run and its stock only when readable. */
+async function contributionHit(
+  pool: Pool,
+  config: ProcessingConfig,
+  reader: MatchReader | undefined,
+  lotId: string,
+): Promise<MatchContributionHitDto | undefined> {
+  const approvals = await transaction(pool, (client) =>
+    contributionApprovals(client, config, lotId),
+  )
+  if (!approvals.length) {
+    return undefined
+  }
+  const readable = approvals.find((approval) => approval.readable)
+  if (!readable) {
+    return { readable: false }
+  }
+  if (readable.confirmedStock.length) {
+    if (!reader) {
+      return {
+        readable: true,
+        run_id: readable.runId,
+        batch_id: readable.batchId,
+        stock: 'unavailable',
+      }
+    }
+    const stock = await reader.stock(readable.confirmedStock[0])
+    const state =
+      stock.kind === 'found' ? 'created' : stock.kind === 'not_found' ? 'deleted' : 'unavailable'
+    return { readable: true, run_id: readable.runId, batch_id: readable.batchId, stock: state }
+  }
+  return {
+    readable: true,
+    run_id: readable.runId,
+    batch_id: readable.batchId,
+    stock: readable.uncertain ? 'uncertain' : 'not_created',
+  }
+}
+
+/**
+ * Runs one request's reads, outside any transaction: the import reference in this app's retained
+ * approvals first, then, for a searchable identity, InvenTree by each strong key and the other
+ * batches' lots. A failed InvenTree read makes the whole result unavailable.
+ */
+export function matchSearch(pool: Pool, config: ProcessingConfig, reader: MatchReader | undefined) {
+  return async (request: MatchRequest): Promise<MatchResult> => {
+    const base = {
+      schema_version: 'bench-intake-match-result/1' as const,
+      lot_id: request.lot_id,
+      generation: request.generation,
+      target_context_id: config.targetContextId,
+      keys: request.keys,
+      notes: await identityNotes(pool, request),
+    }
+    const contribution = await contributionHit(pool, config, reader, request.lot_id)
+    if (contribution) {
+      return { ...base, searched: 'local_only', candidates: [], contribution, verdict: 'duplicate' }
+    }
+    if (!searchable(request.keys)) {
+      return { ...base, searched: 'local_only', candidates: [], verdict: 'none' }
+    }
+    if (!reader) {
+      return { ...base, searched: 'unavailable', candidates: [], verdict: 'none' }
+    }
+    const deadline = Date.now() + MATCH_SEARCH_BUDGET_MS
+    try {
+      const hits = new Map<string, Hit>()
+      for (const key of request.keys.filter(strongKey)) {
+        await searchKey(reader, key, hits, deadline)
+      }
+      const snapshot = await transaction(
+        pool,
+        async (client) => (await captureInTransaction(client, config, request.batch_id)).snapshot,
+      )
+      const supplierPk = batchSupplierPk(snapshot)
+      const ranked = [...hits.values()]
+        .sort((a, b) => Number(b.exact) - Number(a.exact))
+        .slice(0, MAX_MATCH_CANDIDATES)
+      const candidates: MatchCandidateDto[] = []
+      for (const hit of ranked) {
+        candidates.push(await candidate(reader, hit, request.keys, supplierPk, deadline))
+      }
+      const lots = await transaction(pool, (client) => competingLots(client, config, request))
+      for (const lot of lots) {
+        if (candidates.length >= MAX_MATCH_CANDIDATES) {
+          break
+        }
+        candidates.push({
+          kind: 'lot',
+          batch_id: lot.batchId,
+          batch_title: lot.batchTitle,
+          lot_id: lot.lotId,
+          lot_label: lot.lotLabel,
+          matched_by: lot.matched,
+        })
+      }
+      return { ...base, searched: 'remote', candidates, verdict: verdictOf(candidates, undefined) }
+    } catch (error) {
+      if (error instanceof Unavailable) {
+        return { ...base, searched: 'unavailable', candidates: [], verdict: 'none' }
+      }
+      throw error
+    }
+  }
+}

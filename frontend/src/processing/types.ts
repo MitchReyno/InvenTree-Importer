@@ -19,6 +19,12 @@ import type {
   SessionHistoryBriefDto,
   SessionHistoryDto,
   SessionReplacementDto,
+  BatchMatchDto,
+  MatchAnswerDto,
+  MatchAnswerReceiptDto,
+  MatchBatchAnswerDto,
+  MatchCheckDto,
+  MatchCheckReceiptDto,
 } from '@invimport/contracts'
 
 export interface ProcessingClient {
@@ -55,9 +61,24 @@ export interface ProcessingClient {
     input: SessionInboxSubmissionDto,
     key: string,
   ): Promise<SessionInboxReceiptDto>
+  /** `/7` batches only: the Match step's lots, outcomes and questions. */
+  match?(batchId: string): Promise<BatchMatchDto>
+  answerMatch?(
+    batchId: string,
+    questionId: string,
+    input: MatchAnswerDto,
+    key: string,
+  ): Promise<MatchAnswerReceiptDto>
+  answerMatches?(
+    batchId: string,
+    input: MatchBatchAnswerDto,
+    key: string,
+  ): Promise<MatchAnswerReceiptDto>
+  checkMatches?(batchId: string, input: MatchCheckDto, key: string): Promise<MatchCheckReceiptDto>
+  reopenMatch?(batchId: string, lotId: string, key: string): Promise<MatchCheckReceiptDto>
 }
 /** The Processing steps; Examine shows the Reading and Identifying stages. */
-export type ProcessingView = 'overview' | 'examine' | 'research' | 'images' | 'inventory'
+export type ProcessingView = 'overview' | 'examine' | 'research' | 'images' | 'inventory' | 'match'
 
 /** The agent-session read Processing shares with the Agents page, for start times and the slot limit. */
 export type AgentsRead = {

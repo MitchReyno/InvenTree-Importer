@@ -8,7 +8,7 @@ import type {
   SessionHistoryBriefDto,
   SessionHistoryDto,
 } from '@invimport/contracts'
-import { formedBatch, type Fixture } from '../support/lot-pipeline.ts'
+import { formedBatch, settleMatch, type Fixture } from '../support/lot-pipeline.ts'
 import { editMedia } from '#/media/edit.ts'
 import { grantMedia } from '#/media/grants.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
@@ -161,6 +161,8 @@ async function republishIdentity(batch: Batch, lotId: string, jobId: string, att
     },
   })) as { result: { ok?: boolean } }
   assert.equal(published.result.ok, true, JSON.stringify(published.result))
+  // Match settles the new identity's search and queues the lot's stages again.
+  await settleMatch(fixture)
   const current = await fixture.db.pool.query<{ attempt_id: string }>(
     'SELECT current_attempt_id AS attempt_id FROM processing_job WHERE id=$1',
     [jobId],

@@ -1,52 +1,57 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import {
-  questionView,
-  type ProcessingAnswerDto,
-  type ProcessingQuestionV2Dto,
-  type QuestionViewStep,
-} from '@invimport/contracts'
+import type { QuestionView, QuestionViewStep } from '@invimport/contracts'
 import { Banner, Button, DebugDetails, QuestionCard, Small } from '#/components/ui'
 import { Fieldset } from '#/forms'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import {
-  ANSWER_NOT_CONFIRMED,
-  confirmedAnswerRefusal,
-  stepAnswerText,
-} from '#/processing/question-summary'
+import { ANSWER_NOT_CONFIRMED, stepAnswerText } from '#/processing/question-summary'
 import { canSendNew, standingWarning, type QuestionStanding } from '#/processing/question-standing'
 import {
   draftStarted,
   emptyDraft,
   stepComplete,
-  steppedAnswerInput,
   stepValue,
   type StepDraft,
   type SteppedFields,
 } from '#/processing/stepped-answer'
 import { StepInput } from './StepInput'
 
-export type SteppedAnswerFormProps = {
-  /** The question and capture revision this mount pinned. */
-  question: ProcessingQuestionV2Dto
-  captureRevision: string
+/**
+ * A send the server read and refused, so nothing was saved: a step it names, the whole answer, or
+ * a question that moved on (`stale`), whose draft is kept but can't be sent again.
+ */
+export type SteppedRefusal = { kind: 'invalid'; stepId?: string } | { kind: 'stale' }
+
+export type SteppedAnswerFormProps<Input> = {
+  /** The pinned question's id and how it reads: its title, reason and steps. */
+  questionId: string
+  view: QuestionView
   /** Whether the pinned question can still take a new answer, and why not. */
   standing: QuestionStanding
   disabled: boolean
   readOnly: boolean
   captureHref?: string
-  /** The agent's pictures, shown above the answer. */
+  /** Shown above the answer: an agent's pictures, or Match's candidates. */
   pictures?: ReactNode
   label: string
   blockedReason?: string
+  /** How a step's assumption reads while the question is open. */
+  assumptionText: (assumption: string) => string
+  /** What sending the answer does, beside Send. */
+  consequence: string
+  debugRows: { label: string; value: string }[]
+  /** The answer the drafts make, checked against its contract. */
+  buildInput: (drafts: readonly StepDraft[]) => Input
+  /** A failure the server confirmed refusing, or null when the outcome is unknown. */
+  refusalOf: (failure: unknown) => SteppedRefusal | null
   onDirtyChange: (dirty: boolean) => void
-  answer: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
+  answer: (questionId: string, input: Input, key: string) => Promise<void>
 }
 
-interface Submission {
+interface Submission<Input> {
   readonly questionId: string
-  readonly input: ProcessingAnswerDto
+  readonly input: Input
   readonly key: string
 }
 
@@ -59,12 +64,13 @@ const STEP_REFUSED = 'This answer wasn’t accepted. Check it and send again.'
 const ANSWER_REFUSED = 'The answer wasn’t accepted. Check your answers and send again.'
 
 /**
- * A `/2` question answered one step at a time: one step shows its answer and Send; several show
- * "Step N of M" with Back and Next, then a summary, and send every step in one answer.
+ * A stepped question answered one step at a time: one step shows its answer and Send; several show
+ * "Step N of M" with Back and Next, then a summary, and send every step in one answer. A `/2`
+ * session question and a match question share it, each with its own answer and refusals.
  */
-export function SteppedAnswerForm({
-  question,
-  captureRevision,
+export function SteppedAnswerForm<Input>({
+  questionId,
+  view,
   standing,
   disabled,
   readOnly,
@@ -72,10 +78,14 @@ export function SteppedAnswerForm({
   pictures,
   label,
   blockedReason,
+  assumptionText,
+  consequence,
+  debugRows,
+  buildInput,
+  refusalOf,
   onDirtyChange,
   answer,
-}: SteppedAnswerFormProps) {
-  const view = questionView(question)
+}: SteppedAnswerFormProps<Input>) {
   const steps = view.steps
   const stepped = steps.length > 1
 
@@ -89,7 +99,9 @@ export function SteppedAnswerForm({
   const [position, setPosition] = useState<Position>(0)
   const [refusal, setRefusal] = useState<Refusal | null>(null)
   const [unconfirmed, setUnconfirmed] = useState(false)
-  const submission = useRef<Submission | null>(null)
+  // The server refused the send because the question moved on; the draft stays, unsendable.
+  const [refusedStale, setRefusedStale] = useState(false)
+  const submission = useRef<Submission<Input> | null>(null)
   const body = useRef<HTMLDivElement>(null)
   const moved = useRef(false)
 
@@ -103,10 +115,11 @@ export function SteppedAnswerForm({
   }, [position])
 
   const retrying = submission.current !== null
-  const stale = !canSendNew(standing)
+  const shownStanding = refusedStale ? 'closed' : standing
+  const stale = !canSendNew(shownStanding)
   const started = drafts.some(draftStarted)
   // The warning is for what the form holds; a clean form has nothing it can't send.
-  const warning = started || retrying ? standingWarning(standing, retrying) : null
+  const warning = started || retrying ? standingWarning(shownStanding, retrying) : null
   const locked = formState.isSubmitting || readOnly || retrying
   const complete = drafts.every(stepComplete)
   // Next only moves through the draft; the consequence line belongs beside Send.
@@ -130,6 +143,7 @@ export function SteppedAnswerForm({
     reset(empty())
     setRefusal(null)
     setUnconfirmed(false)
+    setRefusedStale(false)
     moveTo(0)
     onDirtyChange(false)
   }
@@ -143,8 +157,8 @@ export function SteppedAnswerForm({
       if (stale || !complete) {
         return
       }
-      const input = steppedAnswerInput(question, captureRevision, getValues('steps'))
-      delivery = Object.freeze({ questionId: question.id, input, key: crypto.randomUUID() })
+      const input = buildInput(getValues('steps'))
+      delivery = Object.freeze({ questionId, input, key: crypto.randomUUID() })
       submission.current = delivery
     }
     setRefusal(null)
@@ -155,7 +169,7 @@ export function SteppedAnswerForm({
       reset(empty())
       onDirtyChange(false)
     } catch (failure) {
-      const refused = confirmedAnswerRefusal(failure)
+      const refused = refusalOf(failure)
       if (!refused) {
         // The outcome is unknown: only this exact answer, under its key, may be sent again.
         setUnconfirmed(true)
@@ -163,6 +177,10 @@ export function SteppedAnswerForm({
       }
       // Nothing was saved, so the draft is editable again and the named step shows why.
       submission.current = null
+      if (refused.kind === 'stale') {
+        setRefusedStale(true)
+        return
+      }
       const index = steps.findIndex((step) => step.id === refused.stepId)
       if (index >= 0) {
         moveTo(index)
@@ -205,14 +223,10 @@ export function SteppedAnswerForm({
             </Progress>
           )
         }
-        question={current ? current.prompt : view.title}
+        question={stepped && current ? current.prompt : view.title}
         why={view.reason}
         pictures={pictures}
-        assumption={
-          current?.assumption
-            ? `The agent keeps working on this assumption: ${current.assumption}`
-            : undefined
-        }
+        assumption={current?.assumption ? assumptionText(current.assumption) : undefined}
         answer={
           <>
             {warning && (
@@ -233,7 +247,7 @@ export function SteppedAnswerForm({
                     draft={drafts[position]}
                     register={register}
                     control={control}
-                    idPrefix={`answer-${question.id}-${current.id}`}
+                    idPrefix={`answer-${questionId}-${current.id}`}
                     onEdited={stepEdited}
                     refusal={refusal?.stepId === current.id ? refusal.message : undefined}
                   />
@@ -305,11 +319,7 @@ export function SteppedAnswerForm({
                 </Button>
               )}
             </Actions>
-            {!advancing && (
-              <Small>
-                Your answer updates the saved lot or note, and the agent working on it reads it.
-              </Small>
-            )}
+            {!advancing && <Small>{consequence}</Small>}
           </>
         }
         secondary={
@@ -322,13 +332,7 @@ export function SteppedAnswerForm({
           )
         }
       />
-      <DebugDetails
-        label="Question identity"
-        rows={[
-          { label: 'Attempt', value: question.attempt_id },
-          { label: 'Question revision', value: question.revision },
-        ]}
-      />
+      <DebugDetails label="Question identity" rows={debugRows} />
     </Form>
   )
 }

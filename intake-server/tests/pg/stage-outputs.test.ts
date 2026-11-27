@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import {
+  type BatchMatchDto,
   projectRecords,
   type CaptureSnapshotDto,
   type ProcessingInputV7Dto,
@@ -9,7 +10,7 @@ import {
   type SessionInboxItemDto,
   type SessionRevisionV2Dto,
 } from '@invimport/contracts'
-import { formedBatch, photoWithNote, type Fixture } from '../support/lot-pipeline.ts'
+import { formedBatch, photoWithNote, settleMatch, type Fixture } from '../support/lot-pipeline.ts'
 import { requeueLot, running, type StageToolResult } from '../support/stage-sessions.ts'
 import { syntheticQuestion } from '#/agents/session/synthetic-turn.ts'
 import { transaction } from '#/db/database.ts'
@@ -164,8 +165,11 @@ test('a /7 stage publishes only its own kind, and Research only what its mode al
   const research = await stageJob(batch, '16 mhz crystal', 'research')
   const images = await stageJob(batch, '16 mhz crystal', 'images')
   const { manifest } = await inputOf(fixture, research.attemptId)
-  // Queued without a Match outcome, the lot's stages run as after a clear search.
-  assert.deepEqual(manifest.match, { outcome: null, mode: { stage: 'research', mode: 'full' } })
+  // Match found nothing to search with, so the lot's stages run as after a clear search.
+  assert.deepEqual(manifest.match, {
+    outcome: { revision: '1', basis: { kind: 'clear' } },
+    mode: { stage: 'research', mode: 'full' },
+  })
   const { note, reliesOn } = citations(manifest)
   const full = researchOutput(research.lot.id, manifest, CATEGORY_AND_DESCRIPTION(note))
   const identity = {
@@ -504,7 +508,7 @@ test('an operator’s reading correction tells the /7 lead and the lot’s sessi
   assert.deepEqual(toLead.source, operator)
   assert.equal(toLead.brief_revision, corrected.revision)
   const toResearch = await revisions(fixture, research.jobId)
-  assert.equal(toResearch.length, 1)
+  assert.equal(toResearch.length, 1, JSON.stringify(toResearch))
   const researchStale = {
     kind: 'proposal',
     proposal_id: proposalId,
@@ -723,6 +727,7 @@ test('each revision sender names its changes, who made them and the brief revisi
       reason: 'source_superseded',
     },
   ])
+  await settleMatch(fixture)
   const requeued = await stageJob(batch, 'led 0603 red', 'research')
   assert.equal(requeued.jobId, led.jobId)
   assert.notEqual(requeued.attemptId, led.attemptId)
@@ -1950,12 +1955,15 @@ test('a count-only correction stales what relied on the observation; Start fresh
     false,
   )
 
-  // Start fresh on a gaps-mode attempt keeps its sealed Match state.
+  // Start fresh on a gaps-mode attempt keeps its sealed Match state, under the lot's outcome.
+  const led = await batch.lot('led 0603 red')
+  const outcome = (
+    (await fixture.http(`/batches/${batchId}/match`)).value as BatchMatchDto
+  ).lots.find((lot) => lot.lot_id === led.id)!.outcome!
   const gapsMatch: SealedMatchDto = {
-    outcome: { revision: '5', basis: { kind: 'decision', decision: 'fill_gaps' } },
+    outcome: { revision: outcome.revision, basis: outcome.basis },
     mode: { stage: 'research', mode: 'gaps', fields: ['datasheet'] },
   }
-  const led = await batch.lot('led 0603 red')
   const ledResearch = await stageJob(batch, 'led 0603 red', 'research')
   const ledPins = (await inputOf(fixture, ledResearch.attemptId)).manifest.pinned_proposal_ids
   const gapsAttempt = await requeueLot(fixture, batchId, led.id, 'research', gapsMatch, [
@@ -1995,6 +2003,7 @@ test('marking observations as the same item stales what relied on them', async (
   await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
   await transaction(fixture.runner.pool, (client) => queueSessionResume(client, leadJob))
   assert.equal(await runSessionTurn(deps, leadAttempt, new AbortController().signal), 'finished')
+  await settleMatch(fixture)
   const led = await batch.lot('led 0603 red')
   const [first, second] = led.evidence_observation_ids!
   assert.ok(first && second)
@@ -2227,6 +2236,7 @@ test('an unassigned observation joining a lot stales what relied on it', async (
     }),
   )
   assert.equal(published.ok, true, JSON.stringify(published))
+  await settleMatch(fixture)
   const pinned = (
     await inputOf(fixture, (await stageJob(batch, 'led 0603 red', 'research')).attemptId)
   ).manifest.pinned_proposal_ids
@@ -2460,6 +2470,7 @@ test('a successor pinned to an identity resting on a broken one doesn’t start'
     }),
   )
   assert.equal(onLed.ok, true, JSON.stringify(onLed))
+  await settleMatch(fixture)
   const research = await stageJob(batch, '16 mhz crystal', 'research')
   assert.deepEqual((await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids, [
     onLed.id,
@@ -2523,6 +2534,7 @@ test('removing a photo of a member no identity cites still stales the identity o
     }),
   )
   assert.equal(identity.ok, true, JSON.stringify(identity))
+  await settleMatch(fixture)
   const research = await stageJob(batch, 'led 0603 red', 'research')
   assert.deepEqual((await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids, [
     identity.id,
@@ -2666,6 +2678,7 @@ test('an identity built on one that isn’t stable still rests on that lot as it
     }),
   )
   assert.equal(onIt.ok, true, JSON.stringify(onIt))
+  await settleMatch(fixture)
   // The marked observation leaves the LED lot.
   await edit(fixture, batchId, {
     kind: 'observation_move',

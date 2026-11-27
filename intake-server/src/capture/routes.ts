@@ -14,7 +14,7 @@ import {
 import { readBatchDefaults, resolveCreationDefaults, saveBatchDefaults } from './batch-defaults.ts'
 import { pathId, commandKey } from '#/api/request.ts'
 import { bootstrap, type DevConfig } from '#/config.ts'
-import { captureRepository } from './repository.ts'
+import { captureRepository, type CaptureHooks } from './repository.ts'
 import { CaptureError, fail } from './model.ts'
 import type { CatalogueReader } from './catalogue.ts'
 import { requireCurrentTargetContext } from './target-context.ts'
@@ -41,8 +41,9 @@ export function registerCapture(
   config: DevConfig,
   read?: CaptureRead,
   catalogue?: CatalogueReader,
+  hooks?: CaptureHooks,
 ) {
-  const repo = captureRepository(pool, config)
+  const repo = captureRepository(pool, config, hooks)
   const configured = bootstrap(config).status === 'configured'
 
   async function currentCatalogue(): Promise<CatalogueReader> {

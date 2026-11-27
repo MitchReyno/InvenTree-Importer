@@ -3,6 +3,7 @@ import { briefView } from '#/processing/brief-view'
 import { BriefAsked } from './BriefAsked'
 import { BriefFacts } from './BriefFacts'
 import { BriefIdentities } from './BriefIdentities'
+import { BriefMatch } from './BriefMatch'
 import { BriefObservations } from './BriefObservations'
 import { BriefStageLists } from './BriefStageLists'
 import { BriefStepGuidance } from './BriefStepGuidance'
@@ -51,6 +52,7 @@ export function BriefContent({ item }: { item: SessionHistoryBriefDto }) {
       />
       <BriefFacts view={view} lotId={brief.lot_id} />
       <BriefStageLists view={view} evidenceLabel={label} />
+      <BriefMatch view={view} lotId={brief.lot_id} />
       <BriefAsked asked={view.asked} />
       {view.evidence.length > 0 && (
         <BriefSection>

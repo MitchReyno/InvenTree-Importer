@@ -17,6 +17,7 @@ import { readBatchActivity } from '#/agents/tools/activity.ts'
 import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
+import { registerMatchRoutes } from './match/routes.ts'
 import { fail, ProcessingError } from './model.ts'
 import { CaptureError } from '#/capture/model.ts'
 import { CommandPayloadConflict } from '#/db/authority.ts'
@@ -58,6 +59,7 @@ export function registerProcessing(
         ...(error instanceof ProcessingError && error.stepId ? { step_id: error.stepId } : {}),
       })
     })
+    registerMatchRoutes(scope, pool, config)
     scope.get(
       '/api/v1/processing-activity',
       { schema: { response: { 200: schemas.ProcessingActivity } } },

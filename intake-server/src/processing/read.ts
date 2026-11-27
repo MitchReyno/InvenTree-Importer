@@ -53,6 +53,7 @@ import {
 } from './schema.ts'
 import { activeSubjectJobs, countSteps, retiredLotIds } from './steps.ts'
 import { pausedAmong } from '#/agents/pause.ts'
+import { batchInputVersion } from './stage-policy.ts'
 import { answeredQuestionFacts } from './answered-questions.ts'
 import { budgetAnswers } from './answer-summary.ts'
 import { questionFigureStates, type FigureStates } from './question-figures.ts'
@@ -278,6 +279,9 @@ export async function processingSnapshot(
     jobs,
     cursor: capture.cursor,
     ...((await pausedAmong(client, [capture.id])).size ? { paused: true as const } : {}),
+    ...((await batchInputVersion(client, config, capture.id)) === 'bench-intake-input/7'
+      ? { pipeline: 'match' as const }
+      : {}),
   }
   // Answer members are budgeted into the room the snapshot leaves without them, newest first.
   const answers = await answeredQuestionFacts(client, config, capture.id, jobs)

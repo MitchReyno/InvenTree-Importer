@@ -1,4 +1,6 @@
 import type { PoolClient } from 'pg'
+import type { MatchLotDto } from '@invimport/contracts'
+import { readMatchLots } from './match/read.ts'
 import { notCurrent } from './identity-basis.ts'
 import {
   BRIEF_SHARED_SECTIONS,
@@ -124,6 +126,8 @@ export interface BriefFacts {
   reexamineReasons: ReexamineReason[]
   labels: Map<string, string>
   identities: StoredIdentity[]
+  /** The Match state of the brief's lot, or of every lot for Examine. */
+  matches: MatchLotDto[]
   /** The target context whose catalogue observations a proposal can cite. */
   targetContextId: string
 }
@@ -404,7 +408,9 @@ export async function readBriefFacts(
   )
   const identities =
     scope.stage === 'research' ? await readIdentities(client, scope.pinnedProposalIds) : []
+  const matches = await readMatchLots(client, snapshot.id, scope.lotId)
   return {
+    matches,
     instructions,
     questions,
     answers,
@@ -774,8 +780,7 @@ export function projectBrief(
     ],
     asked: askedEntries(questions, facts.answers, scope.stage),
     evidence: evidenceEntries(scope, allObservations, facts.labels),
-    // Match state arrives with the Match step; the section exists, empty, until then.
-    match: [],
+    match: facts.matches.map((match) => ({ kind: 'match', match })),
     observations: scopedObservations.map((observation) => ({ kind: 'observation', observation })),
     lots: scope.stage === 'examine' ? lotEntries(snapshot, facts.reexamineReasons) : [],
     parts:

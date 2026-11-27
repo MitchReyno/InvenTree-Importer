@@ -40,6 +40,7 @@ import {
 } from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
+import { ProcessingMatch } from './ProcessingMatch'
 import { DrawerAnswers } from './DrawerAnswers'
 import type { DrawerRestoreStore } from '#/processing/drawer-restore'
 import {
@@ -159,7 +160,7 @@ export function ProcessingWorkspace({
   batch,
   client,
   view,
-  questionId,
+  questionId: routeQuestionId,
   focusLotId = null,
   attention,
   attentionUnavailable = false,
@@ -178,6 +179,8 @@ export function ProcessingWorkspace({
   displayOnly = false,
 }: Props) {
   const { agents, media } = useApiClients()
+  // Match questions are the app's own, read and answered by the Match page, not by these forms.
+  const questionId = view === 'match' ? undefined : routeQuestionId
   // Without Batch's store, as in a standalone mount, this mount keeps its own.
   const [ownOutcomes] = useState(createAnswerOutcomes)
   const answerOutcomes = batchOutcomes ?? ownOutcomes
@@ -188,7 +191,7 @@ export function ProcessingWorkspace({
 
   // A route change shows the session its link names, or none: opening a question navigates, and
   // the drawer closes only once the route actually changes.
-  const route = `${view}:${questionId}:${sessionId}`
+  const route = `${view}:${routeQuestionId}:${sessionId}`
   // A drawer open when an answer's reload remounted Processing comes back on the same route.
   const [restored] = useState(() => {
     const pending = drawerRestore?.peek()
@@ -738,6 +741,12 @@ export function ProcessingWorkspace({
   const lotRows = snapshot
     ? lotSteps(snapshot.jobs, liveLots, { paused: snapshot.paused === true })
     : []
+  // A `/7` batch queues no Inventory jobs: Match takes its place in the Overview.
+  const pipeline = snapshot?.pipeline
+  const overviewSource =
+    source && pipeline === 'match'
+      ? { ...source, steps: source.steps.filter((step) => step.step !== 'inventory') }
+      : undefined
   const stage = lotStage(view)
   const focusRow = stage && lotRows.find((row) => row.lotId === focusLotId)
   const focusStep = focusRow ? focusRow.steps[stage!] : undefined
@@ -1163,7 +1172,7 @@ export function ProcessingWorkspace({
         >
           {snapshot && source && (
             <>
-              {view !== 'overview' && <Panel>{queue}</Panel>}
+              {view !== 'overview' && view !== 'match' && <Panel>{queue}</Panel>}
               {pinnedForm ? (
                 <>
                   <QuestionAnswer
@@ -1218,10 +1227,44 @@ export function ProcessingWorkspace({
                   </Banner>
                 )
               )}
-              {view === 'overview' ? (
+              {view === 'match' && pipeline === 'match' && (
+                <ProcessingMatch
+                  batch={batch}
+                  client={client}
+                  questionId={routeQuestionId}
+                  retiredLotIds={retiredLotIds}
+                  displayOnly={displayOnly}
+                  dirty={drafts.isDirty('match')}
+                  onDirtyChange={drafts.forSource('match')}
+                  onSaved={onSaved}
+                />
+              )}
+              {view === 'match' && pipeline !== 'match' && (
+                <Banner tone="plain">
+                  This batch has no Match step: its pipeline checks existing records in{' '}
+                  <Link href={batchHref(batch.id, { tab: 'processing', step: 'inventory' })}>
+                    Inventory
+                  </Link>
+                  .
+                </Banner>
+              )}
+              {view === 'inventory' && pipeline === 'match' && (
+                <Banner tone="plain">
+                  This batch’s pipeline has Match in place of Inventory.{' '}
+                  <Link href={batchHref(batch.id, { tab: 'processing', step: 'match' })}>
+                    Open Match
+                  </Link>
+                </Banner>
+              )}
+              {view === 'overview' && (
                 <ProcessingOverview
                   batchId={batch.id}
-                  source={source}
+                  source={overviewSource ?? source}
+                  matchStep={
+                    pipeline === 'match'
+                      ? { questions: attention?.processing.match?.questions ?? 0 }
+                      : undefined
+                  }
                   onOpenSession={setSessionJobId}
                   sessionList={sessionList}
                   sessionRecovery={sessionRecovery}
@@ -1264,7 +1307,8 @@ export function ProcessingWorkspace({
                   // A restored or failed read, or one from before the last live hint, draws still bars.
                   still={displayOnly || !fresh.settledAfterHint}
                 />
-              ) : (
+              )}
+              {view !== 'overview' && view !== 'match' && (
                 <StepPage
                   batchId={batch.id}
                   step={view}

@@ -6,6 +6,7 @@ import { issueSessionCapability } from '#/agents/tools/capability.ts'
 import { closeWithin } from '#/agents/session/session-runner.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import { queueJob } from '#/processing/jobs.ts'
+import { currentOutcome, readMatch } from '#/processing/match/state.ts'
 import { reserveProcessingMedia, reservedMediaFor } from '#/processing/media.ts'
 import type { Fixture } from './lot-pipeline.ts'
 
@@ -71,9 +72,10 @@ export async function withClients(
 }
 
 /**
- * The Match outcome fixture: queues a `/7` lot stage again, pinned to the identities given and
- * sealed with the Match outcome and mode given, as Match will once it records outcomes. The job's
- * earlier attempt is superseded. Returns the new attempt.
+ * Queues a `/7` lot stage again, pinned to the identities given, in the mode given. With no
+ * outcome given, it seals the lot's current Match outcome, so Match's claim gate lets it run; a
+ * mode the outcome wouldn't set is how tests reach the other modes. The job's earlier attempt is
+ * superseded. Returns the new attempt.
  */
 export async function requeueLot(
   fixture: Fixture,
@@ -85,6 +87,14 @@ export async function requeueLot(
 ) {
   return transaction(fixture.writer.pool, async (client) => {
     const capture = await captureInTransaction(client, fixture.config, batchId, true)
+    const row = match.outcome === null ? await readMatch(client, lotId) : undefined
+    const current = row ? await currentOutcome(client, row) : undefined
+    const sealed: SealedMatchDto = current
+      ? {
+          outcome: { revision: current.outcome.revision, basis: current.outcome.basis },
+          mode: match.mode,
+        }
+      : match
     await prepareMediaTransaction(client)
     const media = reservedMediaFor(
       await reserveProcessingMedia(client, fixture.config, capture.snapshot, [lotId]),
@@ -99,7 +109,7 @@ export async function requeueLot(
       [],
       media,
       pinnedProposalIds,
-      { lockSettings: false, inputVersion: 'bench-intake-input/7', match },
+      { lockSettings: false, inputVersion: 'bench-intake-input/7', match: sealed },
     )
     return queued.attemptId
   })

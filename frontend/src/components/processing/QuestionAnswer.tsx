@@ -6,9 +6,11 @@ import {
 } from '@invimport/contracts'
 import { batchHref } from '#/navigation/batch-route'
 import { questionStanding } from '#/processing/question-standing'
+import { confirmedAnswerRefusal } from '#/processing/question-summary'
+import { steppedAnswerInput } from '#/processing/stepped-answer'
 import { QuestionFigures } from './QuestionFigures'
 import { SingleAnswerForm } from './SingleAnswerForm'
-import { SteppedAnswerForm } from './SteppedAnswerForm'
+import { SteppedAnswerForm, type SteppedRefusal } from './SteppedAnswerForm'
 
 interface Props {
   /** The batch the question belongs to, whose routes serve its pictures. */
@@ -69,7 +71,6 @@ export function QuestionAnswer({
     answeredHere,
   })
   const shared = {
-    captureRevision,
     standing,
     disabled,
     readOnly,
@@ -96,8 +97,30 @@ export function QuestionAnswer({
         captureHref={captureHref ?? batchHref(batchId, { tab: 'capture' })}
       />
     )
-    return <SteppedAnswerForm question={question} pictures={pictures} {...shared} />
+    return (
+      <SteppedAnswerForm
+        questionId={question.id}
+        view={questionView(question)}
+        pictures={pictures}
+        assumptionText={(assumption) => `The agent keeps working on this assumption: ${assumption}`}
+        consequence="Your answer updates the saved lot or note, and the agent working on it reads it."
+        debugRows={[
+          { label: 'Attempt', value: question.attempt_id },
+          { label: 'Question revision', value: question.revision },
+        ]}
+        buildInput={(drafts) => steppedAnswerInput(question, captureRevision, drafts)}
+        refusalOf={sessionAnswerRefusal}
+        {...shared}
+      />
+    )
   }
 
-  return <SingleAnswerForm question={question} {...shared} />
+  return <SingleAnswerForm question={question} captureRevision={captureRevision} {...shared} />
+}
+
+/** A `/2` answer the server refused as invalid, naming the step it refused when it names one. */
+function sessionAnswerRefusal(failure: unknown): SteppedRefusal | null {
+  const refused = confirmedAnswerRefusal(failure)
+
+  return refused ? { kind: 'invalid', stepId: refused.stepId } : null
 }

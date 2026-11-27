@@ -1,6 +1,7 @@
 export type BatchTab = 'capture' | 'processing' | 'review' | 'changes'
 
-export type ProcessingStep = 'overview' | 'examine' | 'research' | 'images' | 'inventory'
+/** `match` replaces `inventory` for a batch on `/7`'s pipeline. */
+export type ProcessingStep = 'overview' | 'examine' | 'research' | 'images' | 'inventory' | 'match'
 
 export type BatchRoute =
   | { tab: 'capture'; photoId?: string }
@@ -30,6 +31,7 @@ const PROCESSING_STEPS: readonly ProcessingStep[] = [
   'research',
   'images',
   'inventory',
+  'match',
 ]
 
 /** Reading and Identifying became the Examine step. */
@@ -222,13 +224,18 @@ export function lotFromQuery(query: string) {
   return new URLSearchParams(query).get('lot')
 }
 
+/** The steps that show jobs; Match has none. */
+type JobStep = Exclude<ProcessingStep, 'match'>
+
+const JOB_STEPS: readonly JobStep[] = ['overview', 'examine', 'research', 'images', 'inventory']
+
 /** The Processing step that shows a job of the given stage. */
-export function processingStepFor(stage: string): ProcessingStep {
+export function processingStepFor(stage: string): JobStep {
   if (LEGACY_EXAMINE_STEPS.has(stage)) {
     return 'examine'
   }
 
-  return PROCESSING_STEPS.includes(stage as ProcessingStep) ? (stage as ProcessingStep) : 'overview'
+  return JOB_STEPS.includes(stage as JobStep) ? (stage as JobStep) : 'overview'
 }
 
 /** Review's views use the wider review width; every other page uses the content width. */

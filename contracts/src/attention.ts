@@ -78,6 +78,8 @@ export const BatchAttention = object({
     lots: count,
     /** The batch's agents are paused. */
     paused: Type.Boolean(),
+    /** A `/7` batch's Match step: its open questions and lots being searched. */
+    match: Type.Optional(object({ questions: count, searching: count })),
     /** Exact per step, since the item list can be truncated. */
     steps: object({
       examine: stepWork,

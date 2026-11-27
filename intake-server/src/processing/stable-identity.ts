@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg'
 import { and, eq, notExists } from 'drizzle-orm'
 import type {
   CaptureSnapshotDto,
+  ExamineIdentityV1Dto,
   RetainedSessionProposalDto,
   RevisionChangeDto,
 } from '@invimport/contracts'
@@ -12,7 +13,9 @@ import { cascadeAll, notifyRevision, staleChanges, type RevisionContext } from '
 import { brokenBases, notCurrent } from './identity-basis.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
-import { checkJobCapacity, queueJob } from './jobs.ts'
+import { checkJobCapacity, queueJob, supersedeJobAttempts } from './jobs.ts'
+import { requestSearch } from './match/state.ts'
+import { examineKeys } from './match/keys.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import {
   processingAttempts,
@@ -68,10 +71,12 @@ async function markStale(
 
 /**
  * The Examine lead session published an identity for a lot. Caller holds the capture lock and the
- * lot's subject head. When the identity relies on the lot's current observation set it is stable:
- * Research and Images are queued in this transaction, pinned to it; a successor that is queued but
- * has never run is replaced, and one that has run is told about the revision instead. An identity
- * relying on an older set is stale at once.
+ * lot's subject head. When the identity relies on the lot's current observation set it is stable.
+ * Under an earlier input Research and Images are queued in this transaction, pinned to it; a
+ * successor that is queued but has never run is replaced, and one that has run is told about the
+ * revision instead. Under `/7` the identity requests a Match search and its successors' earlier
+ * work stops; Match queues them once the search settles. An identity relying on an older set is
+ * stale at once.
  */
 export async function onLeadIdentity(
   client: PoolClient,
@@ -79,7 +84,7 @@ export async function onLeadIdentity(
   snapshot: CaptureSnapshotDto,
   proposal: RetainedSessionProposalDto,
   proposalId: string,
-): Promise<'queued' | 'revised' | 'waiting' | 'not_stable' | null> {
+): Promise<'queued' | 'revised' | 'waiting' | 'searching' | 'not_stable' | null> {
   const version = reliedObservationSet(proposal)
   if (version === null) {
     return null
@@ -108,6 +113,8 @@ export async function onLeadIdentity(
   const toQueue: (typeof SUCCESSOR_STAGES)[number][] = []
   /** `/7` successors that have run: their work rests on the old identity, so they start again. */
   const released = new Map<(typeof SUCCESSOR_STAGES)[number], string>()
+  /** Successor jobs whose current work hasn't ended, which a `/7` identity stops for Match. */
+  const unended = new Map<(typeof SUCCESSOR_STAGES)[number], string>()
   const revisedBy = {
     origin: { by: 'session' as const, attemptId: await proposalAttempt(client, proposalId) },
     briefRevision: snapshot.revision,
@@ -149,6 +156,9 @@ export async function onLeadIdentity(
       (job !== undefined && (await firstTurnStartedNothing(client, job)))
     const live =
       job && !unstarted && !(ENDED_STATES as readonly string[]).includes(job.attemptState)
+    if (job && !(ENDED_STATES as readonly string[]).includes(job.attemptState)) {
+      unended.set(stage, job.id)
+    }
     if (live && stageInput) {
       released.set(stage, job.id)
       toQueue.push(stage)
@@ -208,6 +218,42 @@ export async function onLeadIdentity(
     }
   }
 
+  // Under `/7` Match decides whether and how the successors run: the identity requests a search,
+  // which the API runs after commit, and its settlement queues them. Their earlier work stops now.
+  if (stageInput) {
+    for (const stage of SUCCESSOR_STAGES) {
+      const releasedJob = released.get(stage)
+      if (releasedJob) {
+        const cascaded = dependents.get(releasedJob) ?? []
+        dependents.delete(releasedJob)
+        await releaseSuccessor(
+          client,
+          releasedJob,
+          proposalId,
+          proposal.summary,
+          [
+            published,
+            ...retiredChanges,
+            ...(await staleChanges(client, cascaded, 'source_superseded')),
+          ],
+          revisedBy,
+        )
+      }
+      const current = unended.get(stage)
+      if (current) {
+        await supersedeJobAttempts(client, current)
+      }
+    }
+    await tellDependents()
+    await requestSearch(client, {
+      batchId: snapshot.id,
+      lotId,
+      identity: { kind: 'examine', proposal_id: proposalId },
+      keys: examineKeys(proposal as ExamineIdentityV1Dto),
+      reason: 'examine',
+    })
+    return 'searching'
+  }
   // One read decides what to queue and is sealed into every successor, so a save landing
   // meanwhile can neither roll back this proposal nor split the successors across revisions.
   const settings = await settingsForSuccessors(client, config)

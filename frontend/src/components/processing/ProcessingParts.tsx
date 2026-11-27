@@ -9,6 +9,7 @@ export const STEP_LABEL: Record<string, string> = {
   research: 'Research',
   images: 'Images',
   inventory: 'Inventory',
+  match: 'Match',
 }
 
 export function plural(count: number, one: string, many = `${one}s`) {

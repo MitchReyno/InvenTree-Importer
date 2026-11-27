@@ -22,6 +22,7 @@ import {
 } from './stage-policy.ts'
 import { decodeSessionInput } from './session-input.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
+import { matchGate } from './match/gate.ts'
 
 /** Session states an explicit Start fresh may replace. */
 export const REPLACEABLE_STATES: ReadonlySet<string> = new Set([
@@ -251,6 +252,15 @@ async function jobEligibility(
   const pinned = pinnedProposals(job)
   if (!(await pinnedIdentityCurrent(client, pinned))) {
     return refused('identity_waiting')
+  }
+  const match = sealedMatch(job)
+  if (
+    match &&
+    job.subject_id !== null &&
+    (job.stage === 'research' || job.stage === 'images') &&
+    !(await matchGate(client, job.subject_id, job.stage, match)).allowed
+  ) {
+    return refused('match_waiting')
   }
   // After replacement's own checks and before any settings read: no saved setting lets a
   // configuration that can't seal `/7` run a `/7` batch.

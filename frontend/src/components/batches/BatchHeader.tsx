@@ -42,6 +42,17 @@ const STEPS: { id: ProcessingStep; label: string }[] = [
   { id: 'inventory', label: 'Inventory' },
 ]
 
+/** A `/7` batch's steps: the attention read counts Match for it, in place of Inventory. */
+function stepsOf(attention: BatchAttentionDto | undefined) {
+  if (!attention?.processing.match) {
+    return STEPS
+  }
+
+  return STEPS.map((step) => (step.id === 'inventory' ? MATCH_STEP : step))
+}
+
+const MATCH_STEP: { id: ProcessingStep; label: string } = { id: 'match', label: 'Match' }
+
 function plural(count: number, one: string, many: string) {
   return count === 1 ? one : many
 }
@@ -69,7 +80,7 @@ function primaryTabs(batchId: string, input: TabCountInput): TabItem[] {
 }
 
 function processingRow(batchId: string, input: TabCountInput): TabItem[] {
-  return STEPS.map(({ id, label }) => {
+  return stepsOf(input.attention).map(({ id, label }) => {
     const item = tab(
       `processing/${id}`,
       label,

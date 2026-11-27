@@ -32,6 +32,8 @@ export type BriefView = {
   lots: Entry<'lot'>[]
   parts: Entry<'part'>[]
   keepOut: Entry<'keep_out'>[]
+  /** Match's state for the lot, or for every lot in Examine's brief. */
+  matches: Entry<'match'>[]
 }
 
 function ofKind<K extends BriefEntryDto['kind']>(entries: readonly BriefEntryDto[], kind: K) {
@@ -72,6 +74,7 @@ export function briefView(brief: SessionBriefDto): BriefView {
     lots: ofKind(entries, 'lot'),
     parts: ofKind(entries, 'part'),
     keepOut: ofKind(entries, 'keep_out'),
+    matches: ofKind(entries, 'match'),
   }
 }
 

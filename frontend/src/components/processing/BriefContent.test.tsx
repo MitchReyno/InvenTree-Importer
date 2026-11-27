@@ -97,3 +97,35 @@ test('a brief without step instructions has no guidance heading', () => {
   render(<BriefContent item={historyBrief()} />)
   expect(screen.queryByRole('heading', { name: 'Operator guidance for this step' })).toBeNull()
 })
+
+test('a brief’s Match entry says the lot’s result and what runs in which mode', () => {
+  const match: BriefEntryDto = {
+    kind: 'match',
+    match: {
+      lot_id: H.lot,
+      identity: { kind: 'examine', proposal_id: H.observation },
+      state: 'decided',
+      generation: '2',
+      settled_generation: '2',
+      keys: [{ kind: 'mpn', mpn: 'CL10B104KB8NNNC', manufacturer: 'Samsung' }],
+      searchable: true,
+      verdict: 'exact',
+      candidates: [],
+      target: { part_pk: '210', name: 'CAP-0210' },
+      waits: [],
+      outcome: {
+        schema_version: 'bench-intake-match-outcome/1',
+        lot_id: H.lot,
+        revision: '1',
+        basis: { kind: 'decision', decision: 'add_stock' },
+        research: { stage: 'research', mode: 'skipped' },
+        images: { stage: 'images', mode: 'stock', part_image: false },
+      },
+    },
+  }
+  render(<BriefContent item={historyBrief([match])} />)
+
+  expect(screen.getByRole('list', { name: 'Match' })).toHaveTextContent(
+    'This lot · Add stock to CAP-0210 · CL10B104KB8NNNC + SamsungResearch skipped · stock photo',
+  )
+})

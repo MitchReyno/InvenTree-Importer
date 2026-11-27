@@ -104,6 +104,7 @@ function deliverable(entry: BriefEntryDto, removed: Removed): BriefEntryDto | nu
     case 'setting_note':
     case 'step_guidance':
     case 'vocabulary':
+    case 'match':
       return entry
   }
 }

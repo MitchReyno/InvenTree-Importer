@@ -14,8 +14,18 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_session_ack,agent_slot,agent_session_failure,processing_proposal_stale,
     agent_batch_pause,processing_question_replacement,processing_question_figure,processing_figure_render,
     processing_stage_instructions,processing_stage_guide,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal,
-    agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis,agent_model_catalog TO ${role};`)
+    agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis,agent_model_catalog,
+    processing_match,processing_match_search,processing_match_outcome,processing_match_question,processing_match_answer TO ${role};`)
   if (purpose === 'api') {
+    // Match runs its searches and records outcomes, questions and answers in the API; its
+    // import reference lookup reads the retained execution journal.
+    await pool.query(`GRANT INSERT, UPDATE(search_generation,settled_generation,outcome_revision,state,waits,
+        identity_bytes,question_id,updated_at) ON processing_match TO ${role};
+      GRANT INSERT, UPDATE(settlement,result_bytes,result_digest,settled_at) ON processing_match_search TO ${role};
+      GRANT INSERT ON processing_match_outcome,processing_match_question,processing_match_answer TO ${role};
+      GRANT UPDATE(state,closed_at) ON processing_match_question TO ${role};
+      GRANT SELECT ON executor_operation,executor_run,executor_approval,executor_effect,executor_supported_effect,
+        manual_preparation TO ${role};`)
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(
       `GRANT INSERT ON agent_settings,agent_provider_settings,agent_session,agent_session_inbox,processing_proposal_stale TO ${role};
@@ -102,7 +112,11 @@ export async function grantAgentWriter(pool: Pool, role: string) {
       processing_question,processing_answer,processing_transition,agent_batch_pause,processing_question_replacement,
       processing_question_figure,processing_figure_render,processing_stage_instructions,processing_stage_guide,processing_input_page,
       agent_session_inbox_withdrawal,
-      agent_session_inbox_release,processing_question_basis,processing_identity_basis TO ${role};
+      agent_session_inbox_release,processing_question_basis,processing_identity_basis,
+      processing_match,processing_match_search,processing_match_outcome,processing_match_question TO ${role};
+    -- A stable Examine identity requests its Match search; the API runs it.
+    GRANT INSERT, UPDATE(search_generation,identity_bytes,updated_at) ON processing_match TO ${role};
+    GRANT INSERT ON processing_match_search TO ${role};
     GRANT INSERT ON processing_proposal,processing_proposal_stale,processing_message,agent_session_outbox,
       processing_question,processing_question_figure,processing_figure_render,processing_identity_basis TO ${role};
     GRANT UPDATE(state,revision) ON processing_job TO ${role};

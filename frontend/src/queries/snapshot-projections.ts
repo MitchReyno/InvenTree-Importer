@@ -75,6 +75,7 @@ export const SNAPSHOT_KINDS: { [K in SnapshotKind]: SnapshotProjection<K> } = {
       jobs: read.jobs.map(displayJob),
       cursor: read.cursor,
       ...(read.paused ? { paused: read.paused } : {}),
+      ...(read.pipeline ? { pipeline: read.pipeline } : {}),
     }),
   },
   // Review's own page: its lots' review state. Changes' preparations and runs stay out.

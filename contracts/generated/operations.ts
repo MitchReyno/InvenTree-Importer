@@ -336,6 +336,50 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/batches/{id}/match",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "BatchMatch"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/match/questions/{questionId}/answers",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "MatchAnswerReceipt",
+      "requestSchema": "MatchAnswer"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/match/answers",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "MatchAnswerReceipt",
+      "requestSchema": "MatchBatchAnswer"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/match/checks",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "MatchCheckReceipt",
+      "requestSchema": "MatchCheck"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/match/lots/{lotId}/question",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "MatchCheckReceipt",
+      "requestSchema": "MatchReopen"
+    }
+  ],
+  [
     "GET /api/v1/batches/{batchId}/media",
     {
       "timeoutMs": 45000,

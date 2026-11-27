@@ -1225,9 +1225,24 @@ export interface OperatorCommandScope {
   addPart(label: string): Promise<string>
   setContext(lotId: string, value: CaptureLotContextDto): Promise<void>
   setLotPart(lotId: string, partSubjectId: string | null): Promise<void>
+  /** Chooses an InvenTree Part (or a draft) for a Part subject; references must be retained. */
+  setPartChoice(
+    partSubjectId: string,
+    choice: CaptureSnapshotDto['parts'][number]['choice'],
+  ): Promise<void>
+  /** Retains a read observation, such as a Part found by Match's read, within the batch's bound. */
+  retainObservation(observation: CaptureObservationDto): Promise<void>
   touchSubject(subjectId: string): Promise<void>
-  /** Bumps the batch revision, retains exact command bytes and publishes one event. */
-  commit(command: unknown): Promise<CaptureSnapshotDto>
+  /**
+   * Bumps the batch revision, retains exact command bytes and publishes one event. `tell: false`
+   * leaves relying sessions untold, for a caller that tells them itself; `publish: false` defers
+   * the event to `publish()`, so a caller can take later locks before the stream head.
+   */
+  commit(
+    command: unknown,
+    options?: { tell?: boolean; publish?: boolean },
+  ): Promise<CaptureSnapshotDto>
+  publish(): Promise<void>
 }
 
 const MAX_CAPTURE_SUBJECTS = 100
@@ -1338,7 +1353,38 @@ export async function lockCaptureForOperatorCommand(
       await markLotEdited(client, subjectId, BigInt(nextRevision))
     },
 
-    async commit(command) {
+    async setPartChoice(partSubjectId, choice) {
+      await insertSelection(client, retained, partSubjectId, 'choice', choice, nextRevision)
+    },
+
+    async retainObservation(observation) {
+      const count = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ count: sql<string>`count(*)::text` })
+          .from(captureObservations)
+          .where(eq(captureObservations.batchId, batchId)),
+      )
+      if (BigInt(count[0].count) >= 100n) {
+        fail('capture_capacity', 409)
+      }
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .insert(captureObservations)
+          .values({
+            id: observation.id,
+            batchId,
+            targetId: retained.target_id,
+            targetContextId: retained.target_context_id,
+            model: observation.model,
+            pk: observation.pk,
+            label: observation.label,
+            observedAt: sql`${observation.observed_at}::timestamptz`,
+            mapping: observation.mapping ?? null,
+          }),
+      )
+    },
+
+    async commit(command, { tell = true, publish = true } = {}) {
       retained.revision = nextRevision
       await executeDatabaseQuery(
         queryDatabase(client)
@@ -1347,9 +1393,18 @@ export async function lockCaptureForOperatorCommand(
           .where(eq(captureBatches.id, batchId)),
       )
       // Notices take job locks, so they come before the revision takes the stream head.
-      await tellChangedLots(client, batchId, initial, await snapshot(client, config, batchId))
-      await retainRevision(client, retained, command)
+      if (tell) {
+        await tellChangedLots(client, batchId, initial, await snapshot(client, config, batchId))
+      }
+      await retainRevision(client, retained, command, publish)
       return snapshot(client, config, batchId)
+    },
+
+    async publish() {
+      await appendEvent(client, retained.stream_id, 'capture_changed', {
+        batch_id: batchId,
+        revision: retained.revision,
+      })
     },
   }
 }
@@ -1503,7 +1558,12 @@ function lotCorrections(
   return changes
 }
 
-export function captureRepository(pool: Pool, config: Binding) {
+/** Work another module does inside an operator's edit, before it publishes. */
+export interface CaptureHooks {
+  afterEdit(client: PoolClient, after: CaptureSnapshotDto): Promise<void>
+}
+
+export function captureRepository(pool: Pool, config: Binding, hooks?: CaptureHooks) {
   const command = (
     action: string,
     resource: string,
@@ -1620,6 +1680,7 @@ export function captureRepository(pool: Pool, config: Binding) {
             })
           }
         }
+        await hooks?.afterEdit(c, applied)
         await locked.publish()
         return locked.readPublished()
       })

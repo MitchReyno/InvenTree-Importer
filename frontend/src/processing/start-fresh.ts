@@ -18,6 +18,7 @@ const REASONS: Record<StartFreshRefusal, string> = {
     'An earlier attempt still holds its slot until its process is confirmed stopped.',
   inventory_waiting: 'Inventory waits until Research and Images have current results.',
   identity_waiting: 'The lot’s identity is being revised; wait for that to finish.',
+  match_waiting: 'Match is still searching or waiting for your answer for this lot.',
   agent_profile_retired: 'This step’s agent profile has been retired.',
   unsupported_processing_stage: 'This step can’t run as an agent session.',
   agent_settings_required: 'No agent is chosen for this step. Choose one in Agent settings.',

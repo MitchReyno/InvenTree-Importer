@@ -85,3 +85,5 @@ export const matchOutcomeSchemas = { StageMode, MatchOutcome, SealedMatch }
 export type StageModeDto = Static<typeof StageMode>
 export type MatchOutcomeDto = Static<typeof MatchOutcome>
 export type SealedMatchDto = Static<typeof SealedMatch>
+export type MatchDecisionDto = Static<typeof MatchDecision>
+export type MatchOutcomeBasisDto = Static<typeof MatchOutcomeBasis>

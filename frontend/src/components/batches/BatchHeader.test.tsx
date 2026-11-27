@@ -259,6 +259,29 @@ describe('BatchHeader', () => {
     expect(views.getByRole('link', { name: 'Ready to add, 6 ready to add' })).toBeInTheDocument()
   })
 
+  it('shows Match in place of Inventory for a batch whose attention read counts Match', () => {
+    render(
+      <BatchHeader
+        batch={batch}
+        route={{ tab: 'processing', step: 'match' }}
+        attention={{
+          ...attention,
+          processing: { ...attention.processing, match: { questions: 2, searching: 1 } },
+        }}
+        activeLotCount={8}
+        busy={false}
+        onArchive={vi.fn()}
+      />,
+    )
+    const steps = within(screen.getByRole('navigation', { name: 'Processing steps' }))
+    expect(steps.getAllByRole('link').map((link) => link.textContent?.replace(/\d.*/, ''))).toEqual(
+      ['Overview', 'Examine', 'Research', 'Images', 'Match'],
+    )
+    const step = steps.getByRole('link', { name: 'Match, working, 2 questions' })
+    expect(step).toHaveAttribute('href', `#${batchId}/processing/match`)
+    expect(step).toHaveAttribute('aria-current', 'page')
+  })
+
   it('counts the Map by its unused files and gives Capture no count', () => {
     const { unmount } = header({ tab: 'review', view: 'map' }, 1)
     const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))

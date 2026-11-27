@@ -10,14 +10,15 @@ import {
 } from './evidence-observations.ts'
 import { RetainedSessionProposal } from './processing.ts'
 import { StepInstructionsText } from './step-instructions.ts'
+import { MatchLot } from './match.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
 /**
  * A `/7` session's brief: what it is given before it starts, sealed into its input. The shared
- * sections come first, then its stage's. Each section exists from the start; a section whose data
- * a later change supplies (Match state) is empty until then.
+ * sections come first, then its stage's. The Match section holds the lot's Match state, or every
+ * lot's for Examine.
  */
 export const BRIEF_SHARED_SECTIONS = ['batch', 'human', 'asked', 'evidence', 'match'] as const
 export const BRIEF_STAGE_SECTIONS = {
@@ -296,6 +297,9 @@ export const BriefVocabularyEntry = object({
   mapping: Type.Optional(InventoryMapping),
 })
 
+/** A lot's Match state: what it was searched with, what was found and what runs in which mode. */
+export const BriefMatchEntry = object({ kind: Type.Literal('match'), match: MatchLot })
+
 export const BriefEntry = Type.Union([
   BriefBatchEntry,
   BriefInstructionEntry,
@@ -313,6 +317,7 @@ export const BriefEntry = Type.Union([
   BriefIdentityEntry,
   BriefVocabularyEntry,
   BriefKeepOutEntry,
+  BriefMatchEntry,
 ])
 
 export const BriefSections = Type.Array(
