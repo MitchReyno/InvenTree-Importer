@@ -95,6 +95,16 @@ test('an alias list with an entry left out is malformed on the guest route', asy
   )
 })
 
+test('an alias list whose folded entry is invalid is malformed on the guest route', async () => {
+  // A lone `default` alias is named by its ID once folded, here past the name limit.
+  const id = `claude-${'x'.repeat(86)}`
+  const models = [{ value: 'default', resolvedModel: id, displayName: 'Default' }]
+  await assert.rejects(
+    guestClaude(models).read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+})
+
 test('on the host an alias-only reply stays unavailable, however its aliases read', () => {
   const invalid = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
     entry.value === 'default' ? { ...entry, displayName: 'x'.repeat(81) } : entry,

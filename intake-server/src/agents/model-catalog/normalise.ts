@@ -168,17 +168,8 @@ export function claudeCliModels(
     group.push(entry)
     groups.set(entry.id, group)
   }
-  if (exactEntries === 0) {
-    if (aliasesOnly === 'unavailable' || entries.length === 0) {
-      throw new CatalogReadError('unavailable')
-    }
-    // Every alias is checked, not only the one each fold keeps, so an invalid alias list stays
-    // malformed rather than reading as the CLI's own.
-    if (leftOut > 0) {
-      return malformed()
-    }
-    checkedCatalog(entries.map(asModel))
-    throw new CatalogReadError(aliasesOnly)
+  if (exactEntries === 0 && (aliasesOnly === 'unavailable' || entries.length === 0)) {
+    throw new CatalogReadError('unavailable')
   }
   const folded = [...groups.entries()].map(([id, entries]) => {
     const chosen = representative(entries)
@@ -193,7 +184,17 @@ export function claudeCliModels(
       usable: null,
     }
   })
-  return checkedCatalog(markOlderClaude(folded))
+  const checked = checkedCatalog(markOlderClaude(folded))
+  if (exactEntries === 0) {
+    // Every alias is checked as well as the folded list, so an invalid alias list stays
+    // malformed rather than reading as the CLI's own.
+    if (leftOut > 0) {
+      return malformed()
+    }
+    checkedCatalog(entries.map(asModel))
+    throw new CatalogReadError(aliasesOnly)
+  }
+  return checked
 }
 
 function claudeApiEfforts(capabilities: unknown) {
