@@ -1,6 +1,6 @@
 # Implementation notes
 
-The plan for exact provider models, an effort choice and instructions for each step, delivered as PR-A to PR-F after the plan PR (#278). PR-A to PR-D have merged (see the delivery checklist in `tasks.md`). In PR-E's live check, the guest's Codex list matched the pinned CLI's list on the host, and both effort turns recorded `sent_effort: low`, though the effort applied isn't verified. The guest's Claude subscription read ran but stored no list. The cause is the setup token, which the pinned CLI lists no models for (see "Unexpected challenges"), and PR-G shows that as a state of its own. PR-F waits for BI-022's PR-I.
+The plan for exact provider models, an effort choice and instructions for each step, delivered as PR-A to PR-G after the plan PR (#278). PR-A to PR-E and PR-G have merged (see the delivery checklist in `tasks.md`). In PR-E's live check, the guest's Codex list matched the pinned CLI's list on the host, and both effort turns recorded `sent_effort: low`, though the effort applied isn't verified. The guest's Claude subscription read ran but stored no list. The cause is the setup token, which the pinned CLI lists no models for (see "Unexpected challenges"), and PR-G (#300) shows that as a state of its own; after its merge, a free guest read got the alias reply and the merged reader classed it as not listed. PR-F waits for BI-022's PR-I.
 
 ## Changes to the plan
 
