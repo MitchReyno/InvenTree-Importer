@@ -61,6 +61,8 @@ A second cohesive PR covers tasks 8–11 on `perf/load-inventory-details-on-dema
 - [ ] 7.3 Give slow or failed auxiliary regions in Agents, Settings and Records local loading, failure and recovery states. Preserve navigation, accessible status, focus, drafts and command freshness. Exercise narrow and wide layouts.
 - [ ] 7.4 Verify regional arrival with a throttled synthetic browser flow and a delayed/failing auxiliary endpoint. Record time to first usable region separately from time to full content, plus transferred bytes and request counts. Verify the existing warm-cache refresh behavior. Run the owning checks and update both application architecture references.
 
+- [ ] 7.5 Reproduce inbox → batch → live-ready invalidation with the real query client, a mounted masthead and Capture availability hook. Assert the owning connection reader runs, no missing-query-function error or degraded banner appears, and no extra health polling is introduced. Implement the passive cache subscription, then exercise a failing scoped read, paused/offline state, scope change, stale timestamps and recovery. Verify edit availability remains fenced.
+
 ## 8. Reuse the Processing snapshot within attention
 
 - [ ] 8.1 Count Processing reads for one configured attention request and assert the attention projection, including Records-derived decisions, on the same fixture.

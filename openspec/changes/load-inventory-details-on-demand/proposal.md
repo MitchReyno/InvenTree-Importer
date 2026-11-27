@@ -16,6 +16,8 @@ An operator opening Capture to add evidence can trigger two catalogue scans befo
 - The Agents page reads a capture snapshot for every batch group to derive titles, subject labels and lot links. Agent settings loads readiness and polls the session list even when their subsections are offscreen. Records loads Processing for Ask on a plain list.
 - `frontend/src/App.tsx` statically imports Settings, Agents and Batch. Assess route splitting against a production inbox load and first navigation on the same build configuration.
 
+Opening a batch reproduced a false “Intake service degraded” warning while Intake health returned 200. The Capture availability observer installs `skipToken` on the shared header connection query. A live-ready invalidation then attempts to run it and leaves the query in error. Correcting this is part of the frontend delivery.
+
 ## Scope and non-goals
 
 Cover the Supplier, Default location and Parent location menus wherever those reference controls appear in Capture and Settings, and the existing-value lookup for Review records and location paths. Saved defaults, strict text and exact-ID search, selection validation, autosave and ordinary batch reads retain their existing contracts. Also include paged Agents display data, visibility-driven Sessions and Web research reads, gated Ask lookup and measured route-level JavaScript loading. Global header observations, unrelated session consumers and inventory writes are outside scope.
@@ -45,6 +47,7 @@ None.
 
 ### Modified capabilities
 
+- `header-connection-status` covers truthful connection status across batch navigation and live refresh.
 - `capture-reference-selection` governs first-open candidate reads for batch and application defaults.
 - `review-records` governs mapped detail and location reads, and Ask eligibility.
 - `agents-overview` covers rendering session groups and rows from a bounded page.
