@@ -196,7 +196,7 @@
 
 - **PR delivery:** PR-G.
 - **Outcome:** with Claude signed in with a setup token in the agent VM, Settings shows the built-in list with the reason and a pointer to typing an exact ID, rather than a failed read retried every 5 minutes. A later full list is stored as usual.
-- **Scope and approach:** the failure code and state `not_listed` in the contracts; migration `0046` adding the code to the column's check; the guest route's normaliser recording an alias-only reply as `not_listed` (the host keeps `unavailable`); the schedule waiting 12 hours after a `not_listed` attempt; the API answering the state with the built-in list; the picker note and card line. The design is "A setup token's list".
+- **Scope and approach:** the failure code and state `not_listed` in the contracts; migration `0047` adding the code to the column's check; the guest route's normaliser recording an alias-only reply as `not_listed` (the host keeps `unavailable`); the schedule waiting 12 hours after a `not_listed` attempt; the API answering the state with the built-in list; the picker note and card line. The design is "A setup token's list".
 - **Prerequisites:** tasks 3 and 4 merged; the cause found in task 6.2 (`notes.md`).
 - **Acceptance:** app-settings "A provider that lists no models for its sign-in", both scenarios; shared-vm-execution "Model lists read without a provider turn", Claude with a subscription.
 - **TDD approach:** the guest reader refusing the recorded alias-only reply as `not_listed`, the schedule not due 5 minutes after it, the API answering `not_listed` with the built-in list, and the picker and card wording fail first: today the reply is `unavailable`, retried after 5 minutes and shown as never read.
