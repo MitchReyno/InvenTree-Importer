@@ -182,6 +182,16 @@ With Sessions at once above 1, VM sessions for the same provider failed at start
 - Prerequisites: [BI-024](#bi-024--recover-stale-agent-slots) and [BI-025](#bi-025--fence-held-capacity-writes-against-supervisor-lock-loss) (merged in #281 and #286).
 - OpenSpec: [concurrent-vm-relay-turns](../openspec/changes/concurrent-vm-relay-turns/)
 
+#### BI-027 — Fit VM agent turns to the VM's capacity
+
+With Sessions at once at 2 or more, a 2 GiB agent VM ran out of memory: every claimed turn cold-started at once, each relay kept an idle three-container turn ready, and Claude admissions timed out as "The provider connection or protocol failed." VM turns are now bounded by the memory the guest reports, one provider CLI starts at a time per VM, relays start guests only when a turn needs one, and an admission timeout goes back to the queue twice before failing with an accurate diagnostic. The Mac dev VM defaults to 4 CPUs / 4 GiB, `pnpm vm:setup` resizes a stopped VM, and the README documents the Pi 5 (8 GB) sizing.
+
+- Change: `fit-vm-turns-to-capacity`
+- Status: In progress
+- Size: M — a greeting field and capacity rule, a startup gate, a relay/coordinator lane offer, a migration for the retry count and a setup step.
+- Prerequisites: [BI-026](#bi-026--run-several-vm-turns-per-provider-at-once) (merged in #298).
+- OpenSpec: [fit-vm-turns-to-capacity](../openspec/changes/fit-vm-turns-to-capacity/)
+
 #### BI-018 — Bound agent evidence images and record provider errors
 
 Agent sessions could be sent evidence images a provider refuses: lot sessions got the original upload unchanged and Examine region crops were unscaled, so a 6144 × 8160 photo broke Claude's pixel limits. A failed turn kept only `agent_turn_failed`, so the operator couldn't tell why. Every `fetch_evidence` image is now bounded to 2,576 px from the decoded preview (the older single-result native prompt still sends originals). A failed turn records the provider's own error kind when the provider gives one, and a VM turn the specific code behind its failure, whenever the guest's final frame reaches the host.
