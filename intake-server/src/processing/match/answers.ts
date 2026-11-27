@@ -18,6 +18,7 @@ import {
   type OperatorCommandScope,
 } from '#/capture/repository.ts'
 import { requireCurrentTargetContext } from '#/capture/target-context.ts'
+import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
 import type { ProcessingConfig } from '../attempts.ts'
 import { fail } from '../model.ts'
 import { commandScope } from '../scope.ts'
@@ -26,7 +27,7 @@ import { MATCH_STEP_ID, questionOptions, type MatchOptionEffect } from './questi
 import { processingMatchAnswers, processingMatchQuestions } from './schema.ts'
 import {
   closeQuestion,
-  lotMedia,
+  lotsMedia,
   queueWithinSavepoint,
   recordOutcome,
   tellOutcome,
@@ -101,13 +102,16 @@ function stillAnswerable(row: MatchRow | undefined, planned: Planned) {
 
 /**
  * Refuses an answer Match can't take now: a question replaced or closed is stale for good, while
- * one whose lot has a newer search pending can be answered again once that search settles.
+ * one whose lot has a newer search pending, or whose last search couldn't run, can be answered
+ * again once a search settles.
  */
 function requireAnswerable(row: MatchRow | undefined, planned: Planned, retired: boolean) {
   if (retired || !stillAnswerable(row, planned)) {
     fail('stale_question', 409)
   }
-  if (searchPending(row!)) {
+  // A newer search pending, or one that couldn't read InvenTree, leaves the question's candidates
+  // unconfirmed: it can be answered once a search settles them again.
+  if (searchPending(row!) || row!.state !== 'question') {
     fail('match_waiting', 409)
   }
 }
@@ -290,10 +294,14 @@ async function applyAnswers(
         { tell: false, publish: false },
       )
     : scope.snapshot
-  const media = new Map<string, Awaited<ReturnType<typeof lotMedia>>>()
-  for (const lotId of [...new Set(planned.map((item) => item.question.lotId))].sort()) {
-    media.set(lotId, await lotMedia(client, config, snapshot, lotId))
-  }
+  // One ordered reservation over every lot answered, so concurrent answers take shared blob
+  // locks in the same order.
+  const media = await lotsMedia(
+    client,
+    config,
+    snapshot,
+    [...new Set(planned.map((item) => item.question.lotId))].sort(),
+  )
   for (const item of byLot) {
     const row = await lockMatch(client, item.question.lotId)
     requireAnswerable(row, item, retired.has(item.question.lotId))
@@ -326,7 +334,7 @@ async function settleAnswer(
   row: MatchRow,
   planned: Planned,
   batch: boolean,
-  media: Awaited<ReturnType<typeof lotMedia>>,
+  media: LockedMediaInputs | undefined,
 ) {
   await recordAnswer(client, config, planned, batch)
   await closeQuestion(client, row, 'answered')

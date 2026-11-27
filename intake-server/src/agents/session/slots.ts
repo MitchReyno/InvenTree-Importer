@@ -2,6 +2,7 @@ import {
   and,
   asc,
   eq,
+  inArray,
   isNotNull,
   isNull,
   lt,
@@ -13,6 +14,7 @@ import {
 } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { processingMatches } from '#/processing/match/schema.ts'
 import { commands } from '#/db/schema.ts'
 import { captureBatches } from '#/capture/schema.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
@@ -146,6 +148,22 @@ export async function claimSessionSlot(
           // A queued Inventory may be waiting at its gate without a slot, so no session queues
           // behind one: Research and Images it waits for, nor another lot's ready Inventory.
           ne(processingJobs.stage, 'inventory'),
+          // Nor behind a lot stage Match holds: it waits at its gate without a slot too.
+          notExists(
+            db
+              .select({ lotId: processingMatches.lotId })
+              .from(processingMatches)
+              .where(
+                and(
+                  eq(processingMatches.lotId, processingJobs.subjectId),
+                  or(
+                    sql`${processingMatches.searchGeneration} > ${processingMatches.settledGeneration}`,
+                    inArray(processingMatches.state, ['question', 'held', 'unavailable']),
+                    sql`${processingJobs.stage} = ANY(${processingMatches.waits})`,
+                  ),
+                ),
+              ),
+          ),
         ),
       ),
   )

@@ -232,6 +232,13 @@ export async function reopenMatch(
 export function matchCaptureHooks(config: ProcessingConfig) {
   return {
     async afterEdit(client: PoolClient, after: CaptureSnapshotDto) {
+      // A deployment whose capture role can't read Match has no Processing, so nothing to search.
+      const privilege = await client.query<{ match: boolean }>(
+        "SELECT has_table_privilege('processing_match', 'SELECT') AS match",
+      )
+      if (privilege.rows[0]?.match !== true) {
+        return
+      }
       if ((await batchInputVersion(client, config, after.id)) !== 'bench-intake-input/7') {
         return
       }

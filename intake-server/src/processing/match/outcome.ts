@@ -76,7 +76,10 @@ export function coveredOf(result: Pick<MatchResult, 'candidates' | 'contribution
     candidate.kind === 'part' ? partCovered(candidate) : `lot:${candidate.lot_id}`,
   )
   if (result.contribution) {
-    items.push('contribution')
+    // The stock status is part of what the question says, when the operator may see it.
+    items.push(
+      result.contribution.readable ? `contribution:${result.contribution.stock}` : 'contribution',
+    )
   }
   return canonicalRecord(items.sort())
 }
@@ -158,6 +161,13 @@ export type MatchStep =
   | { kind: 'keep_question' }
   | { kind: 'question'; questionKind: MatchQuestionKindDto }
   | { kind: 'clear' }
+  /** The outcome in force stands, recorded again under the lot's new identity. */
+  | { kind: 'renew' }
+
+/** Whether the outcome in force was recorded under the lot's current identity. */
+function sameIdentity(standing: MatchStanding) {
+  return canonicalRecord(standing.outcomeIdentity ?? null) === canonicalRecord(standing.identity)
+}
 
 /** Whether the lot's outcome sends stock to an existing Part. */
 function targetsExistingPart(standing: MatchStanding) {
@@ -201,7 +211,7 @@ export function nextStep(result: MatchResult, standing: MatchStanding): MatchSte
       standing.outcome?.outcome.basis.kind === 'decision' &&
       standing.outcome.covered === covered
     ) {
-      return { kind: 'keep' }
+      return sameIdentity(standing) ? { kind: 'keep' } : { kind: 'renew' }
     }
     return asking('candidates')
   }
@@ -214,15 +224,13 @@ export function nextStep(result: MatchResult, standing: MatchStanding): MatchSte
   if (standing.identity.kind === 'operator' && !searchable(result.keys) && !decided) {
     return asking('unresolved')
   }
-  if (decided) {
-    return { kind: 'keep' }
+  if (!standing.outcome) {
+    return { kind: 'clear' }
   }
-  // A clear verdict on another identity is a new one, so work sealed for the old identity stops.
-  if (
-    standing.outcome &&
-    canonicalRecord(standing.outcomeIdentity ?? null) === canonicalRecord(standing.identity)
-  ) {
-    return { kind: 'keep' }
+  // The outcome stands, but under a new identity it is recorded again, so work sealed for the
+  // old identity (an operator's has no proposal pin to tell them apart) stops.
+  if (!sameIdentity(standing)) {
+    return { kind: 'renew' }
   }
-  return { kind: 'clear' }
+  return { kind: 'keep' }
 }

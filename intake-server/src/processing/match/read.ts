@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, ne } from 'drizzle-orm'
 import { strictJson } from '@invimport/contracts/json'
 import {
   validate,
@@ -30,6 +30,7 @@ import {
 } from './state.ts'
 import { decodeQuestionContent } from './stored-question.ts'
 
+/** The read lists every open question (at most one per lot) and fills the rest with history. */
 const MAX_READ_QUESTIONS = 200
 
 function decodeResult(bytes: Buffer, digest: Buffer): MatchResult {
@@ -102,13 +103,34 @@ async function lotOf(client: PoolClient, row: MatchRow): Promise<MatchLotDto> {
 }
 
 async function questionsOf(client: PoolClient, batchId: string): Promise<MatchQuestionDto[]> {
-  const rows = await executeDatabaseQuery(
+  // Every open question first, since each holds its lot, then the newest of the rest.
+  const open = await executeDatabaseQuery(
     queryDatabase(client)
       .select()
       .from(processingMatchQuestions)
-      .where(eq(processingMatchQuestions.batchId, batchId))
+      .where(
+        and(
+          eq(processingMatchQuestions.batchId, batchId),
+          eq(processingMatchQuestions.state, 'open'),
+        ),
+      )
+      .orderBy(desc(processingMatchQuestions.askedAt), processingMatchQuestions.id),
+  )
+  const closed = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select()
+      .from(processingMatchQuestions)
+      .where(
+        and(
+          eq(processingMatchQuestions.batchId, batchId),
+          ne(processingMatchQuestions.state, 'open'),
+        ),
+      )
       .orderBy(desc(processingMatchQuestions.askedAt), processingMatchQuestions.id)
-      .limit(MAX_READ_QUESTIONS),
+      .limit(Math.max(0, MAX_READ_QUESTIONS - open.length)),
+  )
+  const rows = [...open, ...closed].sort(
+    (a, b) => b.askedAt.getTime() - a.askedAt.getTime() || a.id.localeCompare(b.id),
   )
   const answers = rows.length
     ? await executeDatabaseQuery(

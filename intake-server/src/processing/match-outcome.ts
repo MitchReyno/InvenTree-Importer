@@ -14,9 +14,9 @@ export function lotStageOf(stage: Stage | 'examine'): MatchStage {
 
 /**
  * What a `/7` lot attempt seals of its Match outcome: the outcome's revision and basis, and the
- * mode it sets for the stage. With no outcome recorded, the stage runs in full mode as after a
- * clear search; until the Match step records outcomes, every queueing path seals that. An
- * outcome that skips the stage queues nothing for it.
+ * mode it sets for the stage. Match seals the outcome it recorded; with none, as for a lot Match
+ * has never seen (tests and retained work), the stage runs in full mode as after a clear search.
+ * An outcome that skips the stage queues nothing for it.
  */
 export function sealedMatchFor(outcome: MatchOutcomeDto | null, stage: MatchStage): SealedMatchDto {
   if (outcome === null) {

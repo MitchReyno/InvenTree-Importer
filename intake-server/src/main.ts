@@ -15,8 +15,7 @@ import { readMediaStoreIdentity } from './media/store-identity.ts'
 import { registerCapture } from './capture/routes.ts'
 import { lockCaptureForEdit } from './capture/repository.ts'
 import { matchCaptureHooks } from './processing/match/commands.ts'
-import { matchSearch } from './processing/match/search.ts'
-import { startMatchSweep } from './processing/match/sweep.ts'
+import { registerMatchSweep } from './processing/match/sweep.ts'
 import { matchReader } from './inventory/match-reads.ts'
 import { registerProcessing } from './processing/routes.ts'
 import { BlobStore } from './media/blob-store.ts'
@@ -187,18 +186,9 @@ async function main() {
             targetContextId: config.targetContextId,
           })
         : undefined
-      let sweep: ReturnType<typeof startMatchSweep> | undefined
-      server.addHook('onReady', async () => {
-        sweep = startMatchSweep(
-          db.pool,
-          processing,
-          matchSearch(db.pool, processing, reader),
-          (event) => {
-            process.stdout.write(JSON.stringify({ event }) + '\n')
-          },
-        )
+      registerMatchSweep(server, db.pool, processing, reader, (event) => {
+        process.stdout.write(JSON.stringify({ event }) + '\n')
       })
-      server.addHook('preClose', async () => sweep?.stop())
       registerAgents(server, db.pool, processing)
       healthDb = database(process.env.INTAKE_DATABASE_URL!, 1)
       const connection = scopedConnectionStatus(

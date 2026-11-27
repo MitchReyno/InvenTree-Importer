@@ -12,6 +12,8 @@ import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { createServer } from '#/api/server.ts'
 import { registerCapture } from '#/capture/routes.ts'
 import { matchCaptureHooks } from '#/processing/match/commands.ts'
+import { registerMatchSweep } from '#/processing/match/sweep.ts'
+import type { MatchReader } from '#/inventory/match-reads.ts'
 import { lockCaptureForEdit } from '#/capture/repository.ts'
 import { registerAgents } from '#/agents/routes.ts'
 import { registerProcessing } from '#/processing/routes.ts'
@@ -37,6 +39,8 @@ interface ProcessingFixtureOptions {
 
 export interface ProcessingWebOptions {
   live?: boolean
+  /** Runs Match's sweep as `main.ts` does, with this InvenTree reader (none: unavailable). */
+  matchSweep?: { reader: MatchReader | undefined; report: (event: string) => void }
   port?: number
   assets?: string
   mediaStore?: BlobStore
@@ -181,6 +185,9 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
       }
       registerCapture(app, api.pool, config, undefined, undefined, matchCaptureHooks(config))
       registerProcessing(app, api.pool, config, lockCaptureForEdit)
+      if (web.matchSweep) {
+        registerMatchSweep(app, api.pool, config, web.matchSweep.reader, web.matchSweep.report)
+      }
       registerAgents(app, api.pool, config)
       if (web.live) {
         registerLive(app, api.pool, config)

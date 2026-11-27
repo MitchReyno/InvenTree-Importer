@@ -10,8 +10,9 @@ import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
 import type { ProcessingConfig } from '../attempts.ts'
 import { notifyRevision } from '../currentness.ts'
-import { reserveProcessingMedia, reservedMediaFor } from '../media.ts'
+import { reserveProcessingMedia } from '../media.ts'
 import { ProcessingError } from '../model.ts'
+import { CaptureError } from '#/capture/model.ts'
 import { configuredInputVersion } from '../stage-policy.ts'
 import {
   coveredOf,
@@ -261,7 +262,7 @@ export async function queueWithinSavepoint(
     await client.query('RELEASE SAVEPOINT match_queue')
     return queued
   } catch (error) {
-    if (!(error instanceof ProcessingError)) {
+    if (!refused(error)) {
       throw error
     }
     await client.query('ROLLBACK TO SAVEPOINT match_queue')
@@ -269,28 +270,33 @@ export async function queueWithinSavepoint(
   }
 }
 
-/** Reserves the lot's media for queueing, or none when it can't be reserved now. */
-export async function lotMedia(
+/** A refusal the app expects, such as media still preparing, rather than a failure. */
+function refused(error: unknown) {
+  return error instanceof ProcessingError || error instanceof CaptureError
+}
+
+/**
+ * Reserves the lots' media for queueing in one ordered acquisition, or none when it can't be
+ * reserved now: the stages then stay unqueued for Start, and the verdict or answer still stands.
+ */
+export async function lotsMedia(
   client: PoolClient,
   config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
-  lotId: string,
-) {
+  lotIds: readonly string[],
+): Promise<ReadonlyMap<string, LockedMediaInputs>> {
   await prepareMediaTransaction(client)
   await client.query('SAVEPOINT match_media')
   try {
-    const media = reservedMediaFor(
-      await reserveProcessingMedia(client, config, snapshot, [lotId]),
-      lotId,
-    )
+    const media = await reserveProcessingMedia(client, config, snapshot, lotIds)
     await client.query('RELEASE SAVEPOINT match_media')
     return media
   } catch (error) {
-    if (!(error instanceof ProcessingError)) {
+    if (!refused(error)) {
       throw error
     }
     await client.query('ROLLBACK TO SAVEPOINT match_media')
-    return undefined
+    return new Map()
   }
 }
 
@@ -355,7 +361,7 @@ export async function settleInTransaction(
   const live = snapshot.lots.some((lot) => lot.id === request.lot_id && lot.retired !== true)
   const media =
     live && !snapshot.archived
-      ? await lotMedia(client, config, snapshot, request.lot_id)
+      ? (await lotsMedia(client, config, snapshot, [request.lot_id])).get(request.lot_id)
       : undefined
   const row = await lockMatch(client, request.lot_id)
   const generation = BigInt(request.generation)
@@ -412,22 +418,30 @@ export async function settleInTransaction(
       await queueWithinSavepoint(client, config, snapshot, row.lotId, kept.outcome, row, media)
       break
     }
-    case 'clear': {
+    case 'clear':
+    case 'renew': {
+      // A renewed outcome is the one in force again, under the lot's new identity, so work
+      // sealed for the old identity stops; a clear verdict runs both stages in full.
+      const renewed = step.kind === 'renew' ? (await currentOutcome(client, row))! : undefined
       const outcome = await recordOutcome(client, row, {
-        basis: { kind: 'clear' },
-        modes: {
-          research: { stage: 'research', mode: 'full' },
-          images: { stage: 'images', mode: 'full' },
-        },
-        covered,
+        basis: renewed ? renewed.outcome.basis : { kind: 'clear' },
+        modes: renewed
+          ? { research: renewed.outcome.research, images: renewed.outcome.images }
+          : {
+              research: { stage: 'research', mode: 'full' },
+              images: { stage: 'images', mode: 'full' },
+            },
+        covered: renewed ? renewed.covered : covered,
         generation,
+        ...(renewed?.targetPartPk ? { targetPartPk: renewed.targetPartPk } : {}),
+        ...(renewed?.questionId ? { questionId: renewed.questionId } : {}),
       })
       outcomeRevision = BigInt(outcome.revision)
       await closeQuestion(client, row, 'superseded')
       await updateRow(client, row.lotId, {
         settledGeneration: generation,
         outcomeRevision,
-        state: 'clear',
+        state: outcome.basis.kind === 'clear' ? 'clear' : 'decided',
         waits: [],
         questionId: null,
       })

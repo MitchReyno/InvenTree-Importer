@@ -13,7 +13,7 @@ import type {
 import { MAX_MATCH_CANDIDATES, MAX_MATCH_CANDIDATE_STOCK } from '@invimport/contracts'
 import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
-import type { MatchPart, MatchReader } from '#/inventory/match-reads.ts'
+import type { MatchManufacturerPart, MatchPart, MatchReader } from '#/inventory/match-reads.ts'
 import type { ProcessingConfig } from '../attempts.ts'
 import { companiesAgree, mpnKey, searchable, strongKey } from './keys.ts'
 import { competingLots, contributionApprovals } from './local-reads.ts'
@@ -73,14 +73,18 @@ async function everyRow<T>(
   ) => Promise<{ kind: 'found'; rows: T[]; count: number } | { kind: 'unavailable' }>,
 ) {
   const found: T[] = []
-  for (let offset = 0; ; offset += SEARCH_PAGE) {
-    const page = await rows(read({ limit: SEARCH_PAGE, offset }))
+  for (;;) {
+    const page = await rows(read({ limit: SEARCH_PAGE, offset: found.length }))
     if (page.count > SEARCH_MAX_ROWS) {
       throw new Unavailable()
     }
     found.push(...page.rows)
-    if (found.length >= page.count || !page.rows.length) {
+    if (found.length >= page.count) {
       return { rows: found, count: page.count }
+    }
+    // A page that brings nothing while rows remain is a read that changed or failed part-way.
+    if (!page.rows.length) {
+      throw new Unavailable()
     }
   }
 }
@@ -100,6 +104,15 @@ function add(
   hits.set(part.pk, hit)
 }
 
+/**
+ * The spellings of a part number Match compares as the same, for InvenTree's exact filter: as
+ * given, without whitespace, and upper case without whitespace.
+ */
+function mpnSpellings(mpn: string) {
+  const compact = mpn.replace(/\s+/g, '')
+  return [...new Set([mpn, compact, compact.toUpperCase()])]
+}
+
 /** The Parts InvenTree holds under one strong key, and how each matched. */
 async function searchKey(
   reader: MatchReader,
@@ -111,20 +124,25 @@ async function searchKey(
     case 'mpn':
     case 'type': {
       const mpn = key.kind === 'mpn' ? key.mpn : key.type
-      const found = await everyRow((page) =>
-        reader.list(
-          {
-            kind: 'list_manufacturer_parts',
-            ...page,
-            mpn,
-            ...(key.kind === 'mpn' && key.manufacturer_pk
-              ? { manufacturer: key.manufacturer_pk }
-              : {}),
-          },
-          budgeted(deadline),
-        ),
-      )
-      for (const row of found.rows) {
+      // InvenTree's MPN filter is exact, so each spelling Match treats as the same is asked for.
+      const found: MatchManufacturerPart[] = []
+      for (const spelling of mpnSpellings(mpn)) {
+        const read = await everyRow((page) =>
+          reader.list(
+            {
+              kind: 'list_manufacturer_parts',
+              ...page,
+              mpn: spelling,
+              ...(key.kind === 'mpn' && key.manufacturer_pk
+                ? { manufacturer: key.manufacturer_pk }
+                : {}),
+            },
+            budgeted(deadline),
+          ),
+        )
+        found.push(...read.rows.filter((row) => !found.some((seen) => seen.pk === row.pk)))
+      }
+      for (const row of found) {
         if (!row.MPN || mpnKey(row.MPN) !== mpnKey(mpn)) {
           continue
         }

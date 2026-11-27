@@ -1,4 +1,7 @@
+import type { FastifyInstance } from 'fastify'
 import type { Pool } from 'pg'
+import type { MatchReader } from '#/inventory/match-reads.ts'
+import { matchSearch } from './search.ts'
 import type { ProcessingConfig } from '../attempts.ts'
 import { settlePendingSearches, type MatchSearch } from './settle.ts'
 
@@ -18,6 +21,7 @@ export function startMatchSweep(
   intervalMs = MATCH_SWEEP_INTERVAL_MS,
 ) {
   let stopped = false
+  let failing = false
   let running: Promise<void> | undefined
 
   const tick = () => {
@@ -25,8 +29,16 @@ export function startMatchSweep(
       return
     }
     running = settlePendingSearches(pool, config, search)
-      .then(() => undefined)
-      .catch(() => report('match_sweep_failed'))
+      .then(() => {
+        failing = false
+      })
+      .catch(() => {
+        // Reported when sweeps start failing, not on every retry.
+        if (!failing) {
+          report('match_sweep_failed')
+        }
+        failing = true
+      })
       .finally(() => {
         running = undefined
       })
@@ -41,4 +53,22 @@ export function startMatchSweep(
       await running
     },
   }
+}
+
+/**
+ * Runs the sweep for the life of an API server: started once it is ready, stopped before it
+ * closes. Without a reader every InvenTree read is unavailable; import references still settle.
+ */
+export function registerMatchSweep(
+  server: FastifyInstance,
+  pool: Pool,
+  config: ProcessingConfig,
+  reader: MatchReader | undefined,
+  report: (event: string) => void,
+) {
+  let sweep: ReturnType<typeof startMatchSweep> | undefined
+  server.addHook('onReady', async () => {
+    sweep = startMatchSweep(pool, config, matchSearch(pool, config, reader), report)
+  })
+  server.addHook('preClose', async () => sweep?.stop())
 }

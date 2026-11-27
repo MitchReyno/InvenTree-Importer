@@ -67,6 +67,7 @@ function decided(decision: 'add_stock' | 'new_part', covered: string): MatchStan
   }
   return {
     identity: { kind: 'examine', proposal_id: PROPOSAL },
+    outcomeIdentity: { kind: 'examine', proposal_id: PROPOSAL },
     outcome: { outcome, covered, targetPartPk: decision === 'add_stock' ? '144' : null },
   }
 }
@@ -234,7 +235,13 @@ test('a lost target stays asked about, weak operator keys ask, and a new identit
   }
   const weak = result({ searched: 'local_only', keys: [{ kind: 'mpn', mpn: '1N4148' }] })
   assert.deepEqual(nextStep(weak, cleared), { kind: 'question', questionKind: 'unresolved' })
-  assert.deepEqual(nextStep(result(), cleared), { kind: 'clear' })
+  assert.deepEqual(nextStep(result(), cleared), { kind: 'renew' })
+  assert.deepEqual(
+    nextStep(found, { ...decided('add_stock', coveredOf(found)), identity: operator }),
+    {
+      kind: 'renew',
+    },
+  )
   assert.deepEqual(nextStep(result(), { ...cleared, outcomeIdentity: operator }), { kind: 'keep' })
 })
 

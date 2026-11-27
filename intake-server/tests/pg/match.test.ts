@@ -19,6 +19,7 @@ import { transaction } from '#/db/database.ts'
 import { inventoryFake, type MatchFakeRecords } from '../fixtures/inventory-fake.ts'
 import { processingFixture } from '../support/processing.ts'
 import { formedBatch, settleMatch, type Fixture } from '../support/lot-pipeline.ts'
+import { call, running, withClients } from '../support/stage-sessions.ts'
 import { runSessionTurn } from '#/agents/session/session-runner.ts'
 
 const MPN = 'RC0603FR-0710KL'
@@ -826,4 +827,111 @@ test('a lot Review retired leaves the Match read, its question superseded', asyn
     answer(retired, 'new_part'),
   )
   assert.equal((refused.value as { code: string }).code, 'stale_question')
+})
+
+test('a request the session worker committed settles through the API sweep after a restart', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture } = batch
+  const crystal = await batch.lot('16 mhz crystal')
+  const before = await batch.successors(crystal.id)
+  const [identity] = await batch.identities(crystal.id)
+  const value = await fixture.db.pool.query<{ value: Record<string, unknown> }>(
+    "SELECT convert_from(value_bytes,'UTF8')::jsonb AS value FROM processing_proposal WHERE id=$1",
+    [identity.id],
+  )
+  // Examine republishes the identity on the worker's writer role: only the request commits.
+  await withClients(async (open) => {
+    const lead = await open(batch.deps.toolUrl, await running(fixture, batch.leadAttempt))
+    const published = await call(lead, 'propose', { proposal: value.rows[0].value })
+    assert.equal(published.ok, true, JSON.stringify(published))
+  })
+  const pending = await fixture.db.pool.query(
+    'SELECT 1 FROM processing_match_search WHERE lot_id=$1 AND settlement IS NULL',
+    [crystal.id],
+  )
+  assert.equal(pending.rowCount, 1)
+  // The API restarts with the sweep wired as `main.ts` wires it, and settles the request.
+  await fixture.stop()
+  await fixture.start({
+    matchSweep: { reader: undefined, report: (event) => assert.fail(event) },
+  })
+  const deadline = Date.now() + 30_000
+  for (;;) {
+    const after = await batch.successors(crystal.id)
+    if (after.every((row, index) => row.attempt_id !== before[index].attempt_id)) {
+      assert.deepEqual(
+        after.map((row) => [row.stage, row.attempt_state]),
+        [
+          ['images', 'queued'],
+          ['research', 'queued'],
+        ],
+      )
+      break
+    }
+    assert.ok(Date.now() < deadline, 'the API sweep settled nothing')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+})
+
+test('a repeat search that can’t read InvenTree leaves the open question unanswerable until one can', async (t) => {
+  const { fixture, fake, reader } = await matchFixture(t, RES_0144)
+  // The part number as the operator typed it, with a space: Match asks InvenTree for its spellings.
+  const { capture, a } = await operatorLots(fixture, 'RC0603FR -0710KL')
+  await settleMatch(fixture, reader)
+  const question = openQuestion(await readMatch(fixture, capture.batch.id), a.id)!
+  assert.equal(question.kind, 'candidates')
+  await fake.fault('read_unavailable')
+  await fixture.http(`/batches/${capture.batch.id}/match/checks`, { lot_ids: [a.id] })
+  await settleMatch(fixture, reader)
+  const refused = await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${question.id}/answers`,
+    answer(question, 'add_stock_1'),
+  )
+  assert.equal((refused.value as { code: string }).code, 'match_waiting')
+  assert.deepEqual(await stageJobs(fixture, a.id), [])
+  await fake.fault('none')
+  await fixture.http(`/batches/${capture.batch.id}/match/checks`, { lot_ids: [a.id] })
+  await settleMatch(fixture, reader)
+  const accepted = await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${question.id}/answers`,
+    answer(question, 'add_stock_1'),
+  )
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.value))
+})
+
+test('a decision stands for a new operator identity, recorded again so old work waits', async (t) => {
+  const { fixture, reader } = await matchFixture(t)
+  const { capture, part, a } = await operatorLots(fixture, null)
+  await settleMatch(fixture, reader)
+  const question = openQuestion(await readMatch(fixture, capture.batch.id), a.id)!
+  await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${question.id}/answers`,
+    answer(question, 'new_part'),
+  )
+  const [, research] = await stageJobs(fixture, a.id)
+  const decided = (await readMatch(fixture, capture.batch.id)).lots.find((l) => l.lot_id === a.id)!
+  // The operator confirms an MPN and manufacturer that find nothing.
+  const refs = await observe(fixture, capture.batch.id)
+  const spec = capture.batch.parts.find((item) => item.id === part.id)!.choice
+  if (spec.mode === 'create') {
+    await capture.edit({
+      kind: 'part',
+      id: part.id,
+      choice: {
+        mode: 'create',
+        spec: { ...spec.spec, manufacturer: { company: refs.company, mpn: 'ZZ-404' } },
+      },
+    })
+  }
+  await settleMatch(fixture, reader)
+  const renewed = (await readMatch(fixture, capture.batch.id)).lots.find((l) => l.lot_id === a.id)!
+  assert.deepEqual(renewed.outcome?.basis, decided.outcome?.basis)
+  assert.notEqual(renewed.outcome?.revision, decided.outcome?.revision)
+  const gate = await transaction(fixture.runner.pool, (client) =>
+    matchGate(client, a.id, 'research', research.match),
+  )
+  assert.equal(gate.allowed, false)
+  const [, requeued] = await stageJobs(fixture, a.id)
+  assert.notEqual(requeued.attemptId, research.attemptId)
+  assert.equal(requeued.match?.outcome?.revision, renewed.outcome?.revision)
 })
