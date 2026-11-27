@@ -71,5 +71,7 @@ export async function grantCaptureAgentWrites(pool: Pool, role: string) {
     GRANT SELECT(id) ON capture_edit_publication TO ${role};
     -- The lead looking at a flagged lot again is kept beside why it was flagged.
     GRANT INSERT ON capture_lot_reexamine TO ${role};
+    -- The lead revising one of its observations keeps the reading it replaced.
+    GRANT INSERT ON capture_evidence_observation_correction TO ${role};
     GRANT intake_agent_writer_marker TO ${role};`)
 }

@@ -128,10 +128,10 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - **TDD approach:** process tests of the synthetic lead and lot drivers on `/7` forming a lot and publishing accepted Examine and Research outputs, with a retained `/6` driver regression, and PG tests for kind and field refusals, a `/7` `propose_lot` with a count refused, its retry without the count creating the lot, and that lot's `examine-identity/1` estimate reaching Review, each revision sender's changes, the correction wake, the duplicate-check cases (including a preview beside an existing question answered under BI-019's preview rules, and a publishing ask with no new evidence that names the open question it replaces being stored and closing it), a withheld reply, a view from an older attempt, a released view cited after a worker restart, and a synthetic fetch followed by an admitted citation fail first.
 - **Verification:** intake tiers.
 
-- [ ] 2.1 Map every revision sender and every proposal reader.
-- [ ] 2.2 RED: write the tests listed above.
-- [ ] 2.3 GREEN: implement them. Keep `/5` and `/6` readers working, including a retained `/6` proposal with agent-reported web sources from BI-019 PR-D1.
-- [ ] 2.4 Run the tiers.
+- [x] 2.1 Map every revision sender and every proposal reader.
+- [x] 2.2 RED: write the tests listed above. (Written after the implementation, with negative controls instead of a failing first run; see notes.md.)
+- [x] 2.3 GREEN: implement them. Keep `/5` and `/6` readers working, including a retained `/6` proposal with agent-reported web sources from BI-019 PR-D1.
+- [x] 2.4 Run the tiers.
 
 ## 3. Match: search, verdicts, questions, modes and queueing
 

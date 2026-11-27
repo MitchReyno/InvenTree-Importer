@@ -18,6 +18,7 @@ import {
   REPLACEABLE_STATES,
   jobsHoldingSlots,
   pinnedProposals,
+  sealedMatch,
   subjectRetired,
 } from './start-fresh-eligibility.ts'
 import { instructNewSession } from '#/agents/instructions.ts'
@@ -106,6 +107,7 @@ export async function replaceSession(
         )
         const inputRow = inputs.rows[0] ?? fail('processing_input_missing', 409)
         const pinned = pinnedProposals(inputRow)
+        const match = sealedMatch(inputRow)
         if (!(await pinnedIdentityCurrent(client, pinned))) {
           fail('identity_waiting', 409)
         }
@@ -120,7 +122,7 @@ export async function replaceSession(
           { id: jobId, ...job },
           media,
           // Sealed before the prior attempt is superseded below, as the brief shows it.
-          { pinnedProposalIds: pinned, inputVersion, superseding: true },
+          { pinnedProposalIds: pinned, inputVersion, superseding: true, match },
         )
         await supersedeJobAttempts(client, jobId)
         const attempt = await createSessionAttempt(
@@ -132,7 +134,7 @@ export async function replaceSession(
           (BigInt(prior.number) + 1n).toString(),
           media,
           prior.input_id,
-          { pinnedProposalIds: pinned, prepared, inputVersion },
+          { pinnedProposalIds: pinned, prepared, inputVersion, match },
         )
         await client.query(
           "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",

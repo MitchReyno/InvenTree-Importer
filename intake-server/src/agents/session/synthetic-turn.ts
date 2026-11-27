@@ -4,6 +4,7 @@ import { syntheticLeadTurn } from './synthetic-lead.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
 import type { SessionDriverContext } from './session-runner.ts'
 import type { SessionTurn } from './session-adapters.ts'
+import type { ProcessingInputV7Dto } from '@invimport/contracts'
 
 export interface SyntheticResult {
   ok: boolean
@@ -13,6 +14,8 @@ export interface SyntheticResult {
   items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
   /** read_lot: one page of the session's brief. */
   brief?: { revision: string; entries: unknown[]; next_page_token: string | null }
+  /** fetch_evidence: the exact source to cite once the image was delivered. */
+  source?: Record<string, unknown>
 }
 
 /**
@@ -124,6 +127,112 @@ async function syntheticBriefRead(
   }
 }
 
+type Call = (name: string, args: Record<string, unknown>) => Promise<SyntheticResult>
+type LotInput = Extract<ProcessingInputV7Dto, { subject_id: string }>
+
+/**
+ * The lot's first photo as a citation: fetched, so the driver hands its image over and releases
+ * the view; none when no image was delivered.
+ */
+async function deliveredPhoto(manifest: SessionDriverContext['manifest'], call: Call) {
+  const photo = decodeMediaInputs(
+    Buffer.from(manifest.media.manifest, 'utf8'),
+    Buffer.from(manifest.media.sha256, 'hex'),
+  ).versions[0]
+  if (!photo) {
+    return undefined
+  }
+  const fetched = await call('fetch_evidence', {
+    evidence_id: photo.evidenceId,
+    version_id: photo.versionId,
+  })
+  return fetched.ok && fetched.delivered && fetched.source ? fetched.source : undefined
+}
+
+/**
+ * A `/7` Research session's typed output, in the mode it was queued in: an unresolved identity
+ * amendment in identify mode, or `research/1` from the delivered note, with only notes in gaps
+ * mode since the note names no datasheet or parameter. Images publishes its recipes with its own
+ * tool, so it publishes nothing here.
+ */
+async function publishStageOutput(
+  manifest: SessionDriverContext['manifest'],
+  note: { id: string; text: string },
+  items: NonNullable<SyntheticResult['items']>,
+  call: Call,
+) {
+  if (manifest.schema_version !== 'bench-intake-input/7' || manifest.stage !== 'research') {
+    return
+  }
+  const lot = manifest as LotInput
+  const source = {
+    kind: 'note',
+    note_id: note.id,
+    text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
+  }
+  const photo = await deliveredPhoto(manifest, call)
+  const sources = [source, ...(photo ? [photo] : [])]
+  const relies_on = {
+    fields: ['identity'],
+    sources: [
+      ...sources,
+      ...lot.pinned_proposal_ids.map((id) => ({ kind: 'proposal', proposal_id: id })),
+      ...items.map((item) => ({ kind: 'inbox_item', inbox_item_id: item.id })),
+    ],
+  }
+  const base = { subject_id: lot.subject_id, sources, relies_on }
+  // A lot input sealed before Match state works in full mode.
+  const mode = lot.match?.mode.mode ?? 'full'
+  if (mode === 'identify') {
+    const amended = await call('propose', {
+      proposal: {
+        schema_version: 'research-identity/1',
+        ...base,
+        summary: 'The synthetic session found no part number in the note.',
+        resolution: 'unresolved',
+        tried: ['Read the delivered note.'],
+      },
+    })
+    if (!amended.ok) {
+      throw new Error('synthetic_research_refused')
+    }
+    return
+  }
+  const values =
+    mode === 'full'
+      ? {
+          category: {
+            choice: 'proposed_new',
+            name: firstCodePoints(note.text, 64).trim() || 'Uncategorised',
+            reason: 'No observed category matches the note.',
+            sources: [source],
+          },
+          description: {
+            text: firstCodePoints(note.text, 2048).trim() || 'Synthetic item',
+            sources: [source],
+          },
+        }
+      : {}
+  const published = await call('propose', {
+    proposal: {
+      schema_version: 'research/1',
+      ...base,
+      summary: 'Synthetic research from the delivered note.',
+      ...values,
+      notes: [{ record: 'part', text: 'Synthetic research from the delivered note.' }],
+    },
+  })
+  // A refused output fails the turn rather than ending it as if Research had published.
+  if (!published.ok) {
+    throw new Error('synthetic_research_refused')
+  }
+}
+
+/** The text's first `count` code points, so no surrogate pair is split as a UTF-16 cut would. */
+function firstCodePoints(text: string, count: number) {
+  return [...text].slice(0, count).join('')
+}
+
 export async function syntheticTurn(
   turn: Pick<SessionTurn, 'resume'>,
   context: Pick<SessionDriverContext, 'manifest' | 'cwd'>,
@@ -158,7 +267,13 @@ export async function syntheticTurn(
   const read = await call('read_inbox', { after_seq: '0' })
   const items = read.items ?? []
   const note = evidenceNotes(context.manifest.notes, context.manifest.batch_id)[0]
-  if (note && context.manifest.subject_id) {
+  if (
+    note &&
+    context.manifest.subject_id &&
+    context.manifest.schema_version === 'bench-intake-input/7'
+  ) {
+    await publishStageOutput(context.manifest, note, items, call)
+  } else if (note && context.manifest.subject_id) {
     const source = {
       kind: 'note',
       note_id: note.id,

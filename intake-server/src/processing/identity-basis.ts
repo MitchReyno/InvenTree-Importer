@@ -1,0 +1,148 @@
+import type { PoolClient } from 'pg'
+import { versionRemovedSql } from '#/media/removal.ts'
+
+/**
+ * The lot's members as Capture shows them now, in the shape a basis keeps: each active one not
+ * on removed evidence, with its revision and same-item mark, ordered by id.
+ */
+const membersOf = (lot: string) => `COALESCE((
+  SELECT jsonb_agg(jsonb_build_object('id',o.id,'revision',o.revision::text,'same_item_as',o.same_item_as)
+                   ORDER BY o.id)
+  FROM public.capture_lot_evidence_observation m
+  JOIN public.capture_evidence_observation o ON o.id=m.evidence_observation_id
+  JOIN public.media_version v ON v.id=o.evidence_version_id
+  WHERE m.lot_id=${lot} AND m.status='active' AND o.status='active'
+    AND NOT ${versionRemovedSql('v')}), '[]'::jsonb)`
+
+/**
+ * Whether the note `id` names was replaced: a photo note by a later note of the same photo, a
+ * group or batch note by a later version of it, a group note by its group's ungrouping.
+ */
+export const replacedNoteSql = (id: string) => `(
+  EXISTS (SELECT 1 FROM public.media_evidence_note n
+          JOIN public.media_evidence_note later ON later.batch_id=n.batch_id
+            AND later.evidence_id=n.evidence_id AND later.revision>n.revision
+          WHERE n.id=${id})
+  OR EXISTS (SELECT 1 FROM public.capture_instruction n
+             JOIN public.capture_instruction later ON later.batch_id=n.batch_id
+               AND later.group_id IS NOT DISTINCT FROM n.group_id AND later.version>n.version
+             WHERE n.id=${id})
+  -- A group note goes with its group when the group is ungrouped.
+  OR EXISTS (SELECT 1 FROM public.capture_instruction n
+             WHERE n.id=${id} AND n.group_id IS NOT NULL
+               AND (SELECT h.retired FROM public.media_group_history h
+                    WHERE h.batch_id=n.batch_id AND h.group_id=n.group_id
+                    ORDER BY h.revision DESC LIMIT 1)))`
+
+/**
+ * Keeps the lots a `/7` identity rests on as it saw them, its own and each whose observation set
+ * it cites, for the claim and Review gate to compare.
+ */
+export async function recordIdentityBasis(
+  client: PoolClient,
+  batchId: string,
+  lotId: string,
+  proposalId: string,
+  citedLots: readonly string[],
+) {
+  await client.query(
+    `INSERT INTO public.processing_identity_basis(proposal_id,batch_id,lot_id,members)
+     SELECT $2,$3,$1,jsonb_object_agg(lots.id::text, ${membersOf('lots.id')})
+     FROM (SELECT DISTINCT unnest(array_append($4::uuid[], $1::uuid)) AS id) lots`,
+    [lotId, proposalId, batchId, [...citedLots]],
+  )
+}
+
+type Scope =
+  { batchId: string; proposalIds?: readonly string[] } | { proposalIds: readonly string[] }
+
+/**
+ * For each proposal in scope, which of the proposals it rests on, itself included and at any
+ * depth through `proposal` sources, fail: their kept lot no longer matches Capture, or an
+ * observation or observation set they cite moved on, or, with `withStale`, the proposal itself
+ * has a stale row.
+ * A read only; nothing is written.
+ */
+async function failing(client: PoolClient, scope: Scope, withStale: boolean) {
+  const batchId = 'batchId' in scope ? scope.batchId : null
+  const proposalIds = scope.proposalIds ? [...scope.proposalIds] : null
+  const rows = await client.query<{ root: string; id: string }>(
+    `WITH RECURSIVE scoped(id) AS (
+       SELECT p.id FROM public.processing_proposal p
+       JOIN public.processing_attempt a ON a.id=p.attempt_id
+       WHERE ($1::uuid IS NULL OR a.batch_id=$1) AND ($2::uuid[] IS NULL OR p.id = ANY($2::uuid[]))
+     ), rests(root, id) AS (
+       SELECT id, id FROM scoped
+       UNION
+       -- UNION keeps each pair once, so a cycle ends.
+       SELECT r.root, (src->>'proposal_id')::uuid FROM rests r
+       JOIN public.processing_proposal p ON p.id=r.id
+       CROSS JOIN LATERAL jsonb_array_elements(COALESCE(p.relies_on->'sources','[]'::jsonb)) src
+       WHERE src->>'kind'='proposal'
+     )
+     SELECT r.root, r.id FROM rests r
+     LEFT JOIN public.processing_identity_basis b ON b.proposal_id=r.id
+     LEFT JOIN public.processing_proposal p ON p.id=r.id
+     LEFT JOIN public.processing_attempt pa ON pa.id=p.attempt_id
+     LEFT JOIN public.processing_input pi ON pi.id=pa.input_id
+     -- A stale row counts on the named proposal itself: further down, the stale write's own
+     -- cascade decides, as for earlier inputs. A broken basis counts at any depth.
+     WHERE ($3::boolean AND r.id=r.root
+            AND EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=r.id))
+        -- Any /7 output resting on a note, relied on or cited anywhere in its value, that a
+        -- later one replaced.
+        OR (convert_from(pi.manifest_bytes,'UTF8')::jsonb->>'schema_version'='bench-intake-input/7'
+            AND EXISTS (
+              SELECT 1 FROM (
+                SELECT jsonb_array_elements(p.relies_on->'sources') AS src
+                UNION ALL
+                SELECT jsonb_path_query(convert_from(p.value_bytes,'UTF8')::jsonb, 'lax $.**.sources[*]')
+              ) cited
+              WHERE cited.src->>'kind'='note'
+                AND ${replacedNoteSql("(cited.src->>'note_id')::uuid")}))
+        OR (b.proposal_id IS NOT NULL AND (
+          -- A retired lot, its own or one it rests on, has no identity to start from.
+          EXISTS (SELECT 1 FROM jsonb_object_keys(b.members) kept(lot)
+                  JOIN public.capture_lot_retirement rt ON rt.lot_id=kept.lot::uuid)
+          OR EXISTS (SELECT 1 FROM jsonb_each(b.members) kept(lot, members)
+                  WHERE kept.members IS DISTINCT FROM ${membersOf('kept.lot::uuid')})
+          OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
+            LEFT JOIN public.capture_evidence_observation o
+              ON src->>'kind'='evidence_observation' AND o.id=(src->>'evidence_observation_id')::uuid
+            WHERE src->>'kind'='evidence_observation'
+              AND (o.id IS NULL OR o.status<>'active' OR o.revision::text<>src->>'revision'))
+          OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
+            LEFT JOIN public.capture_lot l
+              ON src->>'kind'='observation_set' AND l.id=(src->>'lot_id')::uuid
+            WHERE src->>'kind'='observation_set'
+              AND (l.id IS NULL OR l.observation_set_version::text<>src->>'version'))))`,
+    [batchId, proposalIds, withStale],
+  )
+  return rows.rows
+}
+
+/**
+ * The proposals in scope that rest, themselves or through what they rely on, on an identity
+ * whose kept lot or citations no longer match Capture. Stale rows are written for every change
+ * path known; this catches any they miss. A read only.
+ */
+export async function onBrokenBasis(client: PoolClient, scope: Scope) {
+  return new Set((await failing(client, scope, false)).map((row) => row.root))
+}
+
+/**
+ * The named proposals that are not current: with a stale row of their own (a stale row further
+ * down reaches them through its write's cascade), or resting at any depth on a broken basis.
+ * A read only, so a read-only transaction may ask it.
+ */
+export async function notCurrent(client: PoolClient, proposalIds: readonly string[]) {
+  return new Set((await failing(client, { proposalIds }, true)).map((row) => row.root))
+}
+
+/** The identities whose own basis no longer holds, among those the given proposals rest on. */
+export async function brokenBases(client: PoolClient, proposalIds: readonly string[]) {
+  const rows = await failing(client, { proposalIds }, false)
+  return [...new Set(rows.map((row) => row.id))].sort()
+}

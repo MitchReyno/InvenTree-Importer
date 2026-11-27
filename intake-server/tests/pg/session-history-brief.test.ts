@@ -12,7 +12,10 @@ import { formedBatch, type Fixture } from '../support/lot-pipeline.ts'
 import { editMedia } from '#/media/edit.ts'
 import { grantMedia } from '#/media/grants.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
-import { replaceSession } from '#/processing/session-replacement.ts'
+import { sessionTools } from '#/agents/tools/handlers.ts'
+import { evidenceNotes } from '#/capture/context-input.ts'
+import { sha256 } from '#/db/authority.ts'
+import { running } from '../support/stage-sessions.ts'
 import { runSessionTurn } from '#/agents/session/session-runner.ts'
 
 type Batch = Awaited<ReturnType<typeof formedBatch>>
@@ -117,25 +120,65 @@ async function correctReading(fixture: Fixture, batchId: string, observationId: 
   return observation
 }
 
-/** Fails the attempt and starts the job fresh, which seals a new brief. */
-async function startFresh(fixture: Fixture, batchId: string, jobId: string, attemptId: string) {
-  await fixture.db.pool.query("UPDATE processing_attempt SET state='failed' WHERE id=$1", [
-    attemptId,
-  ])
-  await fixture.db.pool.query(
-    "UPDATE agent_session SET session_state='failed' WHERE attempt_id=$1",
-    [attemptId],
-  )
-  const job = await fixture.db.pool.query<{ revision: string }>(
-    'SELECT revision::text FROM processing_job WHERE id=$1',
+/**
+ * Examine publishes the lot's identity again against its current observations; Research, which
+ * has run, starts again from it. Returns Research's new attempt.
+ */
+async function republishIdentity(batch: Batch, lotId: string, jobId: string, attemptId: string) {
+  const { fixture, batchId, leadAttempt } = batch
+  const lead = await running(fixture, leadAttempt)
+  const manifest = await leadManifest(fixture, leadAttempt)
+  const note = evidenceNotes(manifest.notes, manifest.batch_id)[0]
+  const source = {
+    kind: 'note',
+    note_id: note.id,
+    text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
+  }
+  const lot = (await snapshotOf(fixture, batchId)).lots.find((item) => item.id === lotId)!
+  const published = (await sessionTools({
+    pool: fixture.runner.pool,
+    writerPool: fixture.writer.pool,
+    config: fixture.config,
+    statusIntervalMs: 0,
+    imageBudget: new Map(),
+    deliveredMedia: new Map(),
+    figurePreviewWaitMs: 0,
+  }).propose(lead, {
+    proposal: {
+      schema_version: 'examine-identity/1',
+      subject_id: lotId,
+      summary: 'Red 0603 LEDs, read again.',
+      sources: [source],
+      relies_on: {
+        fields: ['markings', 'identity'],
+        sources: [
+          source,
+          { kind: 'observation_set', lot_id: lotId, version: lot.observation_set_version },
+        ],
+      },
+      markings: [{ observation_id: lot.evidence_observation_ids![0], text: ['LED 0603 RED'] }],
+      candidates: [],
+    },
+  })) as { result: { ok?: boolean } }
+  assert.equal(published.result.ok, true, JSON.stringify(published.result))
+  const current = await fixture.db.pool.query<{ attempt_id: string }>(
+    'SELECT current_attempt_id AS attempt_id FROM processing_job WHERE id=$1',
     [jobId],
   )
-  const receipt = (await replaceSession(fixture.api.pool, fixture.config, batchId, jobId, 'r', {
-    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
-    expected_revision: job.rows[0].revision,
-    attempt_id: attemptId,
-  })) as { attempt_ids: string[] }
-  return receipt.attempt_ids[0]
+  assert.notEqual(current.rows[0].attempt_id, attemptId)
+  return current.rows[0].attempt_id
+}
+
+async function leadManifest(fixture: Fixture, attemptId: string) {
+  const rows = await fixture.db.pool.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
+    `SELECT i.manifest_bytes,i.manifest_digest FROM processing_attempt a
+     JOIN processing_input i ON i.id=a.input_id WHERE a.id=$1`,
+    [attemptId],
+  )
+  return decodeSessionInput(
+    rows.rows[0].manifest_bytes,
+    rows.rows[0].manifest_digest,
+  ) as ProcessingInputV7Dto
 }
 
 test('a /7 session’s history carries each attempt’s sealed brief at its queue time', async (t) => {
@@ -144,7 +187,9 @@ test('a /7 session’s history carries each attempt’s sealed brief at its queu
   const { lot, row } = await successorOf(batch, 'led 0603 red', 'research')
   await answerResearchQuestion(batch, row.attempt_id, row.job_id)
   const corrected = await correctReading(fixture, batchId, lot.evidence_observation_ids![0])
-  const fresh = await startFresh(fixture, batchId, row.job_id, row.attempt_id)
+  // The correction stales Examine's identity, which read that observation, so Research can't
+  // start fresh from it: Examine publishes the identity again, which queues Research afresh.
+  const fresh = await republishIdentity(batch, lot.id, row.job_id, row.attempt_id)
 
   const page = await history(fixture, batchId, row.job_id)
   assert.equal(page.before, undefined)

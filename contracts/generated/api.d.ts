@@ -12905,6 +12905,3360 @@ export interface components {
                 } | null;
             };
         };
+        ExamineIdentityV1: {
+            /** @constant */
+            schema_version: "examine-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            markings: {
+                observation_id: string;
+                text: string[];
+            }[];
+            candidates: {
+                mpn?: string;
+                manufacturer?: string;
+                type?: string;
+                description?: string;
+                confidence: "high" | "medium" | "low";
+                reason?: string;
+            }[];
+            maker?: {
+                name: string;
+                logo_id?: string;
+                method: "text" | "logo" | "logo_match" | "inferred";
+            };
+            packaging?: {
+                kind: string;
+                seal: "sealed" | "opened" | "unknown";
+            };
+            date_code?: string;
+            condition?: string;
+            nos_signals?: string[];
+            nsn?: string;
+            quantity?: {
+                value: string;
+                basis: string;
+            };
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        };
+        ResearchIdentityV1: {
+            /** @constant */
+            schema_version: "research-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            resolution: "resolved" | "unresolved";
+            mpn?: string;
+            manufacturer?: string;
+            aliases?: {
+                value: string;
+                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            cross_references?: {
+                mpn: string;
+                manufacturer?: string;
+                relation: "equivalent" | "replacement" | "similar";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            tried?: string[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        };
+        ResearchV1: {
+            /** @constant */
+            schema_version: "research/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            category?: {
+                /** @constant */
+                choice: "existing";
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                reason?: string;
+                alternative?: {
+                    name: string;
+                    reason?: string;
+                };
+            } | {
+                /** @constant */
+                choice: "proposed_new";
+                name: string;
+                reason: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            name?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            type?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            manufacturer?: {
+                company: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                mpn: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            description?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            parameters?: {
+                name: string;
+                value: string;
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                alternatives?: {
+                    value: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }[];
+                chosen_because?: string;
+                pages?: number[];
+            }[];
+            datasheet?: {
+                url?: string;
+                version?: {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                };
+                pages?: number[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+            notes?: {
+                record: "part" | "stock" | "lot";
+                text: string;
+            }[];
+            conflicts?: {
+                field: string;
+                values: string[];
+                note?: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            config_gaps?: {
+                kind: "category" | "parameter_template" | "company";
+                name: string;
+                reason: string;
+            }[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        };
+        ImagesV1: {
+            /** @constant */
+            schema_version: "images/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            images: {
+                role: "part_image" | "stock_image" | "extra";
+                recipe: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                };
+                flags?: string[];
+            }[];
+        };
+        StageProposal: {
+            /** @constant */
+            schema_version: "examine-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            markings: {
+                observation_id: string;
+                text: string[];
+            }[];
+            candidates: {
+                mpn?: string;
+                manufacturer?: string;
+                type?: string;
+                description?: string;
+                confidence: "high" | "medium" | "low";
+                reason?: string;
+            }[];
+            maker?: {
+                name: string;
+                logo_id?: string;
+                method: "text" | "logo" | "logo_match" | "inferred";
+            };
+            packaging?: {
+                kind: string;
+                seal: "sealed" | "opened" | "unknown";
+            };
+            date_code?: string;
+            condition?: string;
+            nos_signals?: string[];
+            nsn?: string;
+            quantity?: {
+                value: string;
+                basis: string;
+            };
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "research-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            resolution: "resolved" | "unresolved";
+            mpn?: string;
+            manufacturer?: string;
+            aliases?: {
+                value: string;
+                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            cross_references?: {
+                mpn: string;
+                manufacturer?: string;
+                relation: "equivalent" | "replacement" | "similar";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            tried?: string[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "research/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            category?: {
+                /** @constant */
+                choice: "existing";
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                reason?: string;
+                alternative?: {
+                    name: string;
+                    reason?: string;
+                };
+            } | {
+                /** @constant */
+                choice: "proposed_new";
+                name: string;
+                reason: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            name?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            type?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            manufacturer?: {
+                company: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                mpn: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            description?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            parameters?: {
+                name: string;
+                value: string;
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                alternatives?: {
+                    value: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }[];
+                chosen_because?: string;
+                pages?: number[];
+            }[];
+            datasheet?: {
+                url?: string;
+                version?: {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                };
+                pages?: number[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+            notes?: {
+                record: "part" | "stock" | "lot";
+                text: string;
+            }[];
+            conflicts?: {
+                field: string;
+                values: string[];
+                note?: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            config_gaps?: {
+                kind: "category" | "parameter_template" | "company";
+                name: string;
+                reason: string;
+            }[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "images/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            images: {
+                role: "part_image" | "stock_image" | "extra";
+                recipe: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                };
+                flags?: string[];
+            }[];
+        };
+        StagePublishedProposal: {
+            /** @constant */
+            schema_version: "examine-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            markings: {
+                observation_id: string;
+                text: string[];
+            }[];
+            candidates: {
+                mpn?: string;
+                manufacturer?: string;
+                type?: string;
+                description?: string;
+                confidence: "high" | "medium" | "low";
+                reason?: string;
+            }[];
+            maker?: {
+                name: string;
+                logo_id?: string;
+                method: "text" | "logo" | "logo_match" | "inferred";
+            };
+            packaging?: {
+                kind: string;
+                seal: "sealed" | "opened" | "unknown";
+            };
+            date_code?: string;
+            condition?: string;
+            nos_signals?: string[];
+            nsn?: string;
+            quantity?: {
+                value: string;
+                basis: string;
+            };
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "research-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            resolution: "resolved" | "unresolved";
+            mpn?: string;
+            manufacturer?: string;
+            aliases?: {
+                value: string;
+                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            cross_references?: {
+                mpn: string;
+                manufacturer?: string;
+                relation: "equivalent" | "replacement" | "similar";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            tried?: string[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "research/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            category?: {
+                /** @constant */
+                choice: "existing";
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                reason?: string;
+                alternative?: {
+                    name: string;
+                    reason?: string;
+                };
+            } | {
+                /** @constant */
+                choice: "proposed_new";
+                name: string;
+                reason: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            name?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            type?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            manufacturer?: {
+                company: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                mpn: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            description?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            parameters?: {
+                name: string;
+                value: string;
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                alternatives?: {
+                    value: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }[];
+                chosen_because?: string;
+                pages?: number[];
+            }[];
+            datasheet?: {
+                url?: string;
+                version?: {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                };
+                pages?: number[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+            notes?: {
+                record: "part" | "stock" | "lot";
+                text: string;
+            }[];
+            conflicts?: {
+                field: string;
+                values: string[];
+                note?: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            config_gaps?: {
+                kind: "category" | "parameter_template" | "company";
+                name: string;
+                reason: string;
+            }[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        };
+        RetainedSessionProposal: {
+            /** @constant */
+            schema_version: "bench-intake-proposal/5";
+            subject_id: string;
+            summary: string;
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            quantity?: {
+                value: string;
+                /** @constant */
+                status: "estimated";
+            };
+            tags?: string[];
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            catalogue?: {
+                category: ({
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }) | null;
+                parameters: {
+                    name: string;
+                    value: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    alternatives?: {
+                        value: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    }[];
+                    chosen_because?: string;
+                }[];
+                not_reused?: {
+                    part: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "part";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    reason: string;
+                };
+                required_missing?: {
+                    name: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    reason: string;
+                }[];
+                manufacturer: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    mpn: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+                supplier: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    sku: string | null;
+                    price: {
+                        amount: string;
+                        currency: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+                description: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-proposal/6";
+            subject_id: string;
+            summary: string;
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            quantity?: {
+                value: string;
+                /** @constant */
+                status: "estimated";
+            };
+            tags?: string[];
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            catalogue?: {
+                category: ({
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }) | null;
+                parameters: {
+                    name: string;
+                    value: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    alternatives?: {
+                        value: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    }[];
+                    chosen_because?: string;
+                }[];
+                not_reused?: {
+                    part: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "part";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    reason: string;
+                };
+                required_missing?: {
+                    name: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    reason: string;
+                }[];
+                manufacturer: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    mpn: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+                supplier: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    sku: string | null;
+                    price: {
+                        amount: string;
+                        currency: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+                description: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+            };
+        } | {
+            /** @constant */
+            schema_version: "examine-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            markings: {
+                observation_id: string;
+                text: string[];
+            }[];
+            candidates: {
+                mpn?: string;
+                manufacturer?: string;
+                type?: string;
+                description?: string;
+                confidence: "high" | "medium" | "low";
+                reason?: string;
+            }[];
+            maker?: {
+                name: string;
+                logo_id?: string;
+                method: "text" | "logo" | "logo_match" | "inferred";
+            };
+            packaging?: {
+                kind: string;
+                seal: "sealed" | "opened" | "unknown";
+            };
+            date_code?: string;
+            condition?: string;
+            nos_signals?: string[];
+            nsn?: string;
+            quantity?: {
+                value: string;
+                basis: string;
+            };
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "research-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            resolution: "resolved" | "unresolved";
+            mpn?: string;
+            manufacturer?: string;
+            aliases?: {
+                value: string;
+                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            cross_references?: {
+                mpn: string;
+                manufacturer?: string;
+                relation: "equivalent" | "replacement" | "similar";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            tried?: string[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "research/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            category?: {
+                /** @constant */
+                choice: "existing";
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                reason?: string;
+                alternative?: {
+                    name: string;
+                    reason?: string;
+                };
+            } | {
+                /** @constant */
+                choice: "proposed_new";
+                name: string;
+                reason: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            name?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            type?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            manufacturer?: {
+                company: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                mpn: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            description?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            parameters?: {
+                name: string;
+                value: string;
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                alternatives?: {
+                    value: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }[];
+                chosen_because?: string;
+                pages?: number[];
+            }[];
+            datasheet?: {
+                url?: string;
+                version?: {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                };
+                pages?: number[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+            notes?: {
+                record: "part" | "stock" | "lot";
+                text: string;
+            }[];
+            conflicts?: {
+                field: string;
+                values: string[];
+                note?: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            config_gaps?: {
+                kind: "category" | "parameter_template" | "company";
+                name: string;
+                reason: string;
+            }[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "images/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            images: {
+                role: "part_image" | "stock_image" | "extra";
+                recipe: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                };
+                flags?: string[];
+            }[];
+        };
+        MatchNote: {
+            kind: "alias" | "relation" | "negative";
+            text: string;
+            key?: {
+                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                value: string;
+            };
+            sources?: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+        };
         WebPageSource: {
             /** @constant */
             kind: "web_page";
@@ -18050,6 +21404,671 @@ export interface components {
                     agreement?: "read" | "likely" | "disagree";
                 } | null;
             };
+        } | {
+            /** @constant */
+            schema_version: "examine-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            markings: {
+                observation_id: string;
+                text: string[];
+            }[];
+            candidates: {
+                mpn?: string;
+                manufacturer?: string;
+                type?: string;
+                description?: string;
+                confidence: "high" | "medium" | "low";
+                reason?: string;
+            }[];
+            maker?: {
+                name: string;
+                logo_id?: string;
+                method: "text" | "logo" | "logo_match" | "inferred";
+            };
+            packaging?: {
+                kind: string;
+                seal: "sealed" | "opened" | "unknown";
+            };
+            date_code?: string;
+            condition?: string;
+            nos_signals?: string[];
+            nsn?: string;
+            quantity?: {
+                value: string;
+                basis: string;
+            };
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "research-identity/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            resolution: "resolved" | "unresolved";
+            mpn?: string;
+            manufacturer?: string;
+            aliases?: {
+                value: string;
+                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            cross_references?: {
+                mpn: string;
+                manufacturer?: string;
+                relation: "equivalent" | "replacement" | "similar";
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            tried?: string[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "research/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "web_page";
+                url: string;
+                title?: string;
+                read_at?: string;
+            })[];
+            category?: {
+                /** @constant */
+                choice: "existing";
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                reason?: string;
+                alternative?: {
+                    name: string;
+                    reason?: string;
+                };
+            } | {
+                /** @constant */
+                choice: "proposed_new";
+                name: string;
+                reason: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            name?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            type?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            manufacturer?: {
+                company: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                mpn: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            description?: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+            parameters?: {
+                name: string;
+                value: string;
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+                alternatives?: {
+                    value: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }[];
+                chosen_because?: string;
+                pages?: number[];
+            }[];
+            datasheet?: {
+                url?: string;
+                version?: {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                };
+                pages?: number[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+            notes?: {
+                record: "part" | "stock" | "lot";
+                text: string;
+            }[];
+            conflicts?: {
+                field: string;
+                values: string[];
+                note?: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            config_gaps?: {
+                kind: "category" | "parameter_template" | "company";
+                name: string;
+                reason: string;
+            }[];
+            match_notes?: {
+                kind: "alias" | "relation" | "negative";
+                text: string;
+                key?: {
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    value: string;
+                };
+                sources?: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+        } | {
+            /** @constant */
+            schema_version: "images/1";
+            subject_id: string;
+            summary: string;
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            images: {
+                role: "part_image" | "stock_image" | "extra";
+                recipe: {
+                    /** @constant */
+                    version: "bench-intake-view/2";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    page_width: number;
+                    page_height: number;
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    light: {
+                        white_balance: boolean;
+                        contrast_clip_permille: number | null;
+                        gamma_thousandths: number | null;
+                        sharpen: boolean;
+                    };
+                };
+                flags?: string[];
+            }[];
         };
         ProcessingProposalV4: {
             /** @constant */
@@ -19625,6 +23644,671 @@ export interface components {
                             agreement?: "read" | "likely" | "disagree";
                         } | null;
                     };
+                } | {
+                    /** @constant */
+                    schema_version: "examine-identity/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    markings: {
+                        observation_id: string;
+                        text: string[];
+                    }[];
+                    candidates: {
+                        mpn?: string;
+                        manufacturer?: string;
+                        type?: string;
+                        description?: string;
+                        confidence: "high" | "medium" | "low";
+                        reason?: string;
+                    }[];
+                    maker?: {
+                        name: string;
+                        logo_id?: string;
+                        method: "text" | "logo" | "logo_match" | "inferred";
+                    };
+                    packaging?: {
+                        kind: string;
+                        seal: "sealed" | "opened" | "unknown";
+                    };
+                    date_code?: string;
+                    condition?: string;
+                    nos_signals?: string[];
+                    nsn?: string;
+                    quantity?: {
+                        value: string;
+                        basis: string;
+                    };
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "research-identity/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "web_page";
+                        url: string;
+                        title?: string;
+                        read_at?: string;
+                    })[];
+                    resolution: "resolved" | "unresolved";
+                    mpn?: string;
+                    manufacturer?: string;
+                    aliases?: {
+                        value: string;
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    cross_references?: {
+                        mpn: string;
+                        manufacturer?: string;
+                        relation: "equivalent" | "replacement" | "similar";
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    tried?: string[];
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "research/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "web_page";
+                        url: string;
+                        title?: string;
+                        read_at?: string;
+                    })[];
+                    category?: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    name?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    type?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    manufacturer?: {
+                        company: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        mpn: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    description?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    parameters?: {
+                        name: string;
+                        value: string;
+                        template: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "parameter_template";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        category_mapping: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category_parameter";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        alternatives?: {
+                            value: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        }[];
+                        chosen_because?: string;
+                        pages?: number[];
+                    }[];
+                    datasheet?: {
+                        url?: string;
+                        version?: {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        };
+                        pages?: number[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                    notes?: {
+                        record: "part" | "stock" | "lot";
+                        text: string;
+                    }[];
+                    conflicts?: {
+                        field: string;
+                        values: string[];
+                        note?: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    config_gaps?: {
+                        kind: "category" | "parameter_template" | "company";
+                        name: string;
+                        reason: string;
+                    }[];
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "images/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    images: {
+                        role: "part_image" | "stock_image" | "extra";
+                        recipe: {
+                            /** @constant */
+                            version: "bench-intake-view/2";
+                            source_version_id: string;
+                            source_digest: string;
+                            page: number;
+                            page_width: number;
+                            page_height: number;
+                            view: {
+                                region: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                };
+                                quarter_turns: number;
+                                straighten_millidegrees: number;
+                            };
+                            light: {
+                                white_balance: boolean;
+                                contrast_clip_permille: number | null;
+                                gamma_thousandths: number | null;
+                                sharpen: boolean;
+                            };
+                        };
+                        flags?: string[];
+                    }[];
                 };
                 currentness?: {
                     /** @constant */
@@ -20670,6 +25354,671 @@ export interface components {
                                 agreement?: "read" | "likely" | "disagree";
                             } | null;
                         };
+                    } | {
+                        /** @constant */
+                        schema_version: "examine-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        markings: {
+                            observation_id: string;
+                            text: string[];
+                        }[];
+                        candidates: {
+                            mpn?: string;
+                            manufacturer?: string;
+                            type?: string;
+                            description?: string;
+                            confidence: "high" | "medium" | "low";
+                            reason?: string;
+                        }[];
+                        maker?: {
+                            name: string;
+                            logo_id?: string;
+                            method: "text" | "logo" | "logo_match" | "inferred";
+                        };
+                        packaging?: {
+                            kind: string;
+                            seal: "sealed" | "opened" | "unknown";
+                        };
+                        date_code?: string;
+                        condition?: string;
+                        nos_signals?: string[];
+                        nsn?: string;
+                        quantity?: {
+                            value: string;
+                            basis: string;
+                        };
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        resolution: "resolved" | "unresolved";
+                        mpn?: string;
+                        manufacturer?: string;
+                        aliases?: {
+                            value: string;
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        cross_references?: {
+                            mpn: string;
+                            manufacturer?: string;
+                            relation: "equivalent" | "replacement" | "similar";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        tried?: string[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        category?: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        name?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        type?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        manufacturer?: {
+                            company: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "company";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            mpn: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        description?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        parameters?: {
+                            name: string;
+                            value: string;
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            alternatives?: {
+                                value: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            }[];
+                            chosen_because?: string;
+                            pages?: number[];
+                        }[];
+                        datasheet?: {
+                            url?: string;
+                            version?: {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            };
+                            pages?: number[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        };
+                        notes?: {
+                            record: "part" | "stock" | "lot";
+                            text: string;
+                        }[];
+                        conflicts?: {
+                            field: string;
+                            values: string[];
+                            note?: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        config_gaps?: {
+                            kind: "category" | "parameter_template" | "company";
+                            name: string;
+                            reason: string;
+                        }[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "images/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        images: {
+                            role: "part_image" | "stock_image" | "extra";
+                            recipe: {
+                                /** @constant */
+                                version: "bench-intake-view/2";
+                                source_version_id: string;
+                                source_digest: string;
+                                page: number;
+                                page_width: number;
+                                page_height: number;
+                                view: {
+                                    region: {
+                                        x: number;
+                                        y: number;
+                                        width: number;
+                                        height: number;
+                                    };
+                                    quarter_turns: number;
+                                    straighten_millidegrees: number;
+                                };
+                                light: {
+                                    white_balance: boolean;
+                                    contrast_clip_permille: number | null;
+                                    gamma_thousandths: number | null;
+                                    sharpen: boolean;
+                                };
+                            };
+                            flags?: string[];
+                        }[];
                     };
                     currentness?: {
                         /** @constant */
@@ -23204,6 +28553,671 @@ export interface components {
                                     agreement?: "read" | "likely" | "disagree";
                                 } | null;
                             };
+                        } | {
+                            /** @constant */
+                            schema_version: "examine-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            markings: {
+                                observation_id: string;
+                                text: string[];
+                            }[];
+                            candidates: {
+                                mpn?: string;
+                                manufacturer?: string;
+                                type?: string;
+                                description?: string;
+                                confidence: "high" | "medium" | "low";
+                                reason?: string;
+                            }[];
+                            maker?: {
+                                name: string;
+                                logo_id?: string;
+                                method: "text" | "logo" | "logo_match" | "inferred";
+                            };
+                            packaging?: {
+                                kind: string;
+                                seal: "sealed" | "opened" | "unknown";
+                            };
+                            date_code?: string;
+                            condition?: string;
+                            nos_signals?: string[];
+                            nsn?: string;
+                            quantity?: {
+                                value: string;
+                                basis: string;
+                            };
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            resolution: "resolved" | "unresolved";
+                            mpn?: string;
+                            manufacturer?: string;
+                            aliases?: {
+                                value: string;
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            cross_references?: {
+                                mpn: string;
+                                manufacturer?: string;
+                                relation: "equivalent" | "replacement" | "similar";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            tried?: string[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            category?: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            name?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            type?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            manufacturer?: {
+                                company: {
+                                    /** @constant */
+                                    choice: "existing";
+                                    reference: {
+                                        observation_id: string;
+                                        target_context_id: string;
+                                        /** @constant */
+                                        model: "company";
+                                        /** Format: int64 */
+                                        pk: string;
+                                    };
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
+                                } | {
+                                    /** @constant */
+                                    choice: "proposed_new";
+                                    name: string;
+                                    reason: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                };
+                                mpn: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            description?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            parameters?: {
+                                name: string;
+                                value: string;
+                                template: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "parameter_template";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                category_mapping: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category_parameter";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                alternatives?: {
+                                    value: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                }[];
+                                chosen_because?: string;
+                                pages?: number[];
+                            }[];
+                            datasheet?: {
+                                url?: string;
+                                version?: {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                };
+                                pages?: number[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            };
+                            notes?: {
+                                record: "part" | "stock" | "lot";
+                                text: string;
+                            }[];
+                            conflicts?: {
+                                field: string;
+                                values: string[];
+                                note?: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            config_gaps?: {
+                                kind: "category" | "parameter_template" | "company";
+                                name: string;
+                                reason: string;
+                            }[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "images/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            images: {
+                                role: "part_image" | "stock_image" | "extra";
+                                recipe: {
+                                    /** @constant */
+                                    version: "bench-intake-view/2";
+                                    source_version_id: string;
+                                    source_digest: string;
+                                    page: number;
+                                    page_width: number;
+                                    page_height: number;
+                                    view: {
+                                        region: {
+                                            x: number;
+                                            y: number;
+                                            width: number;
+                                            height: number;
+                                        };
+                                        quarter_turns: number;
+                                        straighten_millidegrees: number;
+                                    };
+                                    light: {
+                                        white_balance: boolean;
+                                        contrast_clip_permille: number | null;
+                                        gamma_thousandths: number | null;
+                                        sharpen: boolean;
+                                    };
+                                };
+                                flags?: string[];
+                            }[];
                         };
                         currentness: {
                             /** @constant */
@@ -24353,6 +30367,671 @@ export interface components {
                                     agreement?: "read" | "likely" | "disagree";
                                 } | null;
                             };
+                        } | {
+                            /** @constant */
+                            schema_version: "examine-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            markings: {
+                                observation_id: string;
+                                text: string[];
+                            }[];
+                            candidates: {
+                                mpn?: string;
+                                manufacturer?: string;
+                                type?: string;
+                                description?: string;
+                                confidence: "high" | "medium" | "low";
+                                reason?: string;
+                            }[];
+                            maker?: {
+                                name: string;
+                                logo_id?: string;
+                                method: "text" | "logo" | "logo_match" | "inferred";
+                            };
+                            packaging?: {
+                                kind: string;
+                                seal: "sealed" | "opened" | "unknown";
+                            };
+                            date_code?: string;
+                            condition?: string;
+                            nos_signals?: string[];
+                            nsn?: string;
+                            quantity?: {
+                                value: string;
+                                basis: string;
+                            };
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            resolution: "resolved" | "unresolved";
+                            mpn?: string;
+                            manufacturer?: string;
+                            aliases?: {
+                                value: string;
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            cross_references?: {
+                                mpn: string;
+                                manufacturer?: string;
+                                relation: "equivalent" | "replacement" | "similar";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            tried?: string[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            category?: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            name?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            type?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            manufacturer?: {
+                                company: {
+                                    /** @constant */
+                                    choice: "existing";
+                                    reference: {
+                                        observation_id: string;
+                                        target_context_id: string;
+                                        /** @constant */
+                                        model: "company";
+                                        /** Format: int64 */
+                                        pk: string;
+                                    };
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
+                                } | {
+                                    /** @constant */
+                                    choice: "proposed_new";
+                                    name: string;
+                                    reason: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                };
+                                mpn: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            description?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            parameters?: {
+                                name: string;
+                                value: string;
+                                template: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "parameter_template";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                category_mapping: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category_parameter";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                alternatives?: {
+                                    value: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                }[];
+                                chosen_because?: string;
+                                pages?: number[];
+                            }[];
+                            datasheet?: {
+                                url?: string;
+                                version?: {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                };
+                                pages?: number[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            };
+                            notes?: {
+                                record: "part" | "stock" | "lot";
+                                text: string;
+                            }[];
+                            conflicts?: {
+                                field: string;
+                                values: string[];
+                                note?: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            config_gaps?: {
+                                kind: "category" | "parameter_template" | "company";
+                                name: string;
+                                reason: string;
+                            }[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "images/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            images: {
+                                role: "part_image" | "stock_image" | "extra";
+                                recipe: {
+                                    /** @constant */
+                                    version: "bench-intake-view/2";
+                                    source_version_id: string;
+                                    source_digest: string;
+                                    page: number;
+                                    page_width: number;
+                                    page_height: number;
+                                    view: {
+                                        region: {
+                                            x: number;
+                                            y: number;
+                                            width: number;
+                                            height: number;
+                                        };
+                                        quarter_turns: number;
+                                        straighten_millidegrees: number;
+                                    };
+                                    light: {
+                                        white_balance: boolean;
+                                        contrast_clip_permille: number | null;
+                                        gamma_thousandths: number | null;
+                                        sharpen: boolean;
+                                    };
+                                };
+                                flags?: string[];
+                            }[];
                         };
                         currentness: {
                             /** @constant */
@@ -25589,6 +32268,671 @@ export interface components {
                                 agreement?: "read" | "likely" | "disagree";
                             } | null;
                         };
+                    } | {
+                        /** @constant */
+                        schema_version: "examine-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        markings: {
+                            observation_id: string;
+                            text: string[];
+                        }[];
+                        candidates: {
+                            mpn?: string;
+                            manufacturer?: string;
+                            type?: string;
+                            description?: string;
+                            confidence: "high" | "medium" | "low";
+                            reason?: string;
+                        }[];
+                        maker?: {
+                            name: string;
+                            logo_id?: string;
+                            method: "text" | "logo" | "logo_match" | "inferred";
+                        };
+                        packaging?: {
+                            kind: string;
+                            seal: "sealed" | "opened" | "unknown";
+                        };
+                        date_code?: string;
+                        condition?: string;
+                        nos_signals?: string[];
+                        nsn?: string;
+                        quantity?: {
+                            value: string;
+                            basis: string;
+                        };
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        resolution: "resolved" | "unresolved";
+                        mpn?: string;
+                        manufacturer?: string;
+                        aliases?: {
+                            value: string;
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        cross_references?: {
+                            mpn: string;
+                            manufacturer?: string;
+                            relation: "equivalent" | "replacement" | "similar";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        tried?: string[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        category?: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        name?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        type?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        manufacturer?: {
+                            company: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "company";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            mpn: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        description?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        parameters?: {
+                            name: string;
+                            value: string;
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            alternatives?: {
+                                value: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            }[];
+                            chosen_because?: string;
+                            pages?: number[];
+                        }[];
+                        datasheet?: {
+                            url?: string;
+                            version?: {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            };
+                            pages?: number[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        };
+                        notes?: {
+                            record: "part" | "stock" | "lot";
+                            text: string;
+                        }[];
+                        conflicts?: {
+                            field: string;
+                            values: string[];
+                            note?: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        config_gaps?: {
+                            kind: "category" | "parameter_template" | "company";
+                            name: string;
+                            reason: string;
+                        }[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "images/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        images: {
+                            role: "part_image" | "stock_image" | "extra";
+                            recipe: {
+                                /** @constant */
+                                version: "bench-intake-view/2";
+                                source_version_id: string;
+                                source_digest: string;
+                                page: number;
+                                page_width: number;
+                                page_height: number;
+                                view: {
+                                    region: {
+                                        x: number;
+                                        y: number;
+                                        width: number;
+                                        height: number;
+                                    };
+                                    quarter_turns: number;
+                                    straighten_millidegrees: number;
+                                };
+                                light: {
+                                    white_balance: boolean;
+                                    contrast_clip_permille: number | null;
+                                    gamma_thousandths: number | null;
+                                    sharpen: boolean;
+                                };
+                            };
+                            flags?: string[];
+                        }[];
                     };
                     currentness: {
                         /** @constant */
@@ -26738,6 +34082,671 @@ export interface components {
                                 agreement?: "read" | "likely" | "disagree";
                             } | null;
                         };
+                    } | {
+                        /** @constant */
+                        schema_version: "examine-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        markings: {
+                            observation_id: string;
+                            text: string[];
+                        }[];
+                        candidates: {
+                            mpn?: string;
+                            manufacturer?: string;
+                            type?: string;
+                            description?: string;
+                            confidence: "high" | "medium" | "low";
+                            reason?: string;
+                        }[];
+                        maker?: {
+                            name: string;
+                            logo_id?: string;
+                            method: "text" | "logo" | "logo_match" | "inferred";
+                        };
+                        packaging?: {
+                            kind: string;
+                            seal: "sealed" | "opened" | "unknown";
+                        };
+                        date_code?: string;
+                        condition?: string;
+                        nos_signals?: string[];
+                        nsn?: string;
+                        quantity?: {
+                            value: string;
+                            basis: string;
+                        };
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        resolution: "resolved" | "unresolved";
+                        mpn?: string;
+                        manufacturer?: string;
+                        aliases?: {
+                            value: string;
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        cross_references?: {
+                            mpn: string;
+                            manufacturer?: string;
+                            relation: "equivalent" | "replacement" | "similar";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        tried?: string[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        category?: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        name?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        type?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        manufacturer?: {
+                            company: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "company";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            mpn: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        description?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        parameters?: {
+                            name: string;
+                            value: string;
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            alternatives?: {
+                                value: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            }[];
+                            chosen_because?: string;
+                            pages?: number[];
+                        }[];
+                        datasheet?: {
+                            url?: string;
+                            version?: {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            };
+                            pages?: number[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        };
+                        notes?: {
+                            record: "part" | "stock" | "lot";
+                            text: string;
+                        }[];
+                        conflicts?: {
+                            field: string;
+                            values: string[];
+                            note?: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        config_gaps?: {
+                            kind: "category" | "parameter_template" | "company";
+                            name: string;
+                            reason: string;
+                        }[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "images/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        images: {
+                            role: "part_image" | "stock_image" | "extra";
+                            recipe: {
+                                /** @constant */
+                                version: "bench-intake-view/2";
+                                source_version_id: string;
+                                source_digest: string;
+                                page: number;
+                                page_width: number;
+                                page_height: number;
+                                view: {
+                                    region: {
+                                        x: number;
+                                        y: number;
+                                        width: number;
+                                        height: number;
+                                    };
+                                    quarter_turns: number;
+                                    straighten_millidegrees: number;
+                                };
+                                light: {
+                                    white_balance: boolean;
+                                    contrast_clip_permille: number | null;
+                                    gamma_thousandths: number | null;
+                                    sharpen: boolean;
+                                };
+                            };
+                            flags?: string[];
+                        }[];
                     };
                     currentness: {
                         /** @constant */
@@ -27095,8 +35104,7 @@ export interface components {
                 } | {
                     /** @constant */
                     kind: "correction";
-                    /** @constant */
-                    source: "human";
+                    source: "human" | "agent";
                     observation_id: string;
                     lot_id: string | null;
                     before: {
@@ -28022,6 +36030,671 @@ export interface components {
                                 agreement?: "read" | "likely" | "disagree";
                             } | null;
                         };
+                    } | {
+                        /** @constant */
+                        schema_version: "examine-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        markings: {
+                            observation_id: string;
+                            text: string[];
+                        }[];
+                        candidates: {
+                            mpn?: string;
+                            manufacturer?: string;
+                            type?: string;
+                            description?: string;
+                            confidence: "high" | "medium" | "low";
+                            reason?: string;
+                        }[];
+                        maker?: {
+                            name: string;
+                            logo_id?: string;
+                            method: "text" | "logo" | "logo_match" | "inferred";
+                        };
+                        packaging?: {
+                            kind: string;
+                            seal: "sealed" | "opened" | "unknown";
+                        };
+                        date_code?: string;
+                        condition?: string;
+                        nos_signals?: string[];
+                        nsn?: string;
+                        quantity?: {
+                            value: string;
+                            basis: string;
+                        };
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        resolution: "resolved" | "unresolved";
+                        mpn?: string;
+                        manufacturer?: string;
+                        aliases?: {
+                            value: string;
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        cross_references?: {
+                            mpn: string;
+                            manufacturer?: string;
+                            relation: "equivalent" | "replacement" | "similar";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        tried?: string[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        category?: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        name?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        type?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        manufacturer?: {
+                            company: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "company";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            mpn: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        description?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        parameters?: {
+                            name: string;
+                            value: string;
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            alternatives?: {
+                                value: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            }[];
+                            chosen_because?: string;
+                            pages?: number[];
+                        }[];
+                        datasheet?: {
+                            url?: string;
+                            version?: {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            };
+                            pages?: number[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        };
+                        notes?: {
+                            record: "part" | "stock" | "lot";
+                            text: string;
+                        }[];
+                        conflicts?: {
+                            field: string;
+                            values: string[];
+                            note?: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        config_gaps?: {
+                            kind: "category" | "parameter_template" | "company";
+                            name: string;
+                            reason: string;
+                        }[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "images/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        images: {
+                            role: "part_image" | "stock_image" | "extra";
+                            recipe: {
+                                /** @constant */
+                                version: "bench-intake-view/2";
+                                source_version_id: string;
+                                source_digest: string;
+                                page: number;
+                                page_width: number;
+                                page_height: number;
+                                view: {
+                                    region: {
+                                        x: number;
+                                        y: number;
+                                        width: number;
+                                        height: number;
+                                    };
+                                    quarter_turns: number;
+                                    straighten_millidegrees: number;
+                                };
+                                light: {
+                                    white_balance: boolean;
+                                    contrast_clip_permille: number | null;
+                                    gamma_thousandths: number | null;
+                                    sharpen: boolean;
+                                };
+                            };
+                            flags?: string[];
+                        }[];
                     };
                 } | {
                     /** @constant */
@@ -28860,6 +37533,671 @@ export interface components {
                         agreement?: "read" | "likely" | "disagree";
                     } | null;
                 };
+            } | {
+                /** @constant */
+                schema_version: "examine-identity/1";
+                subject_id: string;
+                summary: string;
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                markings: {
+                    observation_id: string;
+                    text: string[];
+                }[];
+                candidates: {
+                    mpn?: string;
+                    manufacturer?: string;
+                    type?: string;
+                    description?: string;
+                    confidence: "high" | "medium" | "low";
+                    reason?: string;
+                }[];
+                maker?: {
+                    name: string;
+                    logo_id?: string;
+                    method: "text" | "logo" | "logo_match" | "inferred";
+                };
+                packaging?: {
+                    kind: string;
+                    seal: "sealed" | "opened" | "unknown";
+                };
+                date_code?: string;
+                condition?: string;
+                nos_signals?: string[];
+                nsn?: string;
+                quantity?: {
+                    value: string;
+                    basis: string;
+                };
+                match_notes?: {
+                    kind: "alias" | "relation" | "negative";
+                    text: string;
+                    key?: {
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        value: string;
+                    };
+                    sources?: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+            } | {
+                /** @constant */
+                schema_version: "research-identity/1";
+                subject_id: string;
+                summary: string;
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "web_page";
+                    url: string;
+                    title?: string;
+                    read_at?: string;
+                })[];
+                resolution: "resolved" | "unresolved";
+                mpn?: string;
+                manufacturer?: string;
+                aliases?: {
+                    value: string;
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+                cross_references?: {
+                    mpn: string;
+                    manufacturer?: string;
+                    relation: "equivalent" | "replacement" | "similar";
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+                tried?: string[];
+                match_notes?: {
+                    kind: "alias" | "relation" | "negative";
+                    text: string;
+                    key?: {
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        value: string;
+                    };
+                    sources?: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+            } | {
+                /** @constant */
+                schema_version: "research/1";
+                subject_id: string;
+                summary: string;
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "web_page";
+                    url: string;
+                    title?: string;
+                    read_at?: string;
+                })[];
+                category?: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                name?: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                type?: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                manufacturer?: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    mpn: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                description?: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                parameters?: {
+                    name: string;
+                    value: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    alternatives?: {
+                        value: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    }[];
+                    chosen_because?: string;
+                    pages?: number[];
+                }[];
+                datasheet?: {
+                    url?: string;
+                    version?: {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    };
+                    pages?: number[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                };
+                notes?: {
+                    record: "part" | "stock" | "lot";
+                    text: string;
+                }[];
+                conflicts?: {
+                    field: string;
+                    values: string[];
+                    note?: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+                config_gaps?: {
+                    kind: "category" | "parameter_template" | "company";
+                    name: string;
+                    reason: string;
+                }[];
+                match_notes?: {
+                    kind: "alias" | "relation" | "negative";
+                    text: string;
+                    key?: {
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        value: string;
+                    };
+                    sources?: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+            } | {
+                /** @constant */
+                schema_version: "images/1";
+                subject_id: string;
+                summary: string;
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                images: {
+                    role: "part_image" | "stock_image" | "extra";
+                    recipe: {
+                        /** @constant */
+                        version: "bench-intake-view/2";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        page_width: number;
+                        page_height: number;
+                        view: {
+                            region: {
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                            };
+                            quarter_turns: number;
+                            straighten_millidegrees: number;
+                        };
+                        light: {
+                            white_balance: boolean;
+                            contrast_clip_permille: number | null;
+                            gamma_thousandths: number | null;
+                            sharpen: boolean;
+                        };
+                    };
+                    flags?: string[];
+                }[];
             };
         } | {
             /** @constant */
@@ -29904,6 +39242,1005 @@ export interface components {
                 };
             };
         };
+        SessionStageProposeArgs: {
+            proposal: {
+                /** @constant */
+                schema_version: "examine-identity/1";
+                subject_id: string;
+                summary: string;
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                markings: {
+                    observation_id: string;
+                    text: string[];
+                }[];
+                candidates: {
+                    mpn?: string;
+                    manufacturer?: string;
+                    type?: string;
+                    description?: string;
+                    confidence: "high" | "medium" | "low";
+                    reason?: string;
+                }[];
+                maker?: {
+                    name: string;
+                    logo_id?: string;
+                    method: "text" | "logo" | "logo_match" | "inferred";
+                };
+                packaging?: {
+                    kind: string;
+                    seal: "sealed" | "opened" | "unknown";
+                };
+                date_code?: string;
+                condition?: string;
+                nos_signals?: string[];
+                nsn?: string;
+                quantity?: {
+                    value: string;
+                    basis: string;
+                };
+                match_notes?: {
+                    kind: "alias" | "relation" | "negative";
+                    text: string;
+                    key?: {
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        value: string;
+                    };
+                    sources?: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+            } | {
+                /** @constant */
+                schema_version: "research-identity/1";
+                subject_id: string;
+                summary: string;
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "web_page";
+                    url: string;
+                    title?: string;
+                    read_at?: string;
+                })[];
+                resolution: "resolved" | "unresolved";
+                mpn?: string;
+                manufacturer?: string;
+                aliases?: {
+                    value: string;
+                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+                cross_references?: {
+                    mpn: string;
+                    manufacturer?: string;
+                    relation: "equivalent" | "replacement" | "similar";
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+                tried?: string[];
+                match_notes?: {
+                    kind: "alias" | "relation" | "negative";
+                    text: string;
+                    key?: {
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        value: string;
+                    };
+                    sources?: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+            } | {
+                /** @constant */
+                schema_version: "research/1";
+                subject_id: string;
+                summary: string;
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "web_page";
+                    url: string;
+                    title?: string;
+                    read_at?: string;
+                })[];
+                category?: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                name?: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                type?: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                manufacturer?: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    mpn: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                description?: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                parameters?: {
+                    name: string;
+                    value: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                    alternatives?: {
+                        value: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    }[];
+                    chosen_because?: string;
+                    pages?: number[];
+                }[];
+                datasheet?: {
+                    url?: string;
+                    version?: {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    };
+                    pages?: number[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                };
+                notes?: {
+                    record: "part" | "stock" | "lot";
+                    text: string;
+                }[];
+                conflicts?: {
+                    field: string;
+                    values: string[];
+                    note?: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+                config_gaps?: {
+                    kind: "category" | "parameter_template" | "company";
+                    name: string;
+                    reason: string;
+                }[];
+                match_notes?: {
+                    kind: "alias" | "relation" | "negative";
+                    text: string;
+                    key?: {
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        value: string;
+                    };
+                    sources?: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+            };
+        };
+        SessionStageAskArgs: {
+            /** @constant */
+            schema_version: "bench-intake-question/2";
+            subject_id: string | null;
+            reason: string;
+            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+            title?: string;
+            steps: {
+                id: string;
+                prompt: string;
+                assumption: string;
+                answer: {
+                    /** @constant */
+                    kind: "choice";
+                    options: {
+                        id: string;
+                        label: string;
+                        detail?: string;
+                    }[];
+                    other: boolean;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                };
+            }[];
+            replaces?: string;
+            figures?: {
+                source: {
+                    /** @constant */
+                    kind: "evidence_page";
+                    evidence_id: string;
+                    version_id: string;
+                    page: number;
+                };
+                view: {
+                    region: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    quarter_turns: number;
+                    straighten_millidegrees: number;
+                };
+                marks?: ({
+                    kind: "circle" | "ellipse" | "box" | "highlight";
+                    geometry: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    label?: string;
+                } | {
+                    /** @constant */
+                    kind: "arrow";
+                    geometry: {
+                        from: {
+                            x: number;
+                            y: number;
+                        };
+                        to: {
+                            x: number;
+                            y: number;
+                        };
+                    };
+                    label?: string;
+                } | {
+                    /** @constant */
+                    kind: "label";
+                    at: {
+                        x: number;
+                        y: number;
+                    };
+                    label: string;
+                })[];
+                caption: string;
+                why: string;
+            }[];
+            /** @constant */
+            preview?: true;
+            new_evidence?: {
+                evidence_id: string;
+                version_id: string;
+            }[];
+            conflict?: string;
+        };
+        SessionRevisionV2: {
+            /** @constant */
+            schema_version: "bench-intake-revision/2";
+            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+            reason: string;
+            changes: ({
+                /** @constant */
+                kind: "field";
+                subject_id: string | null;
+                field: "markings" | "identity" | "quantity" | "research" | "images" | "part";
+                from: string | null;
+                to: string | null;
+            } | {
+                /** @constant */
+                kind: "reading";
+                observation_id: string;
+                reading_from: {
+                    markings: string[];
+                    text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+                reading_to: {
+                    markings: string[];
+                    text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+            } | {
+                /** @constant */
+                kind: "reading_in_brief";
+                observation_id: string;
+                /** Format: int64 */
+                revision: string;
+            } | {
+                /** @constant */
+                kind: "answer";
+                question_id: string;
+                answer_id: string;
+                steps: {
+                    step_id: string | null;
+                    value: ({
+                        /** @constant */
+                        kind: "choice";
+                        option_id: string;
+                        label: string;
+                    } | {
+                        /** @constant */
+                        kind: "choice";
+                        other: string;
+                    } | {
+                        /** @constant */
+                        kind: "number";
+                        value: string;
+                        basis: "counted" | "estimated";
+                    } | {
+                        /** @constant */
+                        kind: "text";
+                        text: string;
+                    }) | ({
+                        /** @constant */
+                        kind: "quantity";
+                        value: string;
+                        basis: "counted" | "estimated";
+                    } | {
+                        /** @constant */
+                        kind: "clarification";
+                        text: string;
+                    });
+                }[];
+            } | {
+                /** @constant */
+                kind: "answer_in_brief";
+                question_id: string;
+                answer_id: string;
+            } | {
+                /** @constant */
+                kind: "region";
+                observation_id: string;
+                region_from: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                region_to: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+            } | {
+                /** @constant */
+                kind: "count";
+                observation_id: string;
+                count_from: number | null;
+                count_to: number | null;
+            } | {
+                /** @constant */
+                kind: "same_item";
+                observation_id: string;
+                same_as_from: string | null;
+                same_as_to: string | null;
+            } | {
+                /** @constant */
+                kind: "observation";
+                observation_id: string;
+                lot_from: string | null;
+                lot_to: string | null;
+            } | {
+                /** @constant */
+                kind: "evidence";
+                evidence_id: string;
+                /** @constant */
+                removed: true;
+            } | {
+                /** @constant */
+                kind: "proposal";
+                proposal_id: string;
+                proposal_kind: string;
+                state: "published" | "stale";
+                reason?: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
+            } | {
+                /** @constant */
+                kind: "match";
+                lot_id: string;
+                from: string | null;
+                to: string | null;
+            })[];
+            source: {
+                /** @constant */
+                kind: "operator";
+                actor_id: string;
+            } | {
+                /** @constant */
+                kind: "session";
+                stage: "examine" | "research" | "images";
+                attempt_id: string;
+            } | {
+                /** @constant */
+                kind: "match";
+            } | {
+                /** @constant */
+                kind: "app";
+            };
+            /** Format: int64 */
+            brief_revision: string;
+            /** @constant */
+            values_in_brief?: true;
+            part?: {
+                index: number;
+                count: number;
+            };
+        };
+        RevisionChange: {
+            /** @constant */
+            kind: "field";
+            subject_id: string | null;
+            field: "markings" | "identity" | "quantity" | "research" | "images" | "part";
+            from: string | null;
+            to: string | null;
+        } | {
+            /** @constant */
+            kind: "reading";
+            observation_id: string;
+            reading_from: {
+                markings: string[];
+                text?: string;
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            } | null;
+            reading_to: {
+                markings: string[];
+                text?: string;
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            };
+        } | {
+            /** @constant */
+            kind: "reading_in_brief";
+            observation_id: string;
+            /** Format: int64 */
+            revision: string;
+        } | {
+            /** @constant */
+            kind: "answer";
+            question_id: string;
+            answer_id: string;
+            steps: {
+                step_id: string | null;
+                value: ({
+                    /** @constant */
+                    kind: "choice";
+                    option_id: string;
+                    label: string;
+                } | {
+                    /** @constant */
+                    kind: "choice";
+                    other: string;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                    text: string;
+                }) | ({
+                    /** @constant */
+                    kind: "quantity";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "clarification";
+                    text: string;
+                });
+            }[];
+        } | {
+            /** @constant */
+            kind: "answer_in_brief";
+            question_id: string;
+            answer_id: string;
+        } | {
+            /** @constant */
+            kind: "region";
+            observation_id: string;
+            region_from: {
+                /** @constant */
+                kind: "pixels";
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+                source_width: number;
+                source_height: number;
+            } | {
+                /** @constant */
+                kind: "lines";
+                from_line: number;
+                to_line: number;
+            };
+            region_to: {
+                /** @constant */
+                kind: "pixels";
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+                source_width: number;
+                source_height: number;
+            } | {
+                /** @constant */
+                kind: "lines";
+                from_line: number;
+                to_line: number;
+            };
+        } | {
+            /** @constant */
+            kind: "count";
+            observation_id: string;
+            count_from: number | null;
+            count_to: number | null;
+        } | {
+            /** @constant */
+            kind: "same_item";
+            observation_id: string;
+            same_as_from: string | null;
+            same_as_to: string | null;
+        } | {
+            /** @constant */
+            kind: "observation";
+            observation_id: string;
+            lot_from: string | null;
+            lot_to: string | null;
+        } | {
+            /** @constant */
+            kind: "evidence";
+            evidence_id: string;
+            /** @constant */
+            removed: true;
+        } | {
+            /** @constant */
+            kind: "proposal";
+            proposal_id: string;
+            proposal_kind: string;
+            state: "published" | "stale";
+            reason?: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
+        } | {
+            /** @constant */
+            kind: "match";
+            lot_id: string;
+            from: string | null;
+            to: string | null;
+        };
         SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable";
         SessionToolResult: {
             /** @constant */
@@ -30008,6 +40345,181 @@ export interface components {
                 payload: {
                     fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
                     reason: string;
+                } | {
+                    /** @constant */
+                    schema_version: "bench-intake-revision/2";
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    reason: string;
+                    changes: ({
+                        /** @constant */
+                        kind: "field";
+                        subject_id: string | null;
+                        field: "markings" | "identity" | "quantity" | "research" | "images" | "part";
+                        from: string | null;
+                        to: string | null;
+                    } | {
+                        /** @constant */
+                        kind: "reading";
+                        observation_id: string;
+                        reading_from: {
+                            markings: string[];
+                            text?: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        } | null;
+                        reading_to: {
+                            markings: string[];
+                            text?: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                    } | {
+                        /** @constant */
+                        kind: "reading_in_brief";
+                        observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "answer";
+                        question_id: string;
+                        answer_id: string;
+                        steps: {
+                            step_id: string | null;
+                            value: ({
+                                /** @constant */
+                                kind: "choice";
+                                option_id: string;
+                                label: string;
+                            } | {
+                                /** @constant */
+                                kind: "choice";
+                                other: string;
+                            } | {
+                                /** @constant */
+                                kind: "number";
+                                value: string;
+                                basis: "counted" | "estimated";
+                            } | {
+                                /** @constant */
+                                kind: "text";
+                                text: string;
+                            }) | ({
+                                /** @constant */
+                                kind: "quantity";
+                                value: string;
+                                basis: "counted" | "estimated";
+                            } | {
+                                /** @constant */
+                                kind: "clarification";
+                                text: string;
+                            });
+                        }[];
+                    } | {
+                        /** @constant */
+                        kind: "answer_in_brief";
+                        question_id: string;
+                        answer_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "region";
+                        observation_id: string;
+                        region_from: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                        region_to: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                    } | {
+                        /** @constant */
+                        kind: "count";
+                        observation_id: string;
+                        count_from: number | null;
+                        count_to: number | null;
+                    } | {
+                        /** @constant */
+                        kind: "same_item";
+                        observation_id: string;
+                        same_as_from: string | null;
+                        same_as_to: string | null;
+                    } | {
+                        /** @constant */
+                        kind: "observation";
+                        observation_id: string;
+                        lot_from: string | null;
+                        lot_to: string | null;
+                    } | {
+                        /** @constant */
+                        kind: "evidence";
+                        evidence_id: string;
+                        /** @constant */
+                        removed: true;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                        proposal_kind: string;
+                        state: "published" | "stale";
+                        reason?: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
+                    } | {
+                        /** @constant */
+                        kind: "match";
+                        lot_id: string;
+                        from: string | null;
+                        to: string | null;
+                    })[];
+                    source: {
+                        /** @constant */
+                        kind: "operator";
+                        actor_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "session";
+                        stage: "examine" | "research" | "images";
+                        attempt_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "match";
+                    } | {
+                        /** @constant */
+                        kind: "app";
+                    };
+                    /** Format: int64 */
+                    brief_revision: string;
+                    /** @constant */
+                    values_in_brief?: true;
+                    part?: {
+                        index: number;
+                        count: number;
+                    };
                 };
             })[];
             pages?: {
@@ -30209,8 +40721,7 @@ export interface components {
                 } | {
                     /** @constant */
                     kind: "correction";
-                    /** @constant */
-                    source: "human";
+                    source: "human" | "agent";
                     observation_id: string;
                     lot_id: string | null;
                     before: {
@@ -31136,6 +41647,671 @@ export interface components {
                                 agreement?: "read" | "likely" | "disagree";
                             } | null;
                         };
+                    } | {
+                        /** @constant */
+                        schema_version: "examine-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        markings: {
+                            observation_id: string;
+                            text: string[];
+                        }[];
+                        candidates: {
+                            mpn?: string;
+                            manufacturer?: string;
+                            type?: string;
+                            description?: string;
+                            confidence: "high" | "medium" | "low";
+                            reason?: string;
+                        }[];
+                        maker?: {
+                            name: string;
+                            logo_id?: string;
+                            method: "text" | "logo" | "logo_match" | "inferred";
+                        };
+                        packaging?: {
+                            kind: string;
+                            seal: "sealed" | "opened" | "unknown";
+                        };
+                        date_code?: string;
+                        condition?: string;
+                        nos_signals?: string[];
+                        nsn?: string;
+                        quantity?: {
+                            value: string;
+                            basis: string;
+                        };
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        resolution: "resolved" | "unresolved";
+                        mpn?: string;
+                        manufacturer?: string;
+                        aliases?: {
+                            value: string;
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        cross_references?: {
+                            mpn: string;
+                            manufacturer?: string;
+                            relation: "equivalent" | "replacement" | "similar";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        tried?: string[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        category?: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        name?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        type?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        manufacturer?: {
+                            company: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "company";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            mpn: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        description?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        parameters?: {
+                            name: string;
+                            value: string;
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            alternatives?: {
+                                value: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            }[];
+                            chosen_because?: string;
+                            pages?: number[];
+                        }[];
+                        datasheet?: {
+                            url?: string;
+                            version?: {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            };
+                            pages?: number[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        };
+                        notes?: {
+                            record: "part" | "stock" | "lot";
+                            text: string;
+                        }[];
+                        conflicts?: {
+                            field: string;
+                            values: string[];
+                            note?: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        config_gaps?: {
+                            kind: "category" | "parameter_template" | "company";
+                            name: string;
+                            reason: string;
+                        }[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "images/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        images: {
+                            role: "part_image" | "stock_image" | "extra";
+                            recipe: {
+                                /** @constant */
+                                version: "bench-intake-view/2";
+                                source_version_id: string;
+                                source_digest: string;
+                                page: number;
+                                page_width: number;
+                                page_height: number;
+                                view: {
+                                    region: {
+                                        x: number;
+                                        y: number;
+                                        width: number;
+                                        height: number;
+                                    };
+                                    quarter_turns: number;
+                                    straighten_millidegrees: number;
+                                };
+                                light: {
+                                    white_balance: boolean;
+                                    contrast_clip_permille: number | null;
+                                    gamma_thousandths: number | null;
+                                    sharpen: boolean;
+                                };
+                            };
+                            flags?: string[];
+                        }[];
                     };
                 } | {
                     /** @constant */
@@ -31197,6 +42373,42 @@ export interface components {
                 newer: {
                     /** Format: int64 */
                     revision: string;
+                } | null;
+            };
+            /** Format: int64 */
+            view_seq?: string;
+            existing_question?: {
+                question: {
+                    /** @constant */
+                    kind: "question";
+                    question_id: string;
+                    job_id: string;
+                    subject_id: string | null;
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    state: "open" | "answered" | "superseded";
+                    title: string;
+                    steps: {
+                        id: string;
+                        prompt: string;
+                        assumption: string | null;
+                    }[];
+                    answer_id: string | null;
+                };
+                answer: {
+                    /** @constant */
+                    kind: "answer";
+                    /** @constant */
+                    source: "human";
+                    question_id: string;
+                    answer_id: string;
+                    subject_id: string | null;
+                    actor_id: string;
+                    answered_at: string;
+                    steps: {
+                        step_id: string | null;
+                        prompt: string;
+                        value: string;
+                    }[];
                 } | null;
             };
             sections?: {
@@ -31370,6 +42582,17 @@ export interface components {
                     sha256: string;
                 };
             };
+        } | {
+            session_id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "photo_release";
+            payload: {
+                /** Format: int64 */
+                view_seq: string;
+            };
         };
         SessionPhotoView: {
             evidence_id: string;
@@ -31477,6 +42700,181 @@ export interface components {
             payload: {
                 fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
                 reason: string;
+            } | {
+                /** @constant */
+                schema_version: "bench-intake-revision/2";
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                reason: string;
+                changes: ({
+                    /** @constant */
+                    kind: "field";
+                    subject_id: string | null;
+                    field: "markings" | "identity" | "quantity" | "research" | "images" | "part";
+                    from: string | null;
+                    to: string | null;
+                } | {
+                    /** @constant */
+                    kind: "reading";
+                    observation_id: string;
+                    reading_from: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    } | null;
+                    reading_to: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                } | {
+                    /** @constant */
+                    kind: "reading_in_brief";
+                    observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "answer";
+                    question_id: string;
+                    answer_id: string;
+                    steps: {
+                        step_id: string | null;
+                        value: ({
+                            /** @constant */
+                            kind: "choice";
+                            option_id: string;
+                            label: string;
+                        } | {
+                            /** @constant */
+                            kind: "choice";
+                            other: string;
+                        } | {
+                            /** @constant */
+                            kind: "number";
+                            value: string;
+                            basis: "counted" | "estimated";
+                        } | {
+                            /** @constant */
+                            kind: "text";
+                            text: string;
+                        }) | ({
+                            /** @constant */
+                            kind: "quantity";
+                            value: string;
+                            basis: "counted" | "estimated";
+                        } | {
+                            /** @constant */
+                            kind: "clarification";
+                            text: string;
+                        });
+                    }[];
+                } | {
+                    /** @constant */
+                    kind: "answer_in_brief";
+                    question_id: string;
+                    answer_id: string;
+                } | {
+                    /** @constant */
+                    kind: "region";
+                    observation_id: string;
+                    region_from: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    region_to: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                } | {
+                    /** @constant */
+                    kind: "count";
+                    observation_id: string;
+                    count_from: number | null;
+                    count_to: number | null;
+                } | {
+                    /** @constant */
+                    kind: "same_item";
+                    observation_id: string;
+                    same_as_from: string | null;
+                    same_as_to: string | null;
+                } | {
+                    /** @constant */
+                    kind: "observation";
+                    observation_id: string;
+                    lot_from: string | null;
+                    lot_to: string | null;
+                } | {
+                    /** @constant */
+                    kind: "evidence";
+                    evidence_id: string;
+                    /** @constant */
+                    removed: true;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                    proposal_kind: string;
+                    state: "published" | "stale";
+                    reason?: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
+                } | {
+                    /** @constant */
+                    kind: "match";
+                    lot_id: string;
+                    from: string | null;
+                    to: string | null;
+                })[];
+                source: {
+                    /** @constant */
+                    kind: "operator";
+                    actor_id: string;
+                } | {
+                    /** @constant */
+                    kind: "session";
+                    stage: "examine" | "research" | "images";
+                    attempt_id: string;
+                } | {
+                    /** @constant */
+                    kind: "match";
+                } | {
+                    /** @constant */
+                    kind: "app";
+                };
+                /** Format: int64 */
+                brief_revision: string;
+                /** @constant */
+                values_in_brief?: true;
+                part?: {
+                    index: number;
+                    count: number;
+                };
             };
         };
         SessionInboxSubmission: {
@@ -31653,6 +43051,19 @@ export interface components {
             };
             estimated_quantity?: string;
             quantity_basis?: string;
+            separation_reason?: string;
+        };
+        ProposeLotStageArgs: {
+            /** Format: int64 */
+            base_revision: string;
+            lot_id?: string;
+            label?: string;
+            observation_ids: string[];
+            part?: {
+                part_subject_id: string;
+            } | {
+                label: string;
+            };
             separation_reason?: string;
         };
         RegroupArgs: {
@@ -31839,8 +43250,7 @@ export interface components {
             } | {
                 /** @constant */
                 kind: "correction";
-                /** @constant */
-                source: "human";
+                source: "human" | "agent";
                 observation_id: string;
                 lot_id: string | null;
                 before: {
@@ -32766,6 +44176,671 @@ export interface components {
                             agreement?: "read" | "likely" | "disagree";
                         } | null;
                     };
+                } | {
+                    /** @constant */
+                    schema_version: "examine-identity/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    markings: {
+                        observation_id: string;
+                        text: string[];
+                    }[];
+                    candidates: {
+                        mpn?: string;
+                        manufacturer?: string;
+                        type?: string;
+                        description?: string;
+                        confidence: "high" | "medium" | "low";
+                        reason?: string;
+                    }[];
+                    maker?: {
+                        name: string;
+                        logo_id?: string;
+                        method: "text" | "logo" | "logo_match" | "inferred";
+                    };
+                    packaging?: {
+                        kind: string;
+                        seal: "sealed" | "opened" | "unknown";
+                    };
+                    date_code?: string;
+                    condition?: string;
+                    nos_signals?: string[];
+                    nsn?: string;
+                    quantity?: {
+                        value: string;
+                        basis: string;
+                    };
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "research-identity/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "web_page";
+                        url: string;
+                        title?: string;
+                        read_at?: string;
+                    })[];
+                    resolution: "resolved" | "unresolved";
+                    mpn?: string;
+                    manufacturer?: string;
+                    aliases?: {
+                        value: string;
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    cross_references?: {
+                        mpn: string;
+                        manufacturer?: string;
+                        relation: "equivalent" | "replacement" | "similar";
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    tried?: string[];
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "research/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "web_page";
+                        url: string;
+                        title?: string;
+                        read_at?: string;
+                    })[];
+                    category?: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    name?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    type?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    manufacturer?: {
+                        company: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        mpn: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    description?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    parameters?: {
+                        name: string;
+                        value: string;
+                        template: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "parameter_template";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        category_mapping: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category_parameter";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        alternatives?: {
+                            value: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        }[];
+                        chosen_because?: string;
+                        pages?: number[];
+                    }[];
+                    datasheet?: {
+                        url?: string;
+                        version?: {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        };
+                        pages?: number[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                    notes?: {
+                        record: "part" | "stock" | "lot";
+                        text: string;
+                    }[];
+                    conflicts?: {
+                        field: string;
+                        values: string[];
+                        note?: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    config_gaps?: {
+                        kind: "category" | "parameter_template" | "company";
+                        name: string;
+                        reason: string;
+                    }[];
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "images/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    images: {
+                        role: "part_image" | "stock_image" | "extra";
+                        recipe: {
+                            /** @constant */
+                            version: "bench-intake-view/2";
+                            source_version_id: string;
+                            source_digest: string;
+                            page: number;
+                            page_width: number;
+                            page_height: number;
+                            view: {
+                                region: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                };
+                                quarter_turns: number;
+                                straighten_millidegrees: number;
+                            };
+                            light: {
+                                white_balance: boolean;
+                                contrast_clip_permille: number | null;
+                                gamma_thousandths: number | null;
+                                sharpen: boolean;
+                            };
+                        };
+                        flags?: string[];
+                    }[];
                 };
             } | {
                 /** @constant */
@@ -32947,8 +45022,7 @@ export interface components {
                 } | {
                     /** @constant */
                     kind: "correction";
-                    /** @constant */
-                    source: "human";
+                    source: "human" | "agent";
                     observation_id: string;
                     lot_id: string | null;
                     before: {
@@ -33874,6 +45948,671 @@ export interface components {
                                 agreement?: "read" | "likely" | "disagree";
                             } | null;
                         };
+                    } | {
+                        /** @constant */
+                        schema_version: "examine-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        markings: {
+                            observation_id: string;
+                            text: string[];
+                        }[];
+                        candidates: {
+                            mpn?: string;
+                            manufacturer?: string;
+                            type?: string;
+                            description?: string;
+                            confidence: "high" | "medium" | "low";
+                            reason?: string;
+                        }[];
+                        maker?: {
+                            name: string;
+                            logo_id?: string;
+                            method: "text" | "logo" | "logo_match" | "inferred";
+                        };
+                        packaging?: {
+                            kind: string;
+                            seal: "sealed" | "opened" | "unknown";
+                        };
+                        date_code?: string;
+                        condition?: string;
+                        nos_signals?: string[];
+                        nsn?: string;
+                        quantity?: {
+                            value: string;
+                            basis: string;
+                        };
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research-identity/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        resolution: "resolved" | "unresolved";
+                        mpn?: string;
+                        manufacturer?: string;
+                        aliases?: {
+                            value: string;
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        cross_references?: {
+                            mpn: string;
+                            manufacturer?: string;
+                            relation: "equivalent" | "replacement" | "similar";
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        tried?: string[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "research/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "web_page";
+                            url: string;
+                            title?: string;
+                            read_at?: string;
+                        })[];
+                        category?: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        name?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        type?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        manufacturer?: {
+                            company: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "company";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            mpn: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        description?: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        parameters?: {
+                            name: string;
+                            value: string;
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            alternatives?: {
+                                value: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            }[];
+                            chosen_because?: string;
+                            pages?: number[];
+                        }[];
+                        datasheet?: {
+                            url?: string;
+                            version?: {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            };
+                            pages?: number[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        };
+                        notes?: {
+                            record: "part" | "stock" | "lot";
+                            text: string;
+                        }[];
+                        conflicts?: {
+                            field: string;
+                            values: string[];
+                            note?: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        config_gaps?: {
+                            kind: "category" | "parameter_template" | "company";
+                            name: string;
+                            reason: string;
+                        }[];
+                        match_notes?: {
+                            kind: "alias" | "relation" | "negative";
+                            text: string;
+                            key?: {
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                value: string;
+                            };
+                            sources?: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                    } | {
+                        /** @constant */
+                        schema_version: "images/1";
+                        subject_id: string;
+                        summary: string;
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        images: {
+                            role: "part_image" | "stock_image" | "extra";
+                            recipe: {
+                                /** @constant */
+                                version: "bench-intake-view/2";
+                                source_version_id: string;
+                                source_digest: string;
+                                page: number;
+                                page_width: number;
+                                page_height: number;
+                                view: {
+                                    region: {
+                                        x: number;
+                                        y: number;
+                                        width: number;
+                                        height: number;
+                                    };
+                                    quarter_turns: number;
+                                    straighten_millidegrees: number;
+                                };
+                                light: {
+                                    white_balance: boolean;
+                                    contrast_clip_permille: number | null;
+                                    gamma_thousandths: number | null;
+                                    sharpen: boolean;
+                                };
+                            };
+                            flags?: string[];
+                        }[];
                     };
                 } | {
                     /** @constant */
@@ -34044,8 +46783,7 @@ export interface components {
             } | {
                 /** @constant */
                 kind: "correction";
-                /** @constant */
-                source: "human";
+                source: "human" | "agent";
                 observation_id: string;
                 lot_id: string | null;
                 before: {
@@ -34971,6 +47709,671 @@ export interface components {
                             agreement?: "read" | "likely" | "disagree";
                         } | null;
                     };
+                } | {
+                    /** @constant */
+                    schema_version: "examine-identity/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    markings: {
+                        observation_id: string;
+                        text: string[];
+                    }[];
+                    candidates: {
+                        mpn?: string;
+                        manufacturer?: string;
+                        type?: string;
+                        description?: string;
+                        confidence: "high" | "medium" | "low";
+                        reason?: string;
+                    }[];
+                    maker?: {
+                        name: string;
+                        logo_id?: string;
+                        method: "text" | "logo" | "logo_match" | "inferred";
+                    };
+                    packaging?: {
+                        kind: string;
+                        seal: "sealed" | "opened" | "unknown";
+                    };
+                    date_code?: string;
+                    condition?: string;
+                    nos_signals?: string[];
+                    nsn?: string;
+                    quantity?: {
+                        value: string;
+                        basis: string;
+                    };
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "research-identity/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "web_page";
+                        url: string;
+                        title?: string;
+                        read_at?: string;
+                    })[];
+                    resolution: "resolved" | "unresolved";
+                    mpn?: string;
+                    manufacturer?: string;
+                    aliases?: {
+                        value: string;
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    cross_references?: {
+                        mpn: string;
+                        manufacturer?: string;
+                        relation: "equivalent" | "replacement" | "similar";
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    tried?: string[];
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "research/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "web_page";
+                        url: string;
+                        title?: string;
+                        read_at?: string;
+                    })[];
+                    category?: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    name?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    type?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    manufacturer?: {
+                        company: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        mpn: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    description?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    parameters?: {
+                        name: string;
+                        value: string;
+                        template: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "parameter_template";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        category_mapping: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category_parameter";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        alternatives?: {
+                            value: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        }[];
+                        chosen_because?: string;
+                        pages?: number[];
+                    }[];
+                    datasheet?: {
+                        url?: string;
+                        version?: {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        };
+                        pages?: number[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                    notes?: {
+                        record: "part" | "stock" | "lot";
+                        text: string;
+                    }[];
+                    conflicts?: {
+                        field: string;
+                        values: string[];
+                        note?: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    config_gaps?: {
+                        kind: "category" | "parameter_template" | "company";
+                        name: string;
+                        reason: string;
+                    }[];
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "images/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    images: {
+                        role: "part_image" | "stock_image" | "extra";
+                        recipe: {
+                            /** @constant */
+                            version: "bench-intake-view/2";
+                            source_version_id: string;
+                            source_digest: string;
+                            page: number;
+                            page_width: number;
+                            page_height: number;
+                            view: {
+                                region: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                };
+                                quarter_turns: number;
+                                straighten_millidegrees: number;
+                            };
+                            light: {
+                                white_balance: boolean;
+                                contrast_clip_permille: number | null;
+                                gamma_thousandths: number | null;
+                                sharpen: boolean;
+                            };
+                        };
+                        flags?: string[];
+                    }[];
                 };
             } | {
                 /** @constant */
@@ -35149,8 +48552,7 @@ export interface components {
             } | {
                 /** @constant */
                 kind: "correction";
-                /** @constant */
-                source: "human";
+                source: "human" | "agent";
                 observation_id: string;
                 lot_id: string | null;
                 before: {
@@ -36076,6 +49478,671 @@ export interface components {
                             agreement?: "read" | "likely" | "disagree";
                         } | null;
                     };
+                } | {
+                    /** @constant */
+                    schema_version: "examine-identity/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    markings: {
+                        observation_id: string;
+                        text: string[];
+                    }[];
+                    candidates: {
+                        mpn?: string;
+                        manufacturer?: string;
+                        type?: string;
+                        description?: string;
+                        confidence: "high" | "medium" | "low";
+                        reason?: string;
+                    }[];
+                    maker?: {
+                        name: string;
+                        logo_id?: string;
+                        method: "text" | "logo" | "logo_match" | "inferred";
+                    };
+                    packaging?: {
+                        kind: string;
+                        seal: "sealed" | "opened" | "unknown";
+                    };
+                    date_code?: string;
+                    condition?: string;
+                    nos_signals?: string[];
+                    nsn?: string;
+                    quantity?: {
+                        value: string;
+                        basis: string;
+                    };
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "research-identity/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "web_page";
+                        url: string;
+                        title?: string;
+                        read_at?: string;
+                    })[];
+                    resolution: "resolved" | "unresolved";
+                    mpn?: string;
+                    manufacturer?: string;
+                    aliases?: {
+                        value: string;
+                        kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    cross_references?: {
+                        mpn: string;
+                        manufacturer?: string;
+                        relation: "equivalent" | "replacement" | "similar";
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    tried?: string[];
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "research/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "web_page";
+                        url: string;
+                        title?: string;
+                        read_at?: string;
+                    })[];
+                    category?: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    name?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    type?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    manufacturer?: {
+                        company: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        mpn: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    description?: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    parameters?: {
+                        name: string;
+                        value: string;
+                        template: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "parameter_template";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        category_mapping: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category_parameter";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                        alternatives?: {
+                            value: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        }[];
+                        chosen_because?: string;
+                        pages?: number[];
+                    }[];
+                    datasheet?: {
+                        url?: string;
+                        version?: {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        };
+                        pages?: number[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                    notes?: {
+                        record: "part" | "stock" | "lot";
+                        text: string;
+                    }[];
+                    conflicts?: {
+                        field: string;
+                        values: string[];
+                        note?: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    config_gaps?: {
+                        kind: "category" | "parameter_template" | "company";
+                        name: string;
+                        reason: string;
+                    }[];
+                    match_notes?: {
+                        kind: "alias" | "relation" | "negative";
+                        text: string;
+                        key?: {
+                            kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                            value: string;
+                        };
+                        sources?: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                } | {
+                    /** @constant */
+                    schema_version: "images/1";
+                    subject_id: string;
+                    summary: string;
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    images: {
+                        role: "part_image" | "stock_image" | "extra";
+                        recipe: {
+                            /** @constant */
+                            version: "bench-intake-view/2";
+                            source_version_id: string;
+                            source_digest: string;
+                            page: number;
+                            page_width: number;
+                            page_height: number;
+                            view: {
+                                region: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                };
+                                quarter_turns: number;
+                                straighten_millidegrees: number;
+                            };
+                            light: {
+                                white_balance: boolean;
+                                contrast_clip_permille: number | null;
+                                gamma_thousandths: number | null;
+                                sharpen: boolean;
+                            };
+                        };
+                        flags?: string[];
+                    }[];
                 };
             } | {
                 /** @constant */
@@ -36390,8 +50457,7 @@ export interface components {
                     } | {
                         /** @constant */
                         kind: "correction";
-                        /** @constant */
-                        source: "human";
+                        source: "human" | "agent";
                         observation_id: string;
                         lot_id: string | null;
                         before: {
@@ -37317,6 +51383,671 @@ export interface components {
                                     agreement?: "read" | "likely" | "disagree";
                                 } | null;
                             };
+                        } | {
+                            /** @constant */
+                            schema_version: "examine-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            markings: {
+                                observation_id: string;
+                                text: string[];
+                            }[];
+                            candidates: {
+                                mpn?: string;
+                                manufacturer?: string;
+                                type?: string;
+                                description?: string;
+                                confidence: "high" | "medium" | "low";
+                                reason?: string;
+                            }[];
+                            maker?: {
+                                name: string;
+                                logo_id?: string;
+                                method: "text" | "logo" | "logo_match" | "inferred";
+                            };
+                            packaging?: {
+                                kind: string;
+                                seal: "sealed" | "opened" | "unknown";
+                            };
+                            date_code?: string;
+                            condition?: string;
+                            nos_signals?: string[];
+                            nsn?: string;
+                            quantity?: {
+                                value: string;
+                                basis: string;
+                            };
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            resolution: "resolved" | "unresolved";
+                            mpn?: string;
+                            manufacturer?: string;
+                            aliases?: {
+                                value: string;
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            cross_references?: {
+                                mpn: string;
+                                manufacturer?: string;
+                                relation: "equivalent" | "replacement" | "similar";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            tried?: string[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            category?: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            name?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            type?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            manufacturer?: {
+                                company: {
+                                    /** @constant */
+                                    choice: "existing";
+                                    reference: {
+                                        observation_id: string;
+                                        target_context_id: string;
+                                        /** @constant */
+                                        model: "company";
+                                        /** Format: int64 */
+                                        pk: string;
+                                    };
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
+                                } | {
+                                    /** @constant */
+                                    choice: "proposed_new";
+                                    name: string;
+                                    reason: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                };
+                                mpn: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            description?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            parameters?: {
+                                name: string;
+                                value: string;
+                                template: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "parameter_template";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                category_mapping: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category_parameter";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                alternatives?: {
+                                    value: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                }[];
+                                chosen_because?: string;
+                                pages?: number[];
+                            }[];
+                            datasheet?: {
+                                url?: string;
+                                version?: {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                };
+                                pages?: number[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            };
+                            notes?: {
+                                record: "part" | "stock" | "lot";
+                                text: string;
+                            }[];
+                            conflicts?: {
+                                field: string;
+                                values: string[];
+                                note?: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            config_gaps?: {
+                                kind: "category" | "parameter_template" | "company";
+                                name: string;
+                                reason: string;
+                            }[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "images/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            images: {
+                                role: "part_image" | "stock_image" | "extra";
+                                recipe: {
+                                    /** @constant */
+                                    version: "bench-intake-view/2";
+                                    source_version_id: string;
+                                    source_digest: string;
+                                    page: number;
+                                    page_width: number;
+                                    page_height: number;
+                                    view: {
+                                        region: {
+                                            x: number;
+                                            y: number;
+                                            width: number;
+                                            height: number;
+                                        };
+                                        quarter_turns: number;
+                                        straighten_millidegrees: number;
+                                    };
+                                    light: {
+                                        white_balance: boolean;
+                                        contrast_clip_permille: number | null;
+                                        gamma_thousandths: number | null;
+                                        sharpen: boolean;
+                                    };
+                                };
+                                flags?: string[];
+                            }[];
                         };
                     } | {
                         /** @constant */
@@ -37613,8 +52344,7 @@ export interface components {
                     } | {
                         /** @constant */
                         kind: "correction";
-                        /** @constant */
-                        source: "human";
+                        source: "human" | "agent";
                         observation_id: string;
                         lot_id: string | null;
                         before: {
@@ -38540,6 +53270,671 @@ export interface components {
                                     agreement?: "read" | "likely" | "disagree";
                                 } | null;
                             };
+                        } | {
+                            /** @constant */
+                            schema_version: "examine-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            markings: {
+                                observation_id: string;
+                                text: string[];
+                            }[];
+                            candidates: {
+                                mpn?: string;
+                                manufacturer?: string;
+                                type?: string;
+                                description?: string;
+                                confidence: "high" | "medium" | "low";
+                                reason?: string;
+                            }[];
+                            maker?: {
+                                name: string;
+                                logo_id?: string;
+                                method: "text" | "logo" | "logo_match" | "inferred";
+                            };
+                            packaging?: {
+                                kind: string;
+                                seal: "sealed" | "opened" | "unknown";
+                            };
+                            date_code?: string;
+                            condition?: string;
+                            nos_signals?: string[];
+                            nsn?: string;
+                            quantity?: {
+                                value: string;
+                                basis: string;
+                            };
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            resolution: "resolved" | "unresolved";
+                            mpn?: string;
+                            manufacturer?: string;
+                            aliases?: {
+                                value: string;
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            cross_references?: {
+                                mpn: string;
+                                manufacturer?: string;
+                                relation: "equivalent" | "replacement" | "similar";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            tried?: string[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            category?: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            name?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            type?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            manufacturer?: {
+                                company: {
+                                    /** @constant */
+                                    choice: "existing";
+                                    reference: {
+                                        observation_id: string;
+                                        target_context_id: string;
+                                        /** @constant */
+                                        model: "company";
+                                        /** Format: int64 */
+                                        pk: string;
+                                    };
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
+                                } | {
+                                    /** @constant */
+                                    choice: "proposed_new";
+                                    name: string;
+                                    reason: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                };
+                                mpn: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            description?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            parameters?: {
+                                name: string;
+                                value: string;
+                                template: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "parameter_template";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                category_mapping: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category_parameter";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                alternatives?: {
+                                    value: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                }[];
+                                chosen_because?: string;
+                                pages?: number[];
+                            }[];
+                            datasheet?: {
+                                url?: string;
+                                version?: {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                };
+                                pages?: number[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            };
+                            notes?: {
+                                record: "part" | "stock" | "lot";
+                                text: string;
+                            }[];
+                            conflicts?: {
+                                field: string;
+                                values: string[];
+                                note?: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            config_gaps?: {
+                                kind: "category" | "parameter_template" | "company";
+                                name: string;
+                                reason: string;
+                            }[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "images/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            images: {
+                                role: "part_image" | "stock_image" | "extra";
+                                recipe: {
+                                    /** @constant */
+                                    version: "bench-intake-view/2";
+                                    source_version_id: string;
+                                    source_digest: string;
+                                    page: number;
+                                    page_width: number;
+                                    page_height: number;
+                                    view: {
+                                        region: {
+                                            x: number;
+                                            y: number;
+                                            width: number;
+                                            height: number;
+                                        };
+                                        quarter_turns: number;
+                                        straighten_millidegrees: number;
+                                    };
+                                    light: {
+                                        white_balance: boolean;
+                                        contrast_clip_permille: number | null;
+                                        gamma_thousandths: number | null;
+                                        sharpen: boolean;
+                                    };
+                                };
+                                flags?: string[];
+                            }[];
                         };
                     } | {
                         /** @constant */
@@ -38861,6 +54256,48 @@ export interface components {
                     };
                 };
             } | null;
+            match?: {
+                outcome: {
+                    /** Format: int64 */
+                    revision: string;
+                    basis: {
+                        /** @constant */
+                        kind: "clear";
+                    } | {
+                        /** @constant */
+                        kind: "decision";
+                        decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                    };
+                } | null;
+                mode: {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "identify";
+                } | {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "full";
+                } | {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "gaps";
+                    fields: ("datasheet" | "parameters")[];
+                } | {
+                    /** @constant */
+                    stage: "images";
+                    /** @constant */
+                    mode: "full";
+                } | {
+                    /** @constant */
+                    stage: "images";
+                    /** @constant */
+                    mode: "stock";
+                    part_image: boolean;
+                };
+            };
         } | {
             /** @constant */
             schema_version: "bench-intake-input/7";
@@ -39099,8 +54536,7 @@ export interface components {
                     } | {
                         /** @constant */
                         kind: "correction";
-                        /** @constant */
-                        source: "human";
+                        source: "human" | "agent";
                         observation_id: string;
                         lot_id: string | null;
                         before: {
@@ -40026,6 +55462,671 @@ export interface components {
                                     agreement?: "read" | "likely" | "disagree";
                                 } | null;
                             };
+                        } | {
+                            /** @constant */
+                            schema_version: "examine-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            markings: {
+                                observation_id: string;
+                                text: string[];
+                            }[];
+                            candidates: {
+                                mpn?: string;
+                                manufacturer?: string;
+                                type?: string;
+                                description?: string;
+                                confidence: "high" | "medium" | "low";
+                                reason?: string;
+                            }[];
+                            maker?: {
+                                name: string;
+                                logo_id?: string;
+                                method: "text" | "logo" | "logo_match" | "inferred";
+                            };
+                            packaging?: {
+                                kind: string;
+                                seal: "sealed" | "opened" | "unknown";
+                            };
+                            date_code?: string;
+                            condition?: string;
+                            nos_signals?: string[];
+                            nsn?: string;
+                            quantity?: {
+                                value: string;
+                                basis: string;
+                            };
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            resolution: "resolved" | "unresolved";
+                            mpn?: string;
+                            manufacturer?: string;
+                            aliases?: {
+                                value: string;
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            cross_references?: {
+                                mpn: string;
+                                manufacturer?: string;
+                                relation: "equivalent" | "replacement" | "similar";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            tried?: string[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            category?: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            name?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            type?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            manufacturer?: {
+                                company: {
+                                    /** @constant */
+                                    choice: "existing";
+                                    reference: {
+                                        observation_id: string;
+                                        target_context_id: string;
+                                        /** @constant */
+                                        model: "company";
+                                        /** Format: int64 */
+                                        pk: string;
+                                    };
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
+                                } | {
+                                    /** @constant */
+                                    choice: "proposed_new";
+                                    name: string;
+                                    reason: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                };
+                                mpn: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            description?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            parameters?: {
+                                name: string;
+                                value: string;
+                                template: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "parameter_template";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                category_mapping: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category_parameter";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                alternatives?: {
+                                    value: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                }[];
+                                chosen_because?: string;
+                                pages?: number[];
+                            }[];
+                            datasheet?: {
+                                url?: string;
+                                version?: {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                };
+                                pages?: number[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            };
+                            notes?: {
+                                record: "part" | "stock" | "lot";
+                                text: string;
+                            }[];
+                            conflicts?: {
+                                field: string;
+                                values: string[];
+                                note?: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            config_gaps?: {
+                                kind: "category" | "parameter_template" | "company";
+                                name: string;
+                                reason: string;
+                            }[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "images/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            images: {
+                                role: "part_image" | "stock_image" | "extra";
+                                recipe: {
+                                    /** @constant */
+                                    version: "bench-intake-view/2";
+                                    source_version_id: string;
+                                    source_digest: string;
+                                    page: number;
+                                    page_width: number;
+                                    page_height: number;
+                                    view: {
+                                        region: {
+                                            x: number;
+                                            y: number;
+                                            width: number;
+                                            height: number;
+                                        };
+                                        quarter_turns: number;
+                                        straighten_millidegrees: number;
+                                    };
+                                    light: {
+                                        white_balance: boolean;
+                                        contrast_clip_permille: number | null;
+                                        gamma_thousandths: number | null;
+                                        sharpen: boolean;
+                                    };
+                                };
+                                flags?: string[];
+                            }[];
                         };
                     } | {
                         /** @constant */
@@ -40328,8 +56429,7 @@ export interface components {
                     } | {
                         /** @constant */
                         kind: "correction";
-                        /** @constant */
-                        source: "human";
+                        source: "human" | "agent";
                         observation_id: string;
                         lot_id: string | null;
                         before: {
@@ -41255,6 +57355,671 @@ export interface components {
                                     agreement?: "read" | "likely" | "disagree";
                                 } | null;
                             };
+                        } | {
+                            /** @constant */
+                            schema_version: "examine-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            markings: {
+                                observation_id: string;
+                                text: string[];
+                            }[];
+                            candidates: {
+                                mpn?: string;
+                                manufacturer?: string;
+                                type?: string;
+                                description?: string;
+                                confidence: "high" | "medium" | "low";
+                                reason?: string;
+                            }[];
+                            maker?: {
+                                name: string;
+                                logo_id?: string;
+                                method: "text" | "logo" | "logo_match" | "inferred";
+                            };
+                            packaging?: {
+                                kind: string;
+                                seal: "sealed" | "opened" | "unknown";
+                            };
+                            date_code?: string;
+                            condition?: string;
+                            nos_signals?: string[];
+                            nsn?: string;
+                            quantity?: {
+                                value: string;
+                                basis: string;
+                            };
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research-identity/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            resolution: "resolved" | "unresolved";
+                            mpn?: string;
+                            manufacturer?: string;
+                            aliases?: {
+                                value: string;
+                                kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            cross_references?: {
+                                mpn: string;
+                                manufacturer?: string;
+                                relation: "equivalent" | "replacement" | "similar";
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            tried?: string[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "research/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "web_page";
+                                url: string;
+                                title?: string;
+                                read_at?: string;
+                            })[];
+                            category?: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            name?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            type?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            manufacturer?: {
+                                company: {
+                                    /** @constant */
+                                    choice: "existing";
+                                    reference: {
+                                        observation_id: string;
+                                        target_context_id: string;
+                                        /** @constant */
+                                        model: "company";
+                                        /** Format: int64 */
+                                        pk: string;
+                                    };
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
+                                } | {
+                                    /** @constant */
+                                    choice: "proposed_new";
+                                    name: string;
+                                    reason: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                };
+                                mpn: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            description?: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            parameters?: {
+                                name: string;
+                                value: string;
+                                template: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "parameter_template";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                category_mapping: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category_parameter";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                                alternatives?: {
+                                    value: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                }[];
+                                chosen_because?: string;
+                                pages?: number[];
+                            }[];
+                            datasheet?: {
+                                url?: string;
+                                version?: {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                };
+                                pages?: number[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            };
+                            notes?: {
+                                record: "part" | "stock" | "lot";
+                                text: string;
+                            }[];
+                            conflicts?: {
+                                field: string;
+                                values: string[];
+                                note?: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            config_gaps?: {
+                                kind: "category" | "parameter_template" | "company";
+                                name: string;
+                                reason: string;
+                            }[];
+                            match_notes?: {
+                                kind: "alias" | "relation" | "negative";
+                                text: string;
+                                key?: {
+                                    kind: "mpn" | "manufacturer" | "nsn" | "ipn" | "sku" | "batch_code" | "house_number" | "packaging_code" | "distributor_code" | "cross_reference" | "alternate_marking";
+                                    value: string;
+                                };
+                                sources?: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                        } | {
+                            /** @constant */
+                            schema_version: "images/1";
+                            subject_id: string;
+                            summary: string;
+                            relies_on: {
+                                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "evidence_observation";
+                                    evidence_observation_id: string;
+                                    /** Format: int64 */
+                                    revision: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "observation_set";
+                                    lot_id: string;
+                                    /** Format: int64 */
+                                    version: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "inbox_item";
+                                    inbox_item_id: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "proposal";
+                                    proposal_id: string;
+                                })[];
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            images: {
+                                role: "part_image" | "stock_image" | "extra";
+                                recipe: {
+                                    /** @constant */
+                                    version: "bench-intake-view/2";
+                                    source_version_id: string;
+                                    source_digest: string;
+                                    page: number;
+                                    page_width: number;
+                                    page_height: number;
+                                    view: {
+                                        region: {
+                                            x: number;
+                                            y: number;
+                                            width: number;
+                                            height: number;
+                                        };
+                                        quarter_turns: number;
+                                        straighten_millidegrees: number;
+                                    };
+                                    light: {
+                                        white_balance: boolean;
+                                        contrast_clip_permille: number | null;
+                                        gamma_thousandths: number | null;
+                                        sharpen: boolean;
+                                    };
+                                };
+                                flags?: string[];
+                            }[];
                         };
                     } | {
                         /** @constant */
@@ -41576,6 +58341,167 @@ export interface components {
                     };
                 };
             } | null;
+            match?: {
+                outcome: {
+                    /** Format: int64 */
+                    revision: string;
+                    basis: {
+                        /** @constant */
+                        kind: "clear";
+                    } | {
+                        /** @constant */
+                        kind: "decision";
+                        decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                    };
+                } | null;
+                mode: {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "identify";
+                } | {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "full";
+                } | {
+                    /** @constant */
+                    stage: "research";
+                    /** @constant */
+                    mode: "gaps";
+                    fields: ("datasheet" | "parameters")[];
+                } | {
+                    /** @constant */
+                    stage: "images";
+                    /** @constant */
+                    mode: "full";
+                } | {
+                    /** @constant */
+                    stage: "images";
+                    /** @constant */
+                    mode: "stock";
+                    part_image: boolean;
+                };
+            };
+        };
+        StageMode: {
+            /** @constant */
+            stage: "research";
+            /** @constant */
+            mode: "identify";
+        } | {
+            /** @constant */
+            stage: "research";
+            /** @constant */
+            mode: "full";
+        } | {
+            /** @constant */
+            stage: "research";
+            /** @constant */
+            mode: "gaps";
+            fields: ("datasheet" | "parameters")[];
+        } | {
+            /** @constant */
+            stage: "images";
+            /** @constant */
+            mode: "full";
+        } | {
+            /** @constant */
+            stage: "images";
+            /** @constant */
+            mode: "stock";
+            part_image: boolean;
+        };
+        MatchOutcome: {
+            /** @constant */
+            schema_version: "bench-intake-match-outcome/1";
+            lot_id: string;
+            /** Format: int64 */
+            revision: string;
+            basis: {
+                /** @constant */
+                kind: "clear";
+            } | {
+                /** @constant */
+                kind: "decision";
+                decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+            };
+            research: {
+                /** @constant */
+                stage: "research";
+                /** @constant */
+                mode: "full";
+            } | {
+                /** @constant */
+                stage: "research";
+                /** @constant */
+                mode: "gaps";
+                fields: ("datasheet" | "parameters")[];
+            } | {
+                /** @constant */
+                stage: "research";
+                /** @constant */
+                mode: "skipped";
+            };
+            images: {
+                /** @constant */
+                stage: "images";
+                /** @constant */
+                mode: "full";
+            } | {
+                /** @constant */
+                stage: "images";
+                /** @constant */
+                mode: "stock";
+                part_image: boolean;
+            } | {
+                /** @constant */
+                stage: "images";
+                /** @constant */
+                mode: "skipped";
+            };
+        };
+        SealedMatch: {
+            outcome: {
+                /** Format: int64 */
+                revision: string;
+                basis: {
+                    /** @constant */
+                    kind: "clear";
+                } | {
+                    /** @constant */
+                    kind: "decision";
+                    decision: "new_part" | "fill_gaps" | "add_stock" | "already_imported";
+                };
+            } | null;
+            mode: {
+                /** @constant */
+                stage: "research";
+                /** @constant */
+                mode: "identify";
+            } | {
+                /** @constant */
+                stage: "research";
+                /** @constant */
+                mode: "full";
+            } | {
+                /** @constant */
+                stage: "research";
+                /** @constant */
+                mode: "gaps";
+                fields: ("datasheet" | "parameters")[];
+            } | {
+                /** @constant */
+                stage: "images";
+                /** @constant */
+                mode: "full";
+            } | {
+                /** @constant */
+                stage: "images";
+                /** @constant */
+                mode: "stock";
+                part_image: boolean;
+            };
         };
     };
     responses: never;
@@ -41684,6 +58610,14 @@ export type CatalogueProposal = components['schemas']['CatalogueProposal']
 export type ProcessingProposalV5 = components['schemas']['ProcessingProposalV5']
 export type ProcessingProposalV6 = components['schemas']['ProcessingProposalV6']
 export type SessionProposal = components['schemas']['SessionProposal']
+export type ExamineIdentityV1 = components['schemas']['ExamineIdentityV1']
+export type ResearchIdentityV1 = components['schemas']['ResearchIdentityV1']
+export type ResearchV1 = components['schemas']['ResearchV1']
+export type ImagesV1 = components['schemas']['ImagesV1']
+export type StageProposal = components['schemas']['StageProposal']
+export type StagePublishedProposal = components['schemas']['StagePublishedProposal']
+export type RetainedSessionProposal = components['schemas']['RetainedSessionProposal']
+export type MatchNote = components['schemas']['MatchNote']
 export type WebPageSource = components['schemas']['WebPageSource']
 export type ProcessingInputV4 = components['schemas']['ProcessingInputV4']
 export type ProcessingCommandV4 = components['schemas']['ProcessingCommandV4']
@@ -41815,6 +58749,10 @@ export type SessionReplyArgs = components['schemas']['SessionReplyArgs']
 export type SessionReadInboxArgs = components['schemas']['SessionReadInboxArgs']
 export type SessionFetchEvidenceArgs = components['schemas']['SessionFetchEvidenceArgs']
 export type SessionProposeArgs = components['schemas']['SessionProposeArgs']
+export type SessionStageProposeArgs = components['schemas']['SessionStageProposeArgs']
+export type SessionStageAskArgs = components['schemas']['SessionStageAskArgs']
+export type SessionRevisionV2 = components['schemas']['SessionRevisionV2']
+export type RevisionChange = components['schemas']['RevisionChange']
 export type SessionToolError = components['schemas']['SessionToolError']
 export type SessionToolResult = components['schemas']['SessionToolResult']
 export type SessionOutboxItem = components['schemas']['SessionOutboxItem']
@@ -41830,6 +58768,7 @@ export type EvidenceReadings = components['schemas']['EvidenceReadings']
 export type CaptureEvidenceObservation = components['schemas']['CaptureEvidenceObservation']
 export type RecordObservationArgs = components['schemas']['RecordObservationArgs']
 export type ProposeLotArgs = components['schemas']['ProposeLotArgs']
+export type ProposeLotStageArgs = components['schemas']['ProposeLotStageArgs']
 export type RegroupArgs = components['schemas']['RegroupArgs']
 export type LotFormingConflict = components['schemas']['LotFormingConflict']
 export type LeadBatchView = components['schemas']['LeadBatchView']
@@ -41843,3 +58782,6 @@ export type SessionReadBriefBatchArgs = components['schemas']['SessionReadBriefB
 export type SessionReadGuideArgs = components['schemas']['SessionReadGuideArgs']
 export type SessionReadVocabularyArgs = components['schemas']['SessionReadVocabularyArgs']
 export type ProcessingInputV7 = components['schemas']['ProcessingInputV7']
+export type StageMode = components['schemas']['StageMode']
+export type MatchOutcome = components['schemas']['MatchOutcome']
+export type SealedMatch = components['schemas']['SealedMatch']

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { batchInputVersion } from './stage-policy.ts'
 import { and, eq, getTableColumns, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import {
@@ -7,6 +8,8 @@ import {
   type ProcessingAnswerDto,
   type ProcessingAnswerV1Dto,
   type ProcessingAnswerV2Dto,
+  type CaptureSnapshotDto,
+  type RevisionChangeDto,
   type SessionAskArgsDto,
   type SessionAskArgsV2Dto,
   type SessionAnswerPayloadDto,
@@ -27,6 +30,7 @@ import {
   processingQuestions,
 } from './schema.ts'
 import { captureSubjects } from '#/capture/schema.ts'
+import { captureInTransaction, quantityText } from '#/capture/repository.ts'
 import { lockProcessingAttempt } from './state.ts'
 
 interface LockedCapture {
@@ -156,6 +160,54 @@ async function requireInboxPayloadFits(client: PoolClient, payload: SessionAnswe
 }
 
 /**
+ * What an answer changed, as a `/7` session is told (Mitch's decision): the answer itself, step by
+ * step as the operator gave it, and a field change only where it changed Capture: the lot's
+ * quantity a number step set, from what Capture held before to what it holds now. A quantity
+ * answered in words changes no quantity, so it is the answer alone.
+ */
+function answeredChanges(
+  delivered: SessionAnswerPayloadDto,
+  subjectId: string | null,
+  before: CaptureSnapshotDto,
+  after: CaptureSnapshotDto,
+): RevisionChangeDto[] {
+  const steps =
+    'steps' in delivered
+      ? delivered.steps.map((step) => ({ step_id: step.step_id, value: step.value }))
+      : [{ step_id: null, value: delivered.value }]
+  const answer: RevisionChangeDto = {
+    kind: 'answer',
+    question_id: delivered.question_id,
+    answer_id: delivered.answer_id,
+    steps,
+  }
+  const counted = steps.some(
+    (step) => step.value.kind === 'number' || step.value.kind === 'quantity',
+  )
+  if (!counted || !subjectId) {
+    return [answer]
+  }
+
+  const quantityOf = (snapshot: CaptureSnapshotDto) =>
+    quantityText(snapshot.lots.find((lot) => lot.id === subjectId)?.quantity)
+
+  // A number equal to the quantity Capture held changes nothing there.
+  if (quantityOf(before) === quantityOf(after)) {
+    return [answer]
+  }
+  return [
+    answer,
+    {
+      kind: 'field',
+      subject_id: subjectId,
+      field: 'quantity',
+      from: quantityOf(before),
+      to: quantityOf(after),
+    },
+  ]
+}
+
+/**
  * A session question does not block its session. The answer is the same human capture edit as
  * for earlier profiles, and it reaches the running or resumable session as an inbox item.
  */
@@ -225,7 +277,9 @@ export async function answerSessionQuestion(
   if (plan.checkPayload) {
     await requireInboxPayloadFits(client, plan.inboxPayload)
   }
+  const before = await captureInTransaction(client, config, batchId)
   const snapshot = await capture.applyInOrder(plan.edits(input.expected_capture_revision))
+  const after = await captureInTransaction(client, config, batchId)
   const value = sealed({ ...input, question_id: questionId })
   await executeDatabaseQuery(
     queryDatabase(client)
@@ -269,7 +323,28 @@ export async function answerSessionQuestion(
     message: `A question was answered: ${plan.title}`,
     key: `answer:${questionId}`,
     except: job.id,
+    changes: answeredChanges(plan.inboxPayload, subjectId, before.snapshot, after.snapshot),
+    context: { origin: { by: 'operator' }, briefRevision: snapshot.revision },
   })
+  // Under `/7` an answer about a Part is about the lots linked to it, so what relied on their
+  // fields is stale and told as well.
+  const aboutPart =
+    subjectId !== null && before.snapshot.parts.some((part) => part.id === subjectId)
+  if (aboutPart && (await batchInputVersion(client, config, batchId)) === 'bench-intake-input/7') {
+    for (const lot of before.snapshot.lots.filter((item) => item.part_subject_id === subjectId)) {
+      await fieldsSuperseded(client, {
+        batchId,
+        subjectId: lot.id,
+        fields: ask.fields,
+        reason: 'answer_received',
+        message: `A question about this lot's Part was answered: ${plan.title}`,
+        key: `answer:${questionId}:${lot.id}`,
+        except: job.id,
+        changes: answeredChanges(plan.inboxPayload, lot.id, before.snapshot, after.snapshot),
+        context: { origin: { by: 'operator' }, briefRevision: snapshot.revision },
+      })
+    }
+  }
   await capture.publish()
   await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
   return {

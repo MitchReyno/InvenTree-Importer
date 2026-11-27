@@ -162,7 +162,8 @@ export function LotEvidence({
           {proposals.map(({ job, proposal }) => (
             <Field key={proposal.id}>
               <span>
-                <Pill tone="neutral">Fixture-only</Pill> {job.stage} · attempt {job.attempt_number}
+                <Pill tone="neutral">Fixture-only</Pill> {job.stage} · attempt {job.attempt_number}{' '}
+                {proposal.currentness?.state === 'stale' && <Pill tone="warn">Stale</Pill>}
               </span>
               <Paragraph>{proposal.value.summary}</Paragraph>
               <ProcessingSources proposal={proposal.value} />
@@ -171,7 +172,12 @@ export function LotEvidence({
                 part={part}
                 proposal={proposal.value}
                 defaultQuantity={batch.defaults.quantity}
-                current={processingCurrent && job.state === 'ready'}
+                // A stale candidate rests on facts that changed, so it can't be taken.
+                current={
+                  processingCurrent &&
+                  job.state === 'ready' &&
+                  proposal.currentness?.state !== 'stale'
+                }
                 currentNow={processingCurrentNow}
                 disabled={editDisabled}
                 edit={edit}

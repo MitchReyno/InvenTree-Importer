@@ -246,7 +246,7 @@ test('invalid outbox items return typed errors and publish nothing', async () =>
 })
 
 test('inbox items are idempotent and redelivered until acknowledged', async () => {
-  await withSessions(async ({ fixture, url, a }) => {
+  await withSessions(async ({ fixture, url, a, b }) => {
     const submit = (key: string, text: string) =>
       submitSessionInbox(fixture.api.pool, {
         binding: fixture.config,
@@ -259,6 +259,27 @@ test('inbox items are idempotent and redelivered until acknowledged', async () =
     const first = await submit('chat-1', 'Check the back label.')
     assert.deepEqual(await submit('chat-1', 'Check the back label.'), first)
     await assert.rejects(submit('chat-1', 'Something else'), /idempotency_conflict/)
+    // A payload with numbers replays under its key, and a changed number conflicts.
+    const countedId = randomUUID()
+    const counted = (to: number) =>
+      submitSessionInbox(fixture.api.pool, {
+        binding: fixture.config,
+        lineageId: b.job,
+        actorId: null,
+        idempotencyKey: 'count-1',
+        kind: 'revision',
+        payload: {
+          schema_version: 'bench-intake-revision/2',
+          fields: ['quantity'],
+          reason: 'operator_correction',
+          changes: [{ kind: 'count', observation_id: countedId, count_from: 1, count_to: to }],
+          source: { kind: 'match' },
+          brief_revision: '1',
+        },
+      })
+    const numbered = await counted(12)
+    assert.deepEqual(await counted(12), numbered)
+    await assert.rejects(counted(13), /idempotency_conflict/)
     const second = await submit('chat-2', 'It is a 1k resistor.')
     assert.equal((await counts(fixture, a.attempt, a.job)).inbox, '2')
 

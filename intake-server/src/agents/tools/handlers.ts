@@ -15,7 +15,10 @@ import {
   type SessionProposalDto,
   type WebPageSourceDto,
   type ProcessingRelianceDto,
+  type RetainedSessionProposalDto,
   type SessionAskArgsV2Dto,
+  type SessionStageAskArgsDto,
+  type SessionStageProposeArgsDto,
   type SessionReadBriefBatchArgsDto,
   type SessionReadLotArgsDto,
   type SessionReadGuideArgsDto,
@@ -30,7 +33,14 @@ import {
   queryDatabase,
   transaction,
 } from '#/db/database.ts'
-import { onLeadIdentity } from '#/processing/stable-identity.ts'
+import { notCurrent, recordIdentityBasis, replacedNoteSql } from '#/processing/identity-basis.ts'
+import {
+  builtOn,
+  earlierIdentities,
+  lotRetired,
+  onLeadIdentity,
+  reliedObservationSet,
+} from '#/processing/stable-identity.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
 import { lockCaptureForAgentWrite, lockCaptureForInputSettlement } from '#/capture/repository.ts'
@@ -38,6 +48,7 @@ import { CaptureError } from '#/capture/model.ts'
 import {
   leadBatchView,
   proposeLot,
+  recordLotEstimate,
   recordObservation,
   regroup,
   type LotFormingResult,
@@ -45,7 +56,7 @@ import {
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { ProcessingError, sealed } from '#/processing/model.ts'
 import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
-import { catalogueSources, deliveredSourceCheck } from '#/processing/provenance.ts'
+import { deliveredSourceCheck, proposalCitations } from '#/processing/provenance.ts'
 import { storableText } from '#/db/storable-text.ts'
 import { lockProcessingAttempt } from '#/processing/state.ts'
 import {
@@ -59,6 +70,14 @@ import type { BlobStore } from '#/media/blob-store.ts'
 import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { refuse, ToolRefusal } from './refusal.ts'
+import { stageOutputRefusal } from './stage-outputs.ts'
+import {
+  coveringQuestion,
+  questionSubject,
+  storeQuestionBasis,
+  type QuestionBasis,
+} from './question-dedupe.ts'
+import { releasedPages } from './photo-release.ts'
 import { readBriefPage, retainBriefView, stagePrincipal, type BriefRead } from './brief-read.ts'
 import { readGuide, readVocabulary } from './stage-reads.ts'
 import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
@@ -242,6 +261,8 @@ async function fetchEvidenceImage(
         originalType?: DeliveredImage['mediaType']
         deferCitation: boolean
         examine: boolean
+        /** A `/7` session cites a view only once its release is recorded, so it learns the view. */
+        stageInput: boolean
         region?: {
           x: number
           y: number
@@ -335,6 +356,7 @@ async function fetchEvidenceImage(
         region: request.region,
         deferCitation: principal.manifest.profile_id === 'shared-vm-agent/3',
         examine: (principal.manifest.stage as string) === 'examine',
+        stageInput: principal.manifest.schema_version === 'bench-intake-input/7',
       }
       const described = await client.query<{ label: string; note: string | null }>(
         `SELECT e.label,
@@ -444,7 +466,8 @@ async function fetchEvidenceImage(
   if (!image || !view) {
     return { result: { ...authorized.result, pending_inbox: finished.pending } }
   }
-  if (!plan.deferCitation) {
+  // A `/7` citation needs the view's recorded release instead.
+  if (!plan.deferCitation && !plan.stageInput) {
     recordMediaDelivery(context.deliveredMedia, plan.jobId, plan.versionId, {
       attemptId: plan.attemptId,
       page: preview.page,
@@ -454,6 +477,7 @@ async function fetchEvidenceImage(
     result: {
       ...authorized.result,
       pending_inbox: finished.pending,
+      ...(plan.stageInput && finished.viewSeq ? { view_seq: finished.viewSeq } : {}),
       source: plan.source,
       delivered: {
         page: preview.page,
@@ -526,7 +550,7 @@ function releaseImageBudget(context: SessionToolContext, run: string, bytes: num
 }
 
 type FinalFetchOutcome =
-  | { kind: 'committed'; pending: number }
+  | { kind: 'committed'; pending: number; viewSeq: string | null }
   | { kind: 'refused'; output: SessionToolOutput }
   | { kind: 'uncertain'; pending: number }
 
@@ -546,6 +570,7 @@ async function finishEvidenceFetch(
   // outcome is unknown; a throw before it rolled back.
   let workReturned = false
   let pendingBeforeCommit = 0
+  let viewSeq: string | null = null
   try {
     const pending = await transaction(context.pool, async (client) => {
       const found =
@@ -555,7 +580,11 @@ async function finishEvidenceFetch(
       await requireRunningSession(client, token, found)
       await refuseRemovedVersions(client, target.batchId, [target.versionId])
       if (view) {
-        await appendSessionOutbox(client, found.attemptId, { kind: 'photo_view', payload: view })
+        const seq = await appendSessionOutbox(client, found.attemptId, {
+          kind: 'photo_view',
+          payload: view,
+        })
+        viewSeq = seq.toString()
         await appendEvent(client, streamId, 'session_changed', {
           batch_id: found.batchId,
         })
@@ -565,7 +594,7 @@ async function finishEvidenceFetch(
       workReturned = true
       return count
     })
-    return { kind: 'committed', pending }
+    return { kind: 'committed', pending, viewSeq }
   } catch (error) {
     // The fetch doesn't touch the inbox or its cursor, so the count read before COMMIT holds.
     if (workReturned && view) {
@@ -935,10 +964,127 @@ async function refuseRemovedSources(
 }
 
 /**
+ * A `/7` session publishes its stage's typed output, refused as correctable when its kind or a
+ * field isn't its stage's or its mode's; earlier sessions publish `/5` or `/6`.
+ */
+function publishedProposal(principal: SessionPrincipal, args: unknown): RetainedSessionProposalDto {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return validated<{ proposal: SessionProposalDto }>('SessionProposeArgs', args).proposal
+  }
+  const { proposal } = validated<SessionStageProposeArgsDto>('SessionStageProposeArgs', args)
+  refuseUnstorableText(proposal, '/proposal')
+  const refusal = stageOutputRefusal(principal.manifest, proposal)
+  if (refusal) {
+    throw refusal
+  }
+  return proposal
+}
+
+/**
+ * A `/7` identity retires the lot's earlier ones, so it can't rely on one of them, or on anything
+ * built on one: it would be current, and queue successors, while resting on what it made stale.
+ */
+async function refuseRelyingOnRetired(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  proposal: RetainedSessionProposalDto,
+  proposalId: string,
+) {
+  const identity =
+    principal.manifest.schema_version === 'bench-intake-input/7' &&
+    proposal.schema_version === 'examine-identity/1' &&
+    proposal.relies_on.fields.includes('identity')
+  if (!identity) {
+    return
+  }
+  // What retiring the lot's earlier identities would make stale, at any depth.
+  const earlier = new Set(
+    await builtOn(
+      client,
+      principal.batchId,
+      await earlierIdentities(client, principal.batchId, proposal.subject_id, proposalId),
+    ),
+  )
+  const index = proposal.relies_on.sources.findIndex(
+    (source) => source.kind === 'proposal' && earlier.has(source.proposal_id),
+  )
+  if (index >= 0) {
+    const reason = 'Rely on the evidence, not on the identity this one replaces.'
+    throw new ToolRefusal(
+      'validation_failed',
+      `This identity replaces the one it relies on. ${reason}`,
+      [{ path: `/proposal/relies_on/sources/${index}`, rule: 'not_allowed', reason }],
+    )
+  }
+}
+
+async function proposalStale(client: PoolClient, proposalId: string) {
+  const rows = await client.query(
+    'SELECT 1 FROM public.processing_proposal_stale WHERE proposal_id=$1',
+    [proposalId],
+  )
+  return Boolean(rows.rowCount)
+}
+
+/**
+ * A typed output's text goes into PostgreSQL text and jsonb, which refuse NUL and unpaired
+ * surrogates the schema admits; the first such string is refused by its path.
+ */
+function refuseUnstorableText(value: unknown, path: string): void {
+  if (typeof value === 'string') {
+    if (!storableText(value)) {
+      const reason = 'Text must not hold NUL or unpaired surrogates.'
+      throw new ToolRefusal(
+        'validation_failed',
+        `${path} holds a character that can't be stored.`,
+        [{ path, rule: 'schema', reason }],
+      )
+    }
+    return
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => refuseUnstorableText(item, `${path}/${index}`))
+    return
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      refuseUnstorableText(item, `${path}/${key}`)
+    }
+  }
+}
+
+/** The quantity estimate a `/7` lead's identity carries, which becomes the lot's estimate. */
+function leadEstimate(principal: SessionPrincipal, proposal: RetainedSessionProposalDto) {
+  if (principal.subjectId !== null || proposal.schema_version !== 'examine-identity/1') {
+    return undefined
+  }
+  return proposal.quantity
+}
+
+/** Under `/7` a lot's estimate is Examine's typed output's, so `propose_lot` takes none. */
+function refuseStageEstimate(principal: SessionPrincipal, input: ProposeLotArgsDto) {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return
+  }
+  const given = (['estimated_quantity', 'quantity_basis'] as const).filter(
+    (field) => input[field] !== undefined,
+  )
+  if (!given.length) {
+    return
+  }
+  const reason = 'Give the estimate in the lot’s examine-identity/1 quantity.'
+  throw new ToolRefusal(
+    'validation_failed',
+    `propose_lot takes no ${given.join(' or ')} in this session. Retry without it, then publish the estimate as the quantity of the lot's examine-identity/1.`,
+    given.map((field) => ({ path: `/${field}`, rule: 'not_allowed', reason })),
+  )
+}
+
+/**
  * The contract's pattern bounds a web page URL's scheme, length and authority; the URL parser
  * also has to accept it as an absolute http(s) URL with a host and no credentials.
  */
-function refuseUnacceptedWebPages(proposal: SessionProposalDto) {
+function refuseUnacceptedWebPages(proposal: Pick<RetainedSessionProposalDto, 'sources'>) {
   proposal.sources.forEach((source, index) => {
     if (source.kind === 'web_page' && !webPageUrlAccepted(source.url)) {
       throw new ToolRefusal(
@@ -957,9 +1103,27 @@ function refuseUnacceptedWebPages(proposal: SessionProposalDto) {
 }
 
 /**
- * Every citation must come from what this session was given: notes from its opening manifest,
- * media it actually fetched, inbox items of its lineage, and proposals pinned for it or its own.
+ * The pages of each version this session was given. A `/7` session's are the views whose release
+ * was recorded on its current attempt, which a worker restart keeps; an earlier session's are what
+ * this worker delivered to its job, with the pages its current attempt was shown.
  */
+async function deliveredPages(
+  client: PoolClient,
+  context: SessionToolContext,
+  principal: SessionPrincipal,
+): Promise<Map<string, Set<number>>> {
+  if (principal.manifest.schema_version === 'bench-intake-input/7') {
+    return releasedPages(client, principal.attemptId)
+  }
+  const versions = context.deliveredMedia.get(principal.jobId) ?? new Map<string, DeliveredPages>()
+  return new Map(
+    [...versions].map(([version, attempts]) => [
+      version,
+      attempts.get(principal.attemptId) ?? new Set<number>(),
+    ]),
+  )
+}
+
 /**
  * Whether a cited note or media version was delivered to this session: a version counts once the
  * session fetched it, and manifest membership decides how its evidence and digest are checked.
@@ -976,7 +1140,7 @@ export async function deliveredSourcePredicate(
     notes: manifest.notes,
     media: manifest.media,
   })
-  const fetched = new Set((context.deliveredMedia.get(principal.jobId) ?? new Map()).keys())
+  const fetched = new Set((await deliveredPages(client, context, principal)).keys())
 
   const manifestVersions = new Set(
     decodeMediaInputs(
@@ -1017,15 +1181,19 @@ export async function deliveredSourcePredicate(
   return delivered
 }
 
+/**
+ * Every citation must come from what this session was given: notes from its opening manifest,
+ * media it actually fetched, inbox items of its lineage, and proposals pinned for it or its own.
+ */
 async function requireDeliveredSources(
   client: PoolClient,
   context: SessionToolContext,
   principal: SessionPrincipal,
-  proposal: SessionProposalDto,
+  proposal: RetainedSessionProposalDto,
 ) {
   const manifest = principal.manifest
   const delivered = await deliveredSourcePredicate(client, context, principal)
-  for (const source of [...proposal.sources, ...catalogueSources(proposal)]) {
+  for (const source of proposalCitations(proposal)) {
     // An agent-reported web page is the one source the app never delivers.
     if (source.kind === 'web_page') {
       continue
@@ -1082,6 +1250,168 @@ async function requireDeliveredSources(
         refuse('source_not_delivered', 'A relied-on observation was not delivered to this session.')
       }
     }
+  }
+}
+
+/**
+ * A `/7` proposal relies only on what is current: no proposal already stale, every observation
+ * active and at the revision it cites (not one the operator has corrected since the session read it), and every
+ * lot's observation set at the version it cites. Anything else is refused as stale, so the
+ * session reads its brief again and cites the current facts. Earlier inputs keep accepting such a
+ * proposal, as before.
+ */
+async function requireCurrentReliance(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  proposal: RetainedSessionProposalDto,
+) {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return
+  }
+  const proposals: string[] = []
+  const observations: { id: string; revision: string }[] = []
+  const sets: { lot: string; version: string }[] = []
+  for (const source of proposal.relies_on.sources) {
+    if (source.kind === 'proposal') {
+      proposals.push(source.proposal_id)
+    } else if (source.kind === 'evidence_observation') {
+      observations.push({ id: source.evidence_observation_id, revision: source.revision })
+    } else if (source.kind === 'observation_set') {
+      sets.push({ lot: source.lot_id, version: source.version })
+    }
+  }
+  // Stale, or resting on an identity whose lot no longer matches Capture, at any depth.
+  if (proposals.length && (await notCurrent(client, proposals)).size) {
+    refuse('stale', 'A relied-on proposal is no longer current; read your brief again and revise.')
+  }
+  // A suggestion isn't Capture's yet and may be dismissed, so only an active observation is current.
+  const changed = await client.query(
+    `SELECT 1 FROM unnest($1::uuid[], $2::bigint[]) AS cited(id, revision)
+     LEFT JOIN public.capture_evidence_observation o ON o.id=cited.id
+     WHERE o.id IS NULL OR o.status <> 'active' OR o.revision <> cited.revision LIMIT 1`,
+    [observations.map((item) => item.id), observations.map((item) => item.revision)],
+  )
+  if (changed.rowCount) {
+    refuse(
+      'stale',
+      'A relied-on observation is not active at the revision cited; read your brief again and cite its current revision.',
+    )
+  }
+  const moved = await client.query(
+    `SELECT 1 FROM public.capture_lot l
+     JOIN unnest($1::uuid[], $2::bigint[]) AS cited(lot, version) ON cited.lot=l.id
+     WHERE l.observation_set_version <> cited.version LIMIT 1`,
+    [sets.map((item) => item.lot), sets.map((item) => item.version)],
+  )
+  // Notes it relies on, and notes it cites anywhere in its value.
+  const notes = [...proposal.relies_on.sources, ...proposalCitations(proposal)].flatMap((source) =>
+    source.kind === 'note' ? [source.note_id] : [],
+  )
+  const replaced = await client.query(
+    `SELECT 1 FROM unnest($1::uuid[]) AS cited(id) WHERE ${replacedNoteSql('cited.id')} LIMIT 1`,
+    [notes],
+  )
+  if (replaced.rowCount) {
+    refuse(
+      'stale',
+      'A relied-on note was replaced; read your brief again and cite the current note.',
+    )
+  }
+  const retired = await client.query(
+    'SELECT 1 FROM public.capture_lot_retirement WHERE lot_id = ANY($1::uuid[]) LIMIT 1',
+    [sets.map((item) => item.lot)],
+  )
+  if (retired.rowCount) {
+    refuse('stale', 'A relied-on lot was retired; read your brief again and cite current lots.')
+  }
+  if (moved.rowCount) {
+    refuse(
+      'stale',
+      'A relied-on lot’s observations are not at the version cited; read your brief again and cite its current observation set.',
+    )
+  }
+}
+
+/** Whether an Examine output says what the item is: anything beyond its markings and estimate. */
+function carriesIdentity(
+  proposal: Extract<RetainedSessionProposalDto, { schema_version: 'examine-identity/1' }>,
+) {
+  return (
+    proposal.candidates.length > 0 ||
+    [
+      proposal.maker,
+      proposal.packaging,
+      proposal.date_code,
+      proposal.condition,
+      proposal.nos_signals,
+      proposal.nsn,
+      proposal.match_notes,
+    ].some((value) => value !== undefined)
+  )
+}
+
+/**
+ * A `/7` Examine identity of a lot that says what the item is, or relies on `identity`, rests on that
+ * lot's observation set and relies on `identity`: otherwise it couldn't replace the one its
+ * successors were queued on. Markings alone need neither.
+ */
+function requireOwnObservationSet(
+  principal: SessionPrincipal,
+  proposal: RetainedSessionProposalDto,
+) {
+  if (
+    principal.manifest.schema_version === 'bench-intake-input/7' &&
+    proposal.schema_version === 'examine-identity/1' &&
+    // Anything but markings (and an estimate) says what the item is, whatever fields it names.
+    (proposal.relies_on.fields.includes('identity') || carriesIdentity(proposal)) &&
+    reliedObservationSet(proposal) === null
+  ) {
+    refuse(
+      'validation_failed',
+      'An identity relies on identity and on its lot’s observation set: name identity in relies_on.fields and cite the current observation set from your brief.',
+    )
+  }
+}
+
+/** Examine's markings rest on their observations, as a relied-on observation does. */
+function markedObservations(proposal: RetainedSessionProposalDto) {
+  if (proposal.schema_version !== 'examine-identity/1') {
+    return []
+  }
+  return proposal.markings.map((marking) => ({
+    kind: 'evidence_observation' as const,
+    evidence_observation_id: marking.observation_id,
+    revision: '1',
+  }))
+}
+
+/**
+ * Examine's markings are of its lot: each names an active observation of the lot it is about,
+ * so a correction to one of them reaches the identity.
+ */
+async function requireOwnMarkings(
+  client: PoolClient,
+  batchId: string,
+  proposal: RetainedSessionProposalDto,
+) {
+  if (proposal.schema_version !== 'examine-identity/1') {
+    return
+  }
+  const named = proposal.markings.map((marking) => marking.observation_id)
+  const members = await client.query<{ id: string }>(
+    `SELECT evidence_observation_id AS id FROM public.capture_lot_evidence_observation
+     WHERE batch_id=$1 AND lot_id=$2 AND status='active' AND evidence_observation_id = ANY($3::uuid[])`,
+    [batchId, proposal.subject_id, named],
+  )
+  const active = new Set(members.rows.map((row) => row.id))
+  const index = named.findIndex((id) => !active.has(id))
+  if (index >= 0) {
+    const reason = 'Name an active observation of this lot.'
+    throw new ToolRefusal(
+      'validation_failed',
+      `A marking names an observation outside the lot. ${reason}`,
+      [{ path: `/proposal/markings/${index}/observation_id`, rule: 'not_allowed', reason }],
+    )
   }
 }
 
@@ -1150,15 +1480,20 @@ async function requireReplaceable(
   client: PoolClient,
   principal: SessionPrincipal,
   questionId: string,
+  /** The `/7` lot the replacing ask is about, and what the replaced one was about. */
+  subjects?: { asked: string | null; replaced: string | null },
 ) {
-  const rows = await client.query<{ state: string; replaced: boolean }>(
-    `SELECT q.state, EXISTS (
+  const rows = await client.query<{ state: string; replaced: boolean; attempt_id: string }>(
+    `SELECT q.state, q.attempt_id, EXISTS (
          SELECT 1 FROM public.processing_question_replacement r WHERE r.question_id=q.id
        ) AS replaced
        FROM public.processing_question q WHERE q.id=$1 AND q.job_id=$2 FOR UPDATE OF q`,
     [questionId, principal.jobId],
   )
   const found = rows.rows[0]
+  // A `/7` replacement skips the duplicate check, so what it replaces must be open: asked by this
+  // attempt, not by one a restart or Start fresh superseded.
+  const stageInput = principal.manifest.schema_version === 'bench-intake-input/7'
   let reason: string | null = null
   if (!found) {
     reason = 'Name an earlier question of this session.'
@@ -1166,12 +1501,92 @@ async function requireReplaceable(
     reason = 'That question is already answered; ask a new question instead.'
   } else if (found.replaced) {
     reason = 'That question was already replaced.'
+  } else if (stageInput && (found.state !== 'open' || found.attempt_id !== principal.attemptId)) {
+    reason = 'That question is no longer open; ask without replaces.'
+  } else if (stageInput && subjects && subjects.asked !== subjects.replaced) {
+    reason = 'That question is about another lot; replace only a question about this one.'
   }
   if (reason) {
     throw new ToolRefusal('validation_failed', reason, [
       { path: '/replaces', rule: 'schema', reason },
     ])
   }
+}
+
+/**
+ * The question an `ask` publishes. A `/7` session may also name evidence the question rests on
+ * and the conflict it settles, which the duplicate check compares and are kept beside it.
+ */
+function askOf(
+  principal: SessionPrincipal,
+  args: unknown,
+): { ask: SessionAskArgsV2Dto; basis: QuestionBasis | null } {
+  if (principal.manifest.schema_version !== 'bench-intake-input/7') {
+    return { ask: validated<SessionAskArgsV2Dto>('SessionAskArgsV2', args), basis: null }
+  }
+  const {
+    new_evidence: newEvidence,
+    conflict,
+    ...ask
+  } = validated<SessionStageAskArgsDto>('SessionStageAskArgs', args)
+  // Kept in a text column, which refuses NUL and unpaired surrogates.
+  if (conflict !== undefined && !storableText(conflict)) {
+    const reason = "The conflict holds a character that can't be stored. Remove it and retry."
+    throw new ToolRefusal('validation_failed', reason, [
+      {
+        path: '/conflict',
+        rule: 'schema',
+        reason: 'Text must not hold NUL or unpaired surrogates.',
+      },
+    ])
+  }
+  return {
+    ask: conflict === undefined ? ask : withConflictShown(ask, conflict),
+    basis: { evidence: newEvidence ?? [], conflict: conflict ?? null },
+  }
+}
+
+/** A question's reason holds at most this many characters (`ProcessingQuestionSpec`). */
+const QUESTION_REASON_MAX_CHARACTERS = 2048
+
+/**
+ * The conflict that lets a question be asked again is shown to the operator with it: it closes
+ * the question's reason. Too long to fit there, the ask is refused as correctable.
+ */
+function withConflictShown(ask: SessionAskArgsV2Dto, conflict: string): SessionAskArgsV2Dto {
+  const reason = `${ask.reason}\nConflict: ${conflict}`
+  if ([...reason].length > QUESTION_REASON_MAX_CHARACTERS) {
+    const why = 'The reason and the conflict together are too long; shorten one.'
+    throw new ToolRefusal('validation_failed', why, [
+      { path: '/conflict', rule: 'maxLength', reason: why },
+    ])
+  }
+  return { ...ask, reason }
+}
+
+/** Evidence an ask names as new must be evidence this session may fetch, not deleted. */
+async function requireNamedEvidence(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  basis: QuestionBasis,
+) {
+  const deliverable = await deliverableVersions(client, principal)
+  for (const [index, named] of basis.evidence.entries()) {
+    const known = deliverable.some(
+      (item) => item.evidence_id === named.evidence_id && item.version_id === named.version_id,
+    )
+    if (!known) {
+      const reason = 'Name evidence this session may fetch.'
+      throw new ToolRefusal('validation_failed', reason, [
+        { path: `/new_evidence/${index}`, rule: 'not_allowed', reason },
+      ])
+    }
+  }
+  await refuseRemovedVersions(
+    client,
+    principal.batchId,
+    basis.evidence.map((named) => named.version_id),
+  )
 }
 
 /** Closes the replaced question and records which question replaced it. */
@@ -1212,7 +1627,7 @@ async function sealSessionEnvelope(
   client: PoolClient,
   principal: SessionPrincipal,
   kind: 'proposal' | 'question',
-  payload: SessionProposalDto | SessionAskArgsV2Dto,
+  payload: RetainedSessionProposalDto | SessionAskArgsV2Dto,
 ): Promise<SealedSessionEnvelope> {
   // withSession holds the capture, job, attempt and session locks, so the sequence is stable.
   const attempts = await executeDatabaseQuery(
@@ -1280,10 +1695,10 @@ async function requireFigures(
   context: SessionToolContext,
 ): Promise<ResolvedFigure[]> {
   const delivered = await deliveredSourcePredicate(client, context, principal)
-  const versions = context.deliveredMedia.get(principal.jobId)
+  const pages = await deliveredPages(client, context, principal)
   const resolved = await resolveFigures(client, principal.batchId, figures, {
     delivered,
-    pages: (versionId) => versions?.get(versionId)?.get(principal.attemptId) ?? new Set(),
+    pages: (versionId) => pages.get(versionId) ?? new Set(),
   })
   if ('refusal' in resolved) {
     throw new ToolRefusal(resolved.refusal.code, resolved.refusal.message, [resolved.refusal.issue])
@@ -1689,6 +2104,7 @@ export function sessionTools(context: SessionToolContext) {
     propose_lot: (token: string, args: unknown) =>
       withLeadSession(context, token, async (client, principal) => {
         const input = validated<ProposeLotArgsDto>('ProposeLotArgs', args)
+        refuseStageEstimate(principal, input)
         // The reason is stored in the outbox's jsonb, which refuses NUL and unpaired surrogates.
         if (input.separation_reason !== undefined && !storableText(input.separation_reason)) {
           throw new ToolRefusal(
@@ -1804,11 +2220,8 @@ export function sessionTools(context: SessionToolContext) {
         context,
         token,
         { capture: true, leadWriter: true },
-        async (client, principal, capture, writer) => {
-          const { proposal } = validated<{ proposal: SessionProposalDto }>(
-            'SessionProposeArgs',
-            args,
-          )
+        async (client, principal, capture, onWriter) => {
+          const proposal = publishedProposal(principal, args)
           refuseUnacceptedWebPages(proposal)
           // The lead session proposes for any live lot of its batch; a lot session for its own lot.
           const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
@@ -1820,11 +2233,40 @@ export function sessionTools(context: SessionToolContext) {
             refuse('validation_failed', 'A proposal must be for this session’s lot.')
           }
           await requireDeliveredSources(client, context, principal, proposal)
+          // A `/7` lot session publishes nothing for a lot Review retired.
+          if (
+            principal.manifest.schema_version === 'bench-intake-input/7' &&
+            principal.subjectId !== null &&
+            (await lotRetired(client, principal.subjectId))
+          ) {
+            refuse(
+              'stale',
+              'Your lot was retired in Review; there is nothing more to publish for it.',
+            )
+          }
+          await requireCurrentReliance(client, principal, proposal)
+          await requireOwnMarkings(client, principal.batchId, proposal)
+          requireOwnObservationSet(principal, proposal)
           await refuseRemovedSources(client, principal.batchId, [
-            ...proposal.sources,
-            ...catalogueSources(proposal),
+            ...proposalCitations(proposal),
             ...proposal.relies_on.sources,
+            ...markedObservations(proposal),
           ])
+          const estimate = leadEstimate(principal, proposal)
+          if (estimate && !onWriter) {
+            refuse('tool_not_allowed', 'This worker cannot write the lot’s estimate.')
+          }
+          // A stable `/7` identity retires the lot's earlier ones and releases their successors in
+          // its own transaction, which needs the writer; without it, it isn't stored at all.
+          if (
+            !onWriter &&
+            principal.subjectId === null &&
+            principal.manifest.schema_version === 'bench-intake-input/7' &&
+            proposal.schema_version === 'examine-identity/1' &&
+            reliedObservationSet(proposal) !== null
+          ) {
+            refuse('tool_not_allowed', 'This worker cannot publish the lot’s identity.')
+          }
           const envelope = await sealSessionEnvelope(client, principal, 'proposal', proposal)
           await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
           const { messageId, streamId } = await retainSessionMessage(
@@ -1849,11 +2291,34 @@ export function sessionTools(context: SessionToolContext) {
             kind: 'proposal',
             payload: { proposal_id: id },
           })
-          // A stable identity from the lead session starts the lot's Research and Images.
-          if (writer && principal.subjectId === null) {
+          // Every `/7` identity keeps its lot as it saw it, stable or not, for the claim and Review
+          // gate to compare: an identity built on it rests on that lot too.
+          if (
+            proposal.schema_version === 'examine-identity/1' &&
+            principal.manifest.schema_version === 'bench-intake-input/7'
+          ) {
+            await recordIdentityBasis(
+              client,
+              principal.batchId,
+              proposal.subject_id,
+              id,
+              proposal.relies_on.sources.flatMap((source) =>
+                source.kind === 'observation_set' ? [source.lot_id] : [],
+              ),
+            )
+          }
+          // A stable identity from the lead session starts the lot's Research and Images. It
+          // takes the media and job locks, so it runs before the estimate publishes to the stream.
+          if (onWriter && principal.subjectId === null) {
+            await refuseRelyingOnRetired(client, principal, proposal, id)
             await queueSuccessors(() =>
               onLeadIdentity(client, context.config, capture!.snapshot, proposal, id),
             )
+          }
+          // Examine's estimate reaches Review as the lot's estimated quantity, unless the
+          // identity it came with is already stale (it relied on an older observation set).
+          if (estimate && !(await proposalStale(client, id))) {
+            await recordLotEstimate(client, writer(principal), proposal.subject_id, estimate)
           }
           await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
           return ok(client, principal, { id })
@@ -1867,7 +2332,7 @@ export function sessionTools(context: SessionToolContext) {
         token,
         { capture: true },
         async (client, principal, capture) => {
-          const ask = validated<SessionAskArgsV2Dto>('SessionAskArgsV2', args)
+          const { ask, basis } = askOf(principal, args)
           // Only the lead session may ask about the whole batch or another subject of it.
           const liveLots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
           const subjects = [...liveLots, ...capture!.snapshot.parts.map((part) => part.id)]
@@ -1883,8 +2348,34 @@ export function sessionTools(context: SessionToolContext) {
           if (stepProblem) {
             throw new ToolRefusal('validation_failed', stepProblem.message, [stepProblem.issue])
           }
+          // A `/7` lot session asks nothing about a lot Review retired: it couldn't be answered.
+          if (
+            principal.manifest.schema_version === 'bench-intake-input/7' &&
+            principal.subjectId !== null &&
+            (await lotRetired(client, principal.subjectId))
+          ) {
+            refuse(
+              'stale',
+              'Your lot was retired in Review; there is nothing more to ask about it.',
+            )
+          }
           if (ask.replaces !== undefined) {
-            await requireReplaceable(client, principal, ask.replaces)
+            await requireReplaceable(
+              client,
+              principal,
+              ask.replaces,
+              basis
+                ? {
+                    asked: ask.subject_id ?? principal.subjectId,
+                    replaced: await questionSubject(
+                      client,
+                      context.config,
+                      capture!.snapshot,
+                      ask.replaces,
+                    ),
+                  }
+                : undefined,
+            )
           }
           const figures = ask.figures
             ? await requireFigures(client, principal, ask.figures, context)
@@ -1897,6 +2388,34 @@ export function sessionTools(context: SessionToolContext) {
               versions: figures.map((item) => item.recipe.source_version_id),
             }
             return ok(client, principal)
+          }
+          // A `/7` question already asked is returned, not asked again; one that names the open
+          // question it replaces is a new question by definition.
+          if (basis) {
+            await requireNamedEvidence(client, principal, basis)
+          }
+          if (basis && ask.replaces === undefined) {
+            // A figure of evidence the earlier question didn't show is new evidence too.
+            const shown = figures.map((item) => ({
+              evidence_id: item.figure.source.evidence_id,
+              version_id: item.recipe.source_version_id,
+            }))
+            const existing = await coveringQuestion(
+              client,
+              context.config,
+              capture!.snapshot,
+              ask,
+              {
+                ...basis,
+                evidence: [...basis.evidence, ...shown],
+              },
+            )
+            if (existing) {
+              return ok(client, principal, {
+                id: existing.question.question_id,
+                existing_question: existing,
+              })
+            }
           }
           const envelope = await sealSessionEnvelope(client, principal, 'question', ask)
           await requireRoom(
@@ -1939,6 +2458,9 @@ export function sessionTools(context: SessionToolContext) {
           )
           if (ask.replaces !== undefined) {
             await replaceQuestion(client, principal.jobId, ask.replaces, id)
+          }
+          if (basis) {
+            await storeQuestionBasis(client, principal.batchId, id, basis)
           }
           await storeQuestionFigures(client, principal, id, figures)
           await appendSessionOutbox(client, principal.attemptId, {

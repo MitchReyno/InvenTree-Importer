@@ -1255,6 +1255,7 @@ export async function lockCaptureForOperatorCommand(
   )
   const nextRevision = (BigInt(retained.revision) + 1n).toString()
   let subjectCount = subjects.length
+  const initial = await snapshot(client, config, batchId)
 
   async function addSubject(kind: 'lot' | 'part', label: string) {
     if (subjectCount >= MAX_CAPTURE_SUBJECTS) {
@@ -1274,7 +1275,7 @@ export async function lockCaptureForOperatorCommand(
     actorId: retained.actor_id,
     streamId: retained.stream_id,
     nextRevision,
-    snapshot: await snapshot(client, config, batchId),
+    snapshot: initial,
     retiredLotIds: new Set(retiredResult.map((row) => row.lot_id)),
     get subjectCount() {
       return subjectCount
@@ -1345,13 +1346,163 @@ export async function lockCaptureForOperatorCommand(
           .set({ revision: BigInt(nextRevision), updatedAt: sql`now()` })
           .where(eq(captureBatches.id, batchId)),
       )
+      // Notices take job locks, so they come before the revision takes the stream head.
+      await tellChangedLots(client, batchId, initial, await snapshot(client, config, batchId))
       await retainRevision(client, retained, command)
       return snapshot(client, config, batchId)
     },
   }
 }
 
+/** A Part's choice as a revision names it: the InvenTree Part it selects, or its mode. */
+function choiceText(choice: CaptureSnapshotDto['parts'][number]['choice'] | undefined) {
+  if (!choice) {
+    return null
+  }
+  const value = 'value' in choice ? (choice.value as { pk?: unknown } | undefined) : undefined
+  if (value && typeof value.pk === 'string') {
+    return `${choice.mode} ${value.pk}`
+  }
+  // A Part to create is named by what identifies it.
+  const spec = 'spec' in choice ? (choice.spec as { mpn?: unknown; name?: unknown }) : undefined
+  const named = [spec?.name, spec?.mpn].filter((item) => typeof item === 'string').join(' · ')
+  return [...(named ? `${choice.mode} ${named}` : choice.mode)].slice(0, 512).join('')
+}
+
+/** Tells what relied on the identity of each lot linked to a Part whose choice changed. */
+async function tellPartChoice(
+  client: PoolClient,
+  batchId: string,
+  before: CaptureSnapshotDto,
+  after: CaptureSnapshotDto,
+  partId: string,
+  key: string,
+) {
+  const was = before.parts.find((part) => part.id === partId)?.choice
+  const now = after.parts.find((part) => part.id === partId)?.choice
+  if (canonicalRecord(was ?? null) === canonicalRecord(now ?? null)) {
+    return
+  }
+  // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
+  const { fieldsSuperseded } = await import('#/processing/currentness.ts')
+  for (const lot of after.lots.filter((item) => item.part_subject_id === partId)) {
+    await fieldsSuperseded(client, {
+      batchId,
+      subjectId: lot.id,
+      fields: ['identity'],
+      reason: 'operator_correction',
+      message: "The operator chose a different Part for this lot's draft Part.",
+      key: `part-choice:${key}:${lot.id}`,
+      changes: [
+        {
+          kind: 'field',
+          subject_id: partId,
+          field: 'identity',
+          from: choiceText(was),
+          to: choiceText(now),
+        },
+      ],
+      context: { origin: { by: 'operator' }, briefRevision: after.revision },
+    })
+  }
+}
+
+/**
+ * A Review command that changed a lot's Part link or quantity, by moving lots or editing them in
+ * bulk, reaches relying sessions as a lot edit does, naming the values before and after.
+ */
+async function tellChangedLots(
+  client: PoolClient,
+  batchId: string,
+  before: CaptureSnapshotDto,
+  after: CaptureSnapshotDto,
+) {
+  for (const part of after.parts) {
+    await tellPartChoice(client, batchId, before, after, part.id, `review:${after.revision}`)
+  }
+  for (const lot of after.lots) {
+    const was = before.lots.find((item) => item.id === lot.id)
+    if (!was) {
+      continue
+    }
+    const changes = lotCorrections(before, after, lot.id, {
+      ...(was.part_subject_id !== lot.part_subject_id
+        ? { part_subject_id: lot.part_subject_id }
+        : {}),
+      ...(quantityText(was.quantity) !== quantityText(lot.quantity)
+        ? { quantity: lot.quantity }
+        : {}),
+    })
+    if (!changes.length) {
+      continue
+    }
+    const fields = changes.map((change) => (change.field === 'part' ? 'identity' : 'quantity'))
+    // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
+    const { fieldsSuperseded } = await import('#/processing/currentness.ts')
+    await fieldsSuperseded(client, {
+      batchId,
+      subjectId: lot.id,
+      fields,
+      reason: 'operator_correction',
+      message: `The operator changed this lot's ${fields.join(' and ')} in Review.`,
+      key: `review:${after.revision}:${lot.id}`,
+      changes,
+      context: { origin: { by: 'operator' }, briefRevision: after.revision },
+    })
+  }
+}
+
 /** Capture has no dependency on execution SQL. Consumers use retained source/lot snapshots. */
+type LotQuantity = CaptureSnapshotDto['lots'][number]['quantity']
+
+/** A lot quantity as a revision names it: its value when set, otherwise its mode. */
+export function quantityText(quantity: LotQuantity | undefined) {
+  if (!quantity) {
+    return null
+  }
+  return quantity.mode === 'set' ? quantity.value : quantity.mode
+}
+
+/**
+ * The Part link and quantity a lot edit names, before and after, as a revision tells relying
+ * sessions. Naming a field is a correction of it, as it has always been for earlier sessions.
+ */
+function lotCorrections(
+  before: CaptureSnapshotDto,
+  after: CaptureSnapshotDto,
+  lotId: string,
+  change: { part_subject_id?: string | null; quantity?: unknown },
+) {
+  const was = before.lots.find((lot) => lot.id === lotId)
+  const now = after.lots.find((lot) => lot.id === lotId)
+  const changes: {
+    kind: 'field'
+    subject_id: string
+    field: 'part' | 'quantity'
+    from: string | null
+    to: string | null
+  }[] = []
+  if (change.part_subject_id !== undefined) {
+    changes.push({
+      kind: 'field',
+      subject_id: lotId,
+      field: 'part',
+      from: was?.part_subject_id ?? null,
+      to: now?.part_subject_id ?? null,
+    })
+  }
+  if (change.quantity !== undefined) {
+    changes.push({
+      kind: 'field',
+      subject_id: lotId,
+      field: 'quantity',
+      from: quantityText(was?.quantity),
+      to: quantityText(now?.quantity),
+    })
+  }
+  return changes
+}
+
 export function captureRepository(pool: Pool, config: Binding) {
   const command = (
     action: string,
@@ -1442,14 +1593,19 @@ export function captureRepository(pool: Pool, config: Binding) {
     async edit(id: string, key: string, input: CaptureEditDto) {
       return command('capture_edit', id, key, input, async (c) => {
         const locked = await lockCaptureForEdit(c, config, id, input.expected_revision)
-        await locked.apply(input)
+        const applied = await locked.apply(input)
+        // A different Part chosen for a draft Part, by the Part editor or a record edit such as
+        // its MPN, corrects the identity of every lot linked to it.
+        for (const part of applied.parts) {
+          await tellPartChoice(c, id, locked.snapshot, applied, part.id, key)
+        }
         // An operator correction of a lot's identity or quantity reaches every relying session.
         if (input.change.kind === 'lot') {
-          const fields = [
-            ...(input.change.part_subject_id !== undefined ? (['identity'] as const) : []),
-            ...(input.change.quantity !== undefined ? (['quantity'] as const) : []),
-          ]
-          if (fields.length) {
+          const changes = lotCorrections(locked.snapshot, applied, input.change.id, input.change)
+          if (changes.length) {
+            const fields = changes.map((change) =>
+              change.field === 'part' ? 'identity' : 'quantity',
+            )
             // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
             const { fieldsSuperseded } = await import('#/processing/currentness.ts')
             await fieldsSuperseded(c, {
@@ -1459,6 +1615,8 @@ export function captureRepository(pool: Pool, config: Binding) {
               reason: 'operator_correction',
               message: `The operator corrected this lot's ${fields.join(' and ')}.`,
               key: `correction:${key}`,
+              changes,
+              context: { origin: { by: 'operator' }, briefRevision: applied.revision },
             })
           }
         }

@@ -1,7 +1,7 @@
 import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
 import { retainSessionFailure } from '#/agents/failures.ts'
 import type { AgentSelectionDto, SessionFailureDto } from '@invimport/contracts'
-import { pinnedIdentityCurrent, successorsCurrent } from '#/processing/stable-identity.ts'
+import { claimPinnedIdentity, lotRetired, successorsCurrent } from '#/processing/stable-identity.ts'
 import { supersedeJobAttempts } from '#/processing/jobs.ts'
 import { join } from 'node:path'
 import { and, eq, inArray, notExists, or, sql } from 'drizzle-orm'
@@ -43,8 +43,10 @@ import {
   lockInboxBatch,
   pendingSessionInbox,
   releaseInboxItems,
+  deliverablePayload,
 } from '#/agents/tools/inbox.ts'
 import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
+import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
 import { syntheticTurn } from './synthetic-turn.ts'
 import {
   claimSessionSlot,
@@ -142,6 +144,11 @@ export interface SessionDriverContext {
    * can confirm it gone. The runner provides it; a guest-side context has none.
    */
   recordChild?: (child: TurnChild) => Promise<void>
+  /**
+   * Records that a photo view's image was handed to the provider, which a `/7` citation needs.
+   * Called by a driver that hands images over itself, after it has; the runner provides it.
+   */
+  releaseView?: (viewSeq: string) => Promise<void>
 }
 export type SessionDriver = (turn: SessionTurn, context: SessionDriverContext) => Promise<void>
 
@@ -882,15 +889,39 @@ export async function runSessionTurn(
         throw new Error('session_not_queued')
       }
       // A successor starts only while the identity it was pinned to is still current. Once it has
-      // run, a revised identity reaches it as an inbox item instead, so a resume is never stopped.
+      // run, an earlier input's successor gets a revised identity as an inbox item and always
+      // resumes; a `/7` one is checked again below.
+      // A `/7` lot session never starts or resumes for a lot Review retired.
+      const retiredLot =
+        manifest.schema_version === 'bench-intake-input/7' &&
+        manifest.subject_id !== null &&
+        (await lotRetired(client, manifest.subject_id))
+      // A retired lot's session is settled for good, started or not: its lot never returns.
       if (
-        row.turnCount === 0n &&
-        !(await pinnedIdentityCurrent(client, manifest.pinned_proposal_ids))
+        retiredLot ||
+        (row.turnCount === 0n &&
+          !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids)).current)
       ) {
         await supersedeJobAttempts(client, row.jobId)
         await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])
         await publish(client, row.batchId)
         return 'cancelled' as const
+      }
+      // A `/7` successor that has run resumes only while its identity is current; otherwise it
+      // waits, queued and without a slot, until the lead's next identity releases it.
+      if (
+        row.turnCount > 0n &&
+        manifest.schema_version === 'bench-intake-input/7' &&
+        (manifest.stage === 'research' || manifest.stage === 'images')
+      ) {
+        const pin = await claimPinnedIdentity(client, manifest.pinned_proposal_ids)
+        if (!pin.current) {
+          // The repair staled the identity and told the lead; views hear of it once.
+          if (pin.repaired) {
+            await publish(client, row.batchId)
+          }
+          return 'waiting' as const
+        }
       }
       // Inventory waits, queued and without a slot, until the lot's Research and Images are current.
       if (
@@ -1049,7 +1080,13 @@ export async function runSessionTurn(
           client,
           rows.map((row) => row.id),
         )
-        return rows
+        // Given as read_inbox gives it: no reading of evidence removed since.
+        return Promise.all(
+          rows.map(async (row) => ({
+            ...row,
+            payload: await deliverablePayload(client, row.kind, row.payload),
+          })),
+        )
       })
       if (!next[0]) {
         return undefined
@@ -1119,6 +1156,7 @@ export async function runSessionTurn(
       signal: turnControl.signal,
       identity: { attemptId, turn: turnNumber.toString(), lineage: current.jobId },
       recordChild,
+      releaseView: (viewSeq) => recordPhotoRelease(pool, attemptId, viewSeq),
     })
     next = 'finished'
   } catch (error) {
@@ -1332,10 +1370,18 @@ export const syntheticSessionDriver: SessionDriver = async (turn, context) => {
   const call = async (name: string, args: Record<string, unknown>) => {
     context.signal.throwIfAborted()
     const result = await client.callTool({ name, arguments: args })
-    return result.structuredContent as {
+    const structured = result.structuredContent as {
       ok: boolean
+      view_seq?: string
       items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
     }
+    // The image is in this turn now, so its view is released, which a `/7` citation needs.
+    const content = (result.content ?? []) as { type: string }[]
+    const image = content.some((item) => item.type === 'image')
+    if (name === 'fetch_evidence' && structured.ok && image && structured.view_seq) {
+      await context.releaseView?.(structured.view_seq)
+    }
+    return structured
   }
 
   try {

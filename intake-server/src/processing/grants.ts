@@ -14,7 +14,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_session_ack,agent_slot,agent_session_failure,processing_proposal_stale,
     agent_batch_pause,processing_question_replacement,processing_question_figure,processing_figure_render,
     processing_stage_instructions,processing_stage_guide,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal,
-    agent_session_inbox_release,agent_session_resume,agent_model_catalog TO ${role};`)
+    agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis,agent_model_catalog TO ${role};`)
   if (purpose === 'api') {
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(
@@ -44,6 +44,10 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       GRANT INSERT, UPDATE(from_state), DELETE ON agent_session_resume TO ${role};
       -- Each cursor advance is logged, and an ask may close the question it replaces.
       GRANT INSERT ON agent_session_ack,processing_question_replacement TO ${role};
+      -- A stage ask keeps the evidence and conflict it names, for the next ask to compare.
+      GRANT INSERT ON processing_question_basis TO ${role};
+      -- A stable identity keeps the lot as it saw it, for the claim and Review gate.
+      GRANT INSERT ON processing_identity_basis TO ${role};
       -- An ask stores its figures and their render requests; the media consumer renders them.
       GRANT INSERT ON processing_question_figure,processing_figure_render TO ${role};
       -- A preview asked again is kept a day from then.
@@ -72,7 +76,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     // Reading the owning capture projection and publishing its stream grants no selection write.
     await pool.query(`GRANT SELECT ON operator,target,target_context,command,outbox,ui_stream,ui_event,
       capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision,
-      capture_evidence_observation,capture_lot_evidence_observation TO ${role};
+      capture_evidence_observation,capture_lot_evidence_observation,capture_lot_retirement,capture_instruction TO ${role};
       GRANT INSERT ON ui_event TO ${role}; GRANT UPDATE(head) ON ui_stream TO ${role};
       GRANT UPDATE(delivery_attempts,acked_at,conflict_code) ON outbox TO ${role};
       GRANT UPDATE(revision) ON capture_batch TO ${role};`)
@@ -98,9 +102,9 @@ export async function grantAgentWriter(pool: Pool, role: string) {
       processing_question,processing_answer,processing_transition,agent_batch_pause,processing_question_replacement,
       processing_question_figure,processing_figure_render,processing_stage_instructions,processing_stage_guide,processing_input_page,
       agent_session_inbox_withdrawal,
-      agent_session_inbox_release TO ${role};
+      agent_session_inbox_release,processing_question_basis,processing_identity_basis TO ${role};
     GRANT INSERT ON processing_proposal,processing_proposal_stale,processing_message,agent_session_outbox,
-      processing_question,processing_question_figure,processing_figure_render TO ${role};
+      processing_question,processing_question_figure,processing_figure_render,processing_identity_basis TO ${role};
     GRANT UPDATE(state,revision) ON processing_job TO ${role};
     GRANT UPDATE(state,last_sequence) ON processing_attempt TO ${role};
     GRANT UPDATE(state,revision) ON processing_question TO ${role};

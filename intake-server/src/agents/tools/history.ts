@@ -322,6 +322,8 @@ async function historyRows(client: PoolClient, jobId: string, before?: HistoryPo
            JOIN public.agent_session s ON s.attempt_id=o.session_id
            JOIN public.processing_attempt a ON a.id=o.session_id
           WHERE s.session_lineage_id=$1 AND a.job_id=$1
+            -- A release is the record behind a photo view's citation, not a step of its own.
+            AND o.kind<>'photo_release'
          UNION ALL
          SELECT ${INBOX_STREAM}, NULL, '${INBOX_ORDER_ATTEMPT}'::uuid, NULL, i.seq, i.kind,
                 i.payload, i.created_at, i.id, i.actor_id, i.idempotency_key

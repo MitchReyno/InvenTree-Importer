@@ -11,7 +11,7 @@ import {
   validate,
   webPageUrlAccepted,
   type SessionInputDto,
-  type SessionProposalDto,
+  type RetainedSessionProposalDto,
   type SessionAskArgsDto,
   type SessionAskArgsV2Dto,
   type SessionEnvelopeDto,
@@ -20,7 +20,7 @@ import {
   type ProcessingProposalDto,
   type ProcessingInputDto,
 } from '@invimport/contracts'
-import { catalogueSources, deliveredSourceCheck, validateProposalSources } from './provenance.ts'
+import { deliveredSourceCheck, proposalCitations, validateProposalSources } from './provenance.ts'
 import { canonical, canonicalRecord } from '@invimport/contracts/json'
 import { decodeProposal, decodeQuestionSpec, fail, unseal } from './model.ts'
 
@@ -145,14 +145,15 @@ export function retainedSessionProposal(
   batchLots: ReadonlySet<string> = new Set(),
   /** Batch versions a session may have been delivered after opening, through an evidence notice. */
   batchVersions: Parameters<typeof deliveredSourceCheck>[1] = [],
-): SessionProposalDto {
+): RetainedSessionProposalDto {
   const envelope = acceptedSessionMessage(seal)
   const value = unseal(seal.valueBytes, seal.valueDigest)
-  validate('SessionProposal', value)
-  const proposal = value as SessionProposalDto
+  validate('RetainedSessionProposal', value)
+  const proposal = value as RetainedSessionProposalDto
   if (
     envelope.kind !== 'proposal' ||
-    canonical(envelope.payload) !== canonical(proposal) ||
+    // Sealed with canonicalRecord, which keeps a typed output's numbers, such as datasheet pages.
+    canonicalRecord(envelope.payload) !== canonicalRecord(proposal) ||
     (subjectId === null ? !batchLots.has(proposal.subject_id) : proposal.subject_id !== subjectId)
   ) {
     fail('retained_proposal_binding_invalid')
@@ -161,8 +162,8 @@ export function retainedSessionProposal(
     { batchId: manifest.batch_id, notes: manifest.notes, media: manifest.media },
     batchVersions,
   )
-  // Only `/6` top-level sources can be web pages: agent-reported, never delivered evidence.
-  const cited = [...proposal.sources, ...catalogueSources(proposal)]
+  // Only top-level sources can be web pages: agent-reported, never delivered evidence.
+  const cited = proposalCitations(proposal)
   const citationsHold = cited.every((source) =>
     source.kind === 'web_page' ? webPageUrlAccepted(source.url) : delivered(source),
   )

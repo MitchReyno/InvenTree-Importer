@@ -54,6 +54,20 @@ Each proposal SHALL record the observations, evidence versions, notes and answer
 
 For `/7` work, outputs that establish the identity and outputs that depend on it SHALL record different pins. An `examine-identity/1` proposal has no further pins. A `research-identity/1` amendment SHALL also pin the identity revision it was based on when published (the sealed starting revision, the merged revision a later `match` item delivered, or the applied revision a `revision/2` delivered to the amending session), with the sealed starting revision recorded separately, and SHALL stay current when its own merge, a later amendment of the same session, or Match's decision advances the revision; it becomes stale when a change by anyone else advances it. Each merged field SHALL keep its source amendment. While one of a session's amendments for a lot awaits the app, another for that lot SHALL be refused as correctable. A `research/1` or `images/1` proposal SHALL also pin the identity revision and the Match outcome revision (a recorded decision, or a clear verdict) and stage mode it was produced under, which an equivalent repeat search keeps, and becomes stale when any of them changes.
 
+Every `/7` `examine-identity/1` SHALL keep, when published, its lot as it was: each active member's revision and same-item mark. When a successor pinned to it is claimed, and when Review reads it, the app SHALL check it against Capture: every observation it cites is active and at the revision cited, every observation set it cites is at the version cited, and its lot's members, their revisions and their same-item marks match what it kept. An identity that fails is stale: Review shows it as stale, and a claimed successor does not start from it but waits for a fresh identity, as for any stale pin, while the session that published it is told to publish the lot's identity again. The check is a backstop; each change still makes stale, when it is made, what relied on it.
+
+#### Scenario: Edit no stale write covers, caught at claim
+
+- **GIVEN** a stable `/7` identity for a lot with Research queued and not started
+- **WHEN** an observation of the lot gets a new visible count by a path that marks nothing stale, and then Research is claimed
+- **THEN** Review shows the identity as stale before the claim, the claim does not start Research, the identity is stale with what was built on it, and the lead session is told to publish the lot's identity again.
+
+#### Scenario: Unchanged lot passes the gate
+
+- **GIVEN** a stable `/7` identity for a lot with Research queued and not started
+- **WHEN** the operator edits only another lot, and then Research is claimed
+- **THEN** Research starts from the identity.
+
 #### Scenario: Evidence removed
 
 - **GIVEN** a current proposal citing an observation
@@ -166,10 +180,26 @@ For `/7` work, a lot SHALL have one current identity: Examine's base merged with
 
 ### Requirement: Revisions carry the change
 
-A revision delivered to a `/7` session SHALL name each change with its previous and new value (a field, a reading, a proposal, or a match decision), who made it (the operator, a session or Match), and the new brief revision.
+A revision delivered to a `/7` session SHALL name each change with its previous and new value (a field, a reading, a proposal, or a match decision), who made it (the operator, a session or Match), and the new brief revision. An answer SHALL be named as an answer change carrying its steps as the operator gave them; a field change SHALL accompany it only where the answer changed Capture.
+
+#### Scenario: Quantity answered in words
+
+- **GIVEN** Research relying on a lot's quantity question asked by Images
+- **WHEN** the operator answers its number step in words instead of a number
+- **THEN** Research receives the answer with that text as its step's value and no quantity change, since the lot's quantity is unchanged.
 
 #### Scenario: Reading corrected by the operator
 
 - **GIVEN** Research and Images relying on an observation
 - **WHEN** the operator corrects its reading
 - **THEN** both receive one item naming the observation, the old and new reading and the operator as its source, and their relying proposals are stale.
+
+### Requirement: Long revisions point to the brief
+
+When a revision's values would make its item larger than the session inbox holds, the item SHALL still name its source, the new brief revision and which fields, readings and proposals changed, and SHALL leave out their previous and new values, which the session reads from its brief at that revision.
+
+#### Scenario: Answer too long to carry
+
+- **GIVEN** Research and Images relying on a lot's identity
+- **WHEN** the operator answers a question about it with text whose values, with the stale proposals, would pass the inbox's bound
+- **THEN** each session receives one item that names the answered fields and the stale proposals, the operator and the new brief revision, without the values, and the session reads the answer from its brief.

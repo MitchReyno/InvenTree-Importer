@@ -75,6 +75,38 @@ async function readBatchLots(call: Call, manifest: SessionInputDto): Promise<Bat
 }
 
 /**
+ * A `/7` lot's `examine-identity/1`: each observation's marking verbatim, the marking as its one
+ * candidate, and the printed count as its estimate. It relies on the markings and identity only,
+ * so an answer about the quantity leaves it current.
+ */
+function examineIdentity(
+  lotId: string,
+  marking: string,
+  observationIds: readonly string[],
+  readAs: ReadonlyMap<string, string>,
+  source: Record<string, unknown>,
+  lotSources: readonly Record<string, unknown>[],
+  estimate: { quantity?: string; basis?: string },
+) {
+  return {
+    schema_version: 'examine-identity/1',
+    subject_id: lotId,
+    summary: `Identity from the label: ${marking}.`,
+    sources: [source],
+    relies_on: { fields: ['markings', 'identity'], sources: [source, ...lotSources] },
+    markings: observationIds.map((id) => ({
+      observation_id: id,
+      text: [readAs.get(id) ?? marking],
+    })),
+    candidates: [{ description: marking, confidence: 'low', reason: 'Read from the label.' }],
+    // A count of nothing isn't an estimate the contract takes.
+    ...(estimate.quantity && /[1-9]/.test(estimate.quantity) && estimate.basis
+      ? { quantity: { value: estimate.quantity, basis: estimate.basis } }
+      : {}),
+  }
+}
+
+/**
  * The deterministic Examine lead session for `synthetic-session/1`. It cannot see images, so
  * each photo's operator note (or the text after its label's colon) scripts what it holds. It
  * records one observation per listed item, groups the same marking across photos into one lot,
@@ -117,8 +149,13 @@ export async function syntheticLeadTurn(
     (media.context?.evidenceNotes ?? []).map((entry) => [entry.evidenceId, entry.note]),
   )
 
-  const seen = new Map<string, { observationIds: string[]; photos: number; quantity?: string }>()
+  const seen = new Map<
+    string,
+    { observationIds: string[]; evidenceIds: string[]; photos: number; quantity?: string }
+  >()
   const observedAt = new Map<string, string>()
+  // Each observation's marking as it was read; the lowercased key only groups them.
+  const readAs = new Map<string, string>()
   for (const item of evidence) {
     const fetched = await call('fetch_evidence', {
       evidence_id: item.evidenceId,
@@ -157,8 +194,10 @@ export async function syntheticLeadTurn(
         continue
       }
       const key = keyOf(entry.marking)
-      const group = seen.get(key) ?? { observationIds: [], photos: 0 }
+      const group = seen.get(key) ?? { observationIds: [], evidenceIds: [], photos: 0 }
       group.observationIds.push(String(recorded.id))
+      group.evidenceIds.push(item.evidenceId)
+      readAs.set(String(recorded.id), entry.marking)
       observedAt.set(String(recorded.id), memory.revision)
       group.photos += 1
       // The same items seen again are one count, never a sum.
@@ -167,11 +206,15 @@ export async function syntheticLeadTurn(
     }
   }
 
+  // Under `/7` the estimate is the identity's, so propose_lot is given none.
+  const stageInput = manifest.schema_version === 'bench-intake-input/7'
   const formedNew: {
     lotId: string
     marking: string
     quantity?: string
+    basis?: string
     observationIds: string[]
+    evidenceIds: string[]
   }[] = []
   for (const [key, group] of seen) {
     const existing = memory.lots[key]
@@ -183,7 +226,7 @@ export async function syntheticLeadTurn(
       base_revision: memory.revision,
       ...(existing ? { lot_id: existing } : { label: marking }),
       observation_ids: group.observationIds,
-      ...(group.quantity && !existing
+      ...(group.quantity && !existing && !stageInput
         ? { estimated_quantity: group.quantity, quantity_basis: basis }
         : {}),
     })
@@ -198,7 +241,9 @@ export async function syntheticLeadTurn(
       lotId,
       marking,
       quantity: group.quantity,
+      basis: basis || undefined,
       observationIds: group.observationIds,
+      evidenceIds: group.evidenceIds,
     })
   }
 
@@ -209,12 +254,15 @@ export async function syntheticLeadTurn(
     evidence.map((item) => noteOf.get(item.evidenceId)).find(Boolean) ?? [...noteOf.values()][0]
   if (note && formedNew.length) {
     const { lots } = await readBatchLots(call, manifest)
-    const source = {
+
+    const sourceOf = (cited: { id: string; text: string }) => ({
       kind: 'note',
-      note_id: note.id,
-      text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
-    }
-    for (const { lotId, marking, quantity, observationIds } of formedNew) {
+      note_id: cited.id,
+      text_sha256: sha256(Buffer.from(cited.text, 'utf8')).toString('hex'),
+    })
+
+    const source = sourceOf(note)
+    for (const { lotId, marking, quantity, basis, observationIds, evidenceIds } of formedNew) {
       const version = lots.find((lot) => lot.id === lotId)?.observation_set_version
       const lotSources = [
         ...(version ? [{ kind: 'observation_set', lot_id: lotId, version }] : []),
@@ -225,6 +273,28 @@ export async function syntheticLeadTurn(
           revision: observedAt.get(id) ?? memory.revision,
         })),
       ]
+      if (stageInput) {
+        const published = await call('propose', {
+          // A `/7` identity cites the note of the lot's own photo, when it was sealed.
+          proposal: examineIdentity(
+            lotId,
+            marking,
+            observationIds,
+            readAs,
+            sourceOf(evidenceIds.map((id) => noteOf.get(id)).find(Boolean) ?? note),
+            lotSources,
+            {
+              quantity,
+              basis,
+            },
+          ),
+        })
+        // A refused identity fails the turn rather than leaving the lot without one unseen.
+        if (!published.ok) {
+          throw new Error('synthetic_identity_refused')
+        }
+        continue
+      }
       await call('propose', {
         proposal: {
           schema_version: 'bench-intake-proposal/5',

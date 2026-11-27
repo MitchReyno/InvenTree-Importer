@@ -8,7 +8,7 @@ import {
   EvidenceReadings,
   EvidenceRegion,
 } from './evidence-observations.ts'
-import { SessionProposal } from './processing.ts'
+import { RetainedSessionProposal } from './processing.ts'
 import { StepInstructionsText } from './step-instructions.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -127,12 +127,13 @@ export const BriefAnswerEntry = object({
 })
 
 /**
- * The operator corrected an observation's reading. `before` is the reading it replaced, or null
- * when the correction was made before earlier readings were kept (`earlier_known` false).
+ * An observation's reading was corrected: by the operator, or (`source: agent`) by the Examine
+ * session revising its own observation. `before` is the reading it replaced, or null when the
+ * correction was made before earlier readings were kept (`earlier_known` false).
  */
 export const BriefCorrectionEntry = object({
   kind: Type.Literal('correction'),
-  ...human,
+  source: Type.Union([Type.Literal('human'), Type.Literal('agent')]),
   observation_id: Id,
   lot_id: Type.Union([Id, Type.Null()]),
   before: Type.Union([EvidenceReadings, Type.Null()]),
@@ -256,7 +257,7 @@ export const BriefIdentityEntry = object({
   kind: Type.Literal('identity'),
   proposal_id: Id,
   stale: Type.Boolean(),
-  proposal: SessionProposal,
+  proposal: RetainedSessionProposal,
 })
 
 /** Images: another lot's item seen on the same evidence, to keep out of frame. */
@@ -435,6 +436,8 @@ export const briefSchemas = {
 export type BriefStageDto = Static<typeof BriefStage>
 export type BriefSectionNameDto = Static<typeof BriefSectionName>
 export type BriefEntryDto = Static<typeof BriefEntry>
+export type BriefQuestionEntryDto = Static<typeof BriefQuestionEntry>
+export type BriefAnswerEntryDto = Static<typeof BriefAnswerEntry>
 export type SessionBriefDto = Static<typeof SessionBrief>
 export type SealedBriefDto = Static<typeof SealedBrief>
 export type BriefPageDto = Static<typeof BriefPage>

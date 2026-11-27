@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import type { AgentSettingsDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { SealedMatchDto, AgentSettingsDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { commands, outbox } from '#/db/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -20,6 +20,7 @@ import {
   stagePacks,
   type SessionInputVersion,
 } from './stage-policy.ts'
+import { lotStageOf, sealedMatchFor } from './match-outcome.ts'
 import {
   briefScope,
   stageInputManifest,
@@ -52,6 +53,8 @@ interface SessionAttemptOptions {
   inputVersion?: SessionInputVersion
   /** The caller supersedes the job's attempts after sealing, so the brief shows that state. */
   superseding?: boolean
+  /** A `/7` lot's Match outcome and stage mode; the stage's full mode with no outcome if omitted. */
+  match?: SealedMatchDto
 }
 
 /**
@@ -85,6 +88,7 @@ export async function prepareSessionAttempt(
     settings: given,
     inputVersion = 'bench-intake-input/6',
     superseding = false,
+    match,
   }: SessionAttemptOptions = {},
 ): Promise<SealedSessionInput> {
   // `shared-vm-agent/2` is retired: no new attempt is sealed for it.
@@ -133,14 +137,10 @@ export async function prepareSessionAttempt(
       )
   const manifest =
     inputVersion === 'bench-intake-input/7'
-      ? await sealStageInput(
-          client,
-          config,
-          snapshot,
-          base,
-          profileId,
-          superseding ? job.id : undefined,
-        )
+      ? await sealStageInput(client, config, snapshot, base, profileId, {
+          supersedingJobId: superseding ? job.id : undefined,
+          match: lead ? undefined : (match ?? sealedMatchFor(null, lotStageOf(job.stage))),
+        })
       : { ...sealed(base), pages: [], version: 'bench-intake-input/6' as const }
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)
@@ -183,7 +183,10 @@ async function sealStageInput(
   snapshot: CaptureSnapshotDto,
   base: SessionInputFields,
   profileId: SessionProfileId,
-  supersedingJobId: string | undefined,
+  {
+    supersedingJobId,
+    match,
+  }: { supersedingJobId: string | undefined; match: SealedMatchDto | undefined },
 ): Promise<SealedSessionInput> {
   const packs = requireStageInputs(config, profileId)
   const scope = { ...briefScope(base), supersedingJobId }
@@ -191,7 +194,7 @@ async function sealStageInput(
   const pages = briefPages(brief)
   for (let inline = pages.length; inline >= 0; inline -= 1) {
     const manifest = sealed(
-      stageInputManifest(base, packs[scope.stage], sealBrief(brief, pages, inline)),
+      stageInputManifest(base, packs[scope.stage], sealBrief(brief, pages, inline), match),
     )
     if (manifest.bytes.length <= MAX_PROCESSING_SNAPSHOT_BYTES) {
       return { ...manifest, pages: pages.slice(inline), version: 'bench-intake-input/7' }

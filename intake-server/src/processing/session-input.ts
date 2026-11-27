@@ -6,6 +6,7 @@ import {
   type ProcessingInputV6Dto,
   type ProcessingInputV7Dto,
   type SealedBriefDto,
+  type SealedMatchDto,
   type SessionInputDto,
 } from '@invimport/contracts'
 import type { BriefScope } from './brief.ts'
@@ -161,6 +162,8 @@ export function stageInputManifest(
   base: SessionInputFields,
   stagePackDigest: string,
   brief: SealedBriefDto,
+  /** A lot's Match outcome and stage mode; the lead has none. */
+  match: SealedMatchDto | undefined,
 ): ProcessingInputV7Dto {
   const manifest = {
     ...base,
@@ -168,6 +171,7 @@ export function stageInputManifest(
     tool_profile_version: STAGE_TOOL_PROFILE,
     stage_instructions_sha256: stagePackDigest,
     brief,
+    ...(match ? { match } : {}),
   }
   validate('ProcessingInputV7', manifest)
   return manifest as ProcessingInputV7Dto

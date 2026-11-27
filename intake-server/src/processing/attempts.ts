@@ -2,7 +2,7 @@ import { processingProfiles } from './policy.ts'
 import { createSessionAttempt } from './session-attempts.ts'
 import { isSessionProfile } from './session-policy.ts'
 import type { SessionInputVersion } from './stage-policy.ts'
-import type { AgentSettingsDto, ProcessingInputDto } from '@invimport/contracts'
+import type { AgentSettingsDto, ProcessingInputDto, SealedMatchDto } from '@invimport/contracts'
 import { readAgentSettings } from '#/agents/settings.ts'
 import { resolveSelection } from '#/agents/resolve-selection.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -70,12 +70,15 @@ export async function createAttempt(
     lockSettings = true,
     settings,
     inputVersion,
+    match,
   }: {
     lockSettings?: boolean
     /** Settings already read in this transaction, so several attempts seal the same read. */
     settings?: AgentSettingsDto
     /** A session attempt's input version: the batch's lead's, or the configuration's. */
     inputVersion?: SessionInputVersion
+    /** A `/7` lot's Match outcome and stage mode. */
+    match?: SealedMatchDto
   } = {},
 ) {
   const selectedProfile = config.profileId ?? mediaProfileId
@@ -92,7 +95,7 @@ export async function createAttempt(
       number,
       media,
       parentId,
-      { pinnedProposalIds, lockSettings, settings, inputVersion },
+      { pinnedProposalIds, lockSettings, settings, inputVersion, match },
     )
   }
   const attemptId = randomUUID()

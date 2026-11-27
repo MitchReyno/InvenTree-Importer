@@ -1,9 +1,13 @@
 import type {
   ProcessingInputDto,
   ProcessingProposalDto,
+  RetainedSessionProposalDto,
+  ResearchV1Dto,
   SessionProposalDto,
   ProcessingSourceDto,
   ProcessingSourceV3Dto,
+  StageProposalDto,
+  WebPageSourceDto,
 } from '@invimport/contracts'
 import { sha256 } from '#/db/authority.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
@@ -114,5 +118,60 @@ export function catalogueSources(proposal: Pick<SessionProposalDto, 'catalogue'>
       ? [...catalogue.supplier.sources, ...catalogue.supplier.company.sources]
       : []),
     ...(catalogue.description?.sources ?? []),
+  ]
+}
+
+/** A source a proposal cites: delivered evidence or a note, or an agent-reported web page. */
+export type ProposalCitation = ProcessingSourceDto | WebPageSourceDto
+
+/** Every source a session proposal cites: its top-level sources and those of each value. */
+export function proposalCitations(proposal: RetainedSessionProposalDto): ProposalCitation[] {
+  if (
+    proposal.schema_version === 'bench-intake-proposal/5' ||
+    proposal.schema_version === 'bench-intake-proposal/6'
+  ) {
+    return [...proposal.sources, ...catalogueSources(proposal)]
+  }
+  return stageOutputSources(proposal)
+}
+
+/** Every source a typed stage output cites, at the top level and in each of its values. */
+function stageOutputSources(proposal: StageProposalDto): ProposalCitation[] {
+  const fromNotes = (
+    proposal.schema_version === 'images/1' ? [] : (proposal.match_notes ?? [])
+  ).flatMap((note) => note.sources ?? [])
+  switch (proposal.schema_version) {
+    case 'examine-identity/1':
+      return [...proposal.sources, ...fromNotes]
+    case 'research-identity/1':
+      return [
+        ...proposal.sources,
+        ...(proposal.aliases ?? []).flatMap((alias) => alias.sources),
+        ...(proposal.cross_references ?? []).flatMap((reference) => reference.sources),
+        ...fromNotes,
+      ]
+    case 'research/1':
+      return [...proposal.sources, ...researchValueSources(proposal), ...fromNotes]
+    case 'images/1':
+      return [...proposal.sources]
+  }
+}
+
+function researchValueSources(proposal: ResearchV1Dto) {
+  const datasheet = proposal.datasheet
+  return [
+    ...(proposal.category?.sources ?? []),
+    ...(proposal.name?.sources ?? []),
+    ...(proposal.type?.sources ?? []),
+    ...(proposal.manufacturer
+      ? [...proposal.manufacturer.sources, ...proposal.manufacturer.company.sources]
+      : []),
+    ...(proposal.description?.sources ?? []),
+    ...(proposal.parameters ?? []).flatMap((parameter) => [
+      ...parameter.sources,
+      ...(parameter.alternatives ?? []).flatMap((other) => other.sources),
+    ]),
+    ...(datasheet ? [...datasheet.sources, ...(datasheet.version ? [datasheet.version] : [])] : []),
+    ...(proposal.conflicts ?? []).flatMap((conflict) => conflict.sources),
   ]
 }

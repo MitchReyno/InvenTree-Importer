@@ -185,6 +185,18 @@ async function successors(fixture: Fixture, batchId: string, label: string) {
   }))
 }
 
+/** The kinds a job's attempts published, in order. */
+async function publishedKinds(fixture: Fixture, batchId: string, stage: string) {
+  const rows = await fixture.db.pool.query<{ kind: string }>(
+    `SELECT convert_from(p.value_bytes,'UTF8')::jsonb->>'schema_version' AS kind
+     FROM processing_proposal p JOIN processing_attempt a ON a.id=p.attempt_id
+     JOIN processing_job j ON j.id=a.job_id JOIN processing_message m ON m.id=p.message_id
+     WHERE j.batch_id=$1 AND j.stage=$2 ORDER BY a.number, m.sequence`,
+    [batchId, stage],
+  )
+  return rows.rows.map((row) => row.kind)
+}
+
 async function leadVersion(fixture: Fixture, batchId: string) {
   const lead = await fixture.db.pool.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
     `SELECT i.manifest_bytes,i.manifest_digest FROM processing_job j
@@ -214,10 +226,16 @@ test(
     own(() => worker.stop())
 
     // The worker's sweep starts a `/7` lead, which forms the lot and queues its successors.
+    // Both ask the same quantity question; the first asks it and waits, and the other is given
+    // that question instead and finishes.
+    const settled = ['waiting_input', 'finished']
     const rows = await worker.until(
       () => successors(fixture, batchId, '16 mhz crystal'),
-      (found) => found[1]?.sessionState === 'waiting_input',
-      'the lot’s Research session reads its brief and asks',
+      (found) =>
+        found.length === 2 &&
+        found.every((row) => settled.includes(row.sessionState)) &&
+        found.some((row) => row.sessionState === 'waiting_input'),
+      'the lot’s sessions read their briefs, and one asks',
     )
     const research = rows[1]
     assert.equal(research.stage, 'research')
@@ -236,10 +254,22 @@ test(
     )
     assert.equal(kept.rowCount, 1)
     const asked = await fixture.db.pool.query(
-      "SELECT 1 FROM agent_session_outbox WHERE session_id=$1 AND kind='question'",
-      [research.attemptId],
+      'SELECT 1 FROM processing_question WHERE batch_id=$1',
+      [batchId],
     )
     assert.equal(asked.rowCount, 1)
+    // The lead formed the lot without a count and published Examine's typed identity, and
+    // Research published its own typed output, both accepted.
+    assert.deepEqual(await publishedKinds(fixture, batchId, 'examine'), ['examine-identity/1'])
+    assert.deepEqual(await publishedKinds(fixture, batchId, 'research'), ['research/1'])
+    const formed = await fixture.db.pool.query<{ command: { tool: string } }>(
+      `SELECT convert_from(command_bytes,'UTF8')::jsonb AS command FROM capture_revision
+       WHERE batch_id=$1 AND agent_session_id IS NOT NULL`,
+      [batchId],
+    )
+    const lotCommands = formed.rows.filter((row) => row.command.tool === 'propose_lot')
+    assert.equal(lotCommands.length, 1)
+    assert.ok(!('estimated_quantity' in lotCommands[0].command))
   },
 )
 
@@ -263,6 +293,11 @@ test(
       'the `/6` lead’s successors run and wait for their answers',
     )
     assert.equal(await leadVersion(fixture, batchId), 'bench-intake-input/6')
+    // A `/6` lead and its lot sessions keep publishing `/5` proposals.
+    assert.deepEqual(await publishedKinds(fixture, batchId, 'examine'), ['bench-intake-proposal/5'])
+    assert.deepEqual(await publishedKinds(fixture, batchId, 'research'), [
+      'bench-intake-proposal/5',
+    ])
     await before.stop()
 
     // The worker comes back with the switch on, and new evidence reaches the retained lead.

@@ -3,10 +3,13 @@ import { and, asc, count, desc, eq, gt, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
+  type RevisionChangeDto,
   type SessionInboxItemDto,
   type SessionInboxReceiptDto,
+  type SessionRevisionV2Dto,
 } from '@invimport/contracts'
-import { canonical } from '@invimport/contracts/json'
+import { versionRemovedSql } from '#/media/removal.ts'
+import { canonicalRecord } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
@@ -113,7 +116,7 @@ export async function appendSessionInbox(
   if (existing[0]) {
     const same =
       existing[0].kind === submission.kind &&
-      canonical(existing[0].payload) === canonical(submission.payload) &&
+      canonicalRecord(existing[0].payload) === canonicalRecord(submission.payload) &&
       existing[0].actorId === submission.actorId
     if (!same) {
       fail('idempotency_conflict', 409)
@@ -223,6 +226,63 @@ export async function releaseInboxItems(client: PoolClient, itemIds: readonly st
   )
 }
 
+/**
+ * An item's payload as it is given now. A `/7` revision naming what an observation shows (its
+ * reading, inline or left to the brief, crop, count or same-item mark) when the operator has since
+ * removed its evidence names that evidence's removal instead, as the brief leaves it out; the stored item, and the history, keep what was recorded.
+ */
+export async function deliverablePayload(client: PoolClient, kind: string, payload: unknown) {
+  const revision = payload as Partial<SessionRevisionV2Dto>
+  if (kind !== 'revision' || revision.schema_version !== 'bench-intake-revision/2') {
+    return payload
+  }
+
+  // Every change that says what an observation shows: its reading, its crop, its count or the
+  // observation it shows the same item as.
+  const shownBy = new Set(['reading', 'reading_in_brief', 'region', 'count'])
+
+  const observationsOf = (change: RevisionChangeDto): string[] => {
+    if (change.kind === 'same_item') {
+      return [change.observation_id, change.same_as_from, change.same_as_to].filter(
+        (id): id is string => id !== null,
+      )
+    }
+    return shownBy.has(change.kind) && 'observation_id' in change ? [change.observation_id] : []
+  }
+
+  const read = revision.changes!.flatMap(observationsOf)
+  if (!read.length) {
+    return payload
+  }
+  const removed = await client.query<{ id: string; evidence_id: string }>(
+    `SELECT o.id, v.evidence_id FROM public.capture_evidence_observation o
+     JOIN public.media_version v ON v.id=o.evidence_version_id
+     WHERE o.id = ANY($1::uuid[]) AND ${versionRemovedSql('v')}`,
+    [read],
+  )
+  if (!removed.rowCount) {
+    return payload
+  }
+  const evidenceOf = new Map(removed.rows.map((row) => [row.id, row.evidence_id]))
+  const told = new Set<string>()
+  const changes = revision.changes!.flatMap((change): RevisionChangeDto[] => {
+    const gone = observationsOf(change).flatMap((id) => {
+      const evidenceId = evidenceOf.get(id)
+      return evidenceId === undefined ? [] : [evidenceId]
+    })
+    if (!gone.length) {
+      return [change]
+    }
+    return [...new Set(gone)]
+      .filter((evidenceId) => !told.has(evidenceId))
+      .map((evidenceId) => {
+        told.add(evidenceId)
+        return { kind: 'evidence' as const, evidence_id: evidenceId, removed: true as const }
+      })
+  })
+  return { ...revision, changes }
+}
+
 /** Items after the acknowledged cursor; they stay pending until a later cursor passes them. */
 export async function pendingSessionInbox(client: PoolClient, lineageId: string) {
   const rows = await executeDatabaseQuery(
@@ -316,16 +376,16 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
     client,
     rows.map((row) => row.id),
   )
-  const items = rows.map(
-    (row) =>
-      ({
-        id: row.id,
-        seq: row.seq.toString(),
-        kind: row.kind,
-        payload: row.payload,
-        created_at: row.createdAt.toISOString(),
-      }) as SessionInboxItemDto,
-  )
+  const items: SessionInboxItemDto[] = []
+  for (const row of rows) {
+    items.push({
+      id: row.id,
+      seq: row.seq.toString(),
+      kind: row.kind,
+      payload: await deliverablePayload(client, row.kind, row.payload),
+      created_at: row.createdAt.toISOString(),
+    } as SessionInboxItemDto)
+  }
   return { items, advanced }
 }
 
