@@ -225,6 +225,8 @@ The guide table's rows can't be changed or deleted, but a row could still be add
 - **A selected crop whose derivation fails stays in the set** and reads as failed in the review; preparation is to block on it (PR-F).
 - **Redo is a chat message.** "Ask Images to redo one" sends an operator chat message to the proposal's Images session naming the crop, its role and source, and what to change.
 - **Extras aren't attached.** The board shows an "Attach to the Part" checkbox on an extra, but the plan's selection keeps only a Part image and stock images, and PR-F has no effect for a Part attachment from Images. An extra is shown with its flags and the line "Extras aren't attached; crop it yourself in Capture to keep one." Open item below.
+- **Confirming names the review's revision.** The review read carries the media revision it was read at, and a confirmation sends the revision the operator's choices were based on, so a change in another tab is a conflict, never a silent replacement. A lot confirmed or cleared to no images reads as that, not as never confirmed. Crops that aren't rendered can't be chosen.
+- **Image tools recheck after rendering.** The session and the photos are checked again once the decoder returns, so an image of a photo removed meanwhile is withheld; the run's spent budget and the pages' total size are refused before any page is read. `propose_images` takes only photos in the lot's scope now (linked to it, or holding one of its active observations), and refuses a recipe given twice.
 - **Crops have no title.** `images/1` gives a crop no name, so each card is titled "Crop N" where the board names it.
 - **The tool profile.** The image tools join `native-session-stage-tools/1` without a new tool profile, as `read_guide` and `read_vocabulary` did in PR-G1: no configuration seals `/7` before PR-G2.
 - **Negative angles in media recipes.** `canonicalMedia` refused negative integers, so a recipe `/2` straightened anticlockwise couldn't be retained; it now accepts any safe integer. Bytes it accepted before are unchanged.
@@ -234,6 +236,7 @@ The guide table's rows can't be changed or deleted, but a row could still be add
 
 - **2026-11-27, task 10:** the server tool tests (`tests/pg/image-tools.test.ts`) were written after the handlers, not before; a negative control (the Images-only check removed from `preview_images`) made them fail. The relay, media selection and frontend tests failed first.
 - **2026-11-27, task 10:** the worktree was installed with `pnpm install --frozen-lockfile --offline`, as in task 2, because contracts changed; the lockfile is unchanged.
+- **2026-11-27, task 10:** the fixes for the first review round (an image returned after its photo was removed, a photo moved out of the lot, a second recipe on a page left unchecked, confirmation against the review's own media revision, drafts and unresolved requests kept per lot) were written before their regressions; each regression fails on the earlier code.
 - **2026-11-27, task 10:** the relay stages the image tools' replies on the `shared-vm-agent/3` tool-worker route the coordinator has today; the packaged `/4` worker and the dispatcher in the coordinator are task 11's, as the task says.
 
 ### Open items

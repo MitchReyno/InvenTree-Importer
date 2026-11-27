@@ -21,7 +21,7 @@ export type ImagesReviewClient = {
 type Props = {
   batchId: string
   processing: ImagesReviewClient
-  /** The media read's command readiness and revision; absent where media isn't configured. */
+  /** The media client Confirm edits through; absent where media isn't configured. */
   media?: Omit<ImagesMedia, 'accept'>
   lotLabel?: (lotId: string) => string | undefined
   /** Why nothing can be sent, such as an archived batch or a page shown from a snapshot. */
@@ -77,6 +77,11 @@ export function ImagesReview({
       }
     : undefined
   const sectionMedia = media ? { ...media, accept: acceptReceipt } : undefined
+  // Confirm names this read's media revision, so it commands only from a read verified here.
+  const reviewGate = {
+    waitReason: fresh.commandsReady ? undefined : (fresh.reason ?? 'Updating…'),
+    readyNow: fresh.commandsReadyNow,
+  }
 
   return (
     <Review aria-label="Proposed crops">
@@ -94,21 +99,24 @@ export function ImagesReview({
         {review && proposals.length === 0 && !unavailable && (
           <Paragraph>Images hasn’t proposed any crops yet.</Paragraph>
         )}
-        {proposals.map((proposal) => (
-          <ImagesProposalSection
-            // A newer proposal starts its choices afresh.
-            key={`${proposal.lot_id}:${proposal.proposal_id}`}
-            batchId={batchId}
-            proposal={proposal}
-            selection={review?.selections.find((item) => item.lot_id === proposal.lot_id)}
-            lotLabel={lotLabel?.(proposal.lot_id) ?? shortLotLabel(proposal.lot_id)}
-            media={sectionMedia}
-            chat={chat}
-            closedReason={closedReason}
-            onChoicesDirty={drafts.forSource(`choices:${proposal.lot_id}`)}
-            onRedoDirty={drafts.forSource(`redo:${proposal.lot_id}`)}
-          />
-        ))}
+        {review &&
+          proposals.map((proposal) => (
+            <ImagesProposalSection
+              // One owner per lot keeps its choices and requests across newer proposals.
+              key={proposal.lot_id}
+              batchId={batchId}
+              proposal={proposal}
+              selection={review.selections.find((item) => item.lot_id === proposal.lot_id)}
+              mediaRevision={review.media_revision}
+              lotLabel={lotLabel?.(proposal.lot_id) ?? shortLotLabel(proposal.lot_id)}
+              review={reviewGate}
+              media={sectionMedia}
+              chat={chat}
+              closedReason={closedReason}
+              onChoicesDirty={drafts.forSource(`choices:${proposal.lot_id}`)}
+              onRedoDirty={drafts.forSource(`redo:${proposal.lot_id}`)}
+            />
+          ))}
       </ReadState>
     </Review>
   )

@@ -47,15 +47,19 @@ export const ProcessingImageSelectionItem = object({
   recipe: MediaLitViewRecipe,
   state: MediaDecodeState,
 })
-/** A lot's confirmed images: one Part image and its ordered stock images. */
+/** A lot's confirmed images: one Part image and its ordered stock images; none once cleared. */
 export const ProcessingImageSelection = object({
   lot_id: Id,
   revision: Revision,
   part_image: Type.Union([ProcessingImageSelectionItem, Type.Null()]),
   stock_images: Type.Array(ProcessingImageSelectionItem, { maxItems: MEDIA_STOCK_IMAGES_MAX }),
 })
-/** The Images step's review: each lot's proposals, newest first, and its confirmed images. */
+/**
+ * The Images step's review: each lot's proposals, newest first, and its confirmed images, read at
+ * one media revision, which a confirmation names as its expected revision.
+ */
 export const ProcessingImagesReview = object({
+  media_revision: Revision,
   proposals: Type.Array(ProcessingImagesProposal, { maxItems: 400 }),
   selections: Type.Array(ProcessingImageSelection, { maxItems: 200 }),
 })

@@ -382,7 +382,10 @@ test('an empty confirmation clears the lot’s images', async () => {
 
     const cleared = await fixture.media.applied(selectImages(lotA, null, []))
 
-    assert.deepEqual(await fixture.selections(), [])
+    // The lot reads as confirmed with none, not as never confirmed.
+    assert.deepEqual(await fixture.selections(), [
+      { lot_id: lotA, revision: cleared.revision, part_image: null, stock_images: [] },
+    ])
     const rows = await fixture.db.pool.query<{ revision: string; items: number }>(
       `SELECT s.revision::text, (SELECT count(*)::int FROM media_image_selection_item i
          WHERE i.selection_id=s.id) AS items
@@ -425,9 +428,19 @@ test('removing a photo clears its crops from every lot’s current images, and r
     })
 
     const after = await fixture.selections()
+    // Lot B's only crop is gone, so it reads as cleared to none.
     assert.deepEqual(
       after.map((selection) => selection.lot_id),
-      [lotA, lotC].sort(),
+      [lotA, lotB, lotC].sort(),
+    )
+    assert.deepEqual(
+      after.find((selection) => selection.lot_id === lotB),
+      {
+        lot_id: lotB,
+        revision: removed.revision,
+        part_image: null,
+        stock_images: [],
+      },
     )
     const a = after.find((selection) => selection.lot_id === lotA)!
     assert.equal(a.revision, removed.revision)

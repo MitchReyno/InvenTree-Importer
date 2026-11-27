@@ -1,35 +1,30 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useId, type FormEvent } from 'react'
 import styled from 'styled-components'
-import type {
-  ProcessingImagesProposalDto,
-  SessionInboxReceiptDto,
-  SessionInboxSubmissionDto,
-} from '@invimport/contracts'
+import type { ProcessingImagesProposalDto } from '@invimport/contracts'
 import { Button, Small } from '#/components/ui'
 import { Form, Label, Select, TextArea } from '#/forms'
-import { useReportDirty } from '#/navigation/useReportDirty'
-import type { DirtyReport } from '#/navigation/unsaved-changes'
 import type { CommandFailure } from '#/operator/command-failure'
-import { useRetainedCommand } from '#/operator/useRetainedCommand'
-import { cropSourceLine, redoMessage, ROLE_LABEL } from '#/processing/images-review'
+import { cropSourceLine, ROLE_LABEL } from '#/processing/images-review'
 import { color, radius, space } from '#/theme/generated/tokens'
 
-export type SendChat = (
-  jobId: string,
-  input: SessionInboxSubmissionDto,
-  key: string,
-) => Promise<SessionInboxReceiptDto>
+/** A redo draft as its lot keeps it, so closing the form or a newer read never drops it. */
+export type RedoDraft = { cropIndex: string; change: string }
 
 type Props = {
   proposal: ProcessingImagesProposalDto
-  send: SendChat
+  draft: RedoDraft
+  onDraftChange: (draft: RedoDraft) => void
+  /** A request awaiting its outcome: the form is locked to it until Retry or Discard. */
+  pending: boolean
+  busy: boolean
+  failure: CommandFailure | null
+  sent: boolean
   /** Why sending waits, quietly, such as a read still landing. */
   waitReason?: string
-  /** The same test checked when pressed, against the read shown. */
-  readyNow: () => boolean
   /** Why sending is closed, such as an archived batch. */
   closedReason?: string
-  onDirtyChange?: DirtyReport
+  onSend: () => void
+  onDiscard: () => void
   onClose: () => void
 }
 
@@ -46,63 +41,35 @@ function failureText(failure: CommandFailure) {
 /** Asks the lot's Images session to redo one crop, naming it and, optionally, what to change. */
 export function ImagesRedoForm({
   proposal,
-  send,
+  draft,
+  onDraftChange,
+  pending,
+  busy,
+  failure,
+  sent,
   waitReason,
-  readyNow,
   closedReason,
-  onDirtyChange,
+  onSend,
+  onDiscard,
   onClose,
 }: Props) {
   const fieldId = useId()
-  const [cropIndex, setCropIndex] = useState(String(proposal.crops[0].index))
-  const [change, setChange] = useState('')
-  const [sent, setSent] = useState(false)
-  const command = useRetainedCommand((text: string, key: string) =>
-    send(proposal.job_id, { idempotency_key: key, text }, key),
-  )
-  const crop = proposal.crops.find((item) => String(item.index) === cropIndex) ?? proposal.crops[0]
-  const locked = command.busy || command.pending
-  useReportDirty(change.trim() !== '' || command.pending, onDirtyChange)
+  const locked = busy || pending
 
-  function handleChange(text: string) {
-    setChange(text)
-    setSent(false)
-    onDirtyChange?.(text.trim() !== '')
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (closedReason || !readyNow()) {
-      return
-    }
-    setSent(false)
-    const receipt = await command.submit(redoMessage(crop, change))
-    if (receipt === null) {
-      onDirtyChange?.(change.trim() !== '' || command.hasPendingIntent())
-      return
-    }
-    setChange('')
-    setSent(true)
-    onDirtyChange?.(false)
-  }
-
-  function handleDiscard() {
-    command.discard()
-    onDirtyChange?.(change.trim() !== '')
+    onSend()
   }
 
   return (
-    <RedoForm aria-label="Ask Images to redo a crop" onSubmit={(event) => void handleSubmit(event)}>
+    <RedoForm aria-label="Ask Images to redo a crop" onSubmit={handleSubmit}>
       <Pair>
         <Label htmlFor={`${fieldId}-crop`}>Crop</Label>
         <Select
           id={`${fieldId}-crop`}
-          value={cropIndex}
+          value={draft.cropIndex}
           disabled={locked}
-          onChange={(event) => {
-            setCropIndex(event.target.value)
-            setSent(false)
-          }}
+          onChange={(event) => onDraftChange({ ...draft, cropIndex: event.target.value })}
         >
           {proposal.crops.map((item) => (
             <option key={item.index} value={String(item.index)}>
@@ -115,27 +82,25 @@ export function ImagesRedoForm({
         <Label htmlFor={`${fieldId}-change`}>What to change (optional)</Label>
         <TextArea
           id={`${fieldId}-change`}
-          value={change}
+          value={draft.change}
           maxLength={MAX_CHANGE_CHARACTERS}
           disabled={locked}
           placeholder="Such as: keep the whole label in frame"
-          onChange={(event) => handleChange(event.target.value)}
+          onChange={(event) => onDraftChange({ ...draft, change: event.target.value })}
         />
       </Pair>
-      {command.failure && <Failure role="alert">{failureText(command.failure)}</Failure>}
+      {failure && <Failure role="alert">{failureText(failure)}</Failure>}
       <Actions>
         <Button
           type="submit"
           variant="primary"
-          busy={command.busy}
+          busy={busy}
           disabledReason={closedReason ?? waitReason}
           reasonDisplay={closedReason ? 'beside' : 'quiet'}
         >
-          {command.pending ? 'Retry' : 'Send to Images'}
+          {pending ? 'Retry' : 'Send to Images'}
         </Button>
-        {command.pending && !command.busy && (
-          <Button onClick={handleDiscard}>Discard request</Button>
-        )}
+        {pending && !busy && <Button onClick={onDiscard}>Discard request</Button>}
         <Button variant="ghost" onClick={onClose}>
           Close
         </Button>

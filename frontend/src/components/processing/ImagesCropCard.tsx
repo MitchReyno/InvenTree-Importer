@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import type { ProcessingImageCropDto } from '@invimport/contracts'
+import { useId } from 'react'
 import { Pill, Small } from '#/components/ui'
 import { CheckboxLabel } from '#/forms'
 import { imagesCropImage } from '#/media/types'
@@ -7,6 +8,7 @@ import {
   adjustmentChips,
   cropSourceLine,
   ROLE_LABEL,
+  unchoosableReason,
   type ConfirmedPlacement,
 } from '#/processing/images-review'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
@@ -25,6 +27,7 @@ type Props = {
   /** Where the crop already sits among the lot's confirmed images. */
   placement: ConfirmedPlacement | null
   control: CropControl
+  /** Every control is locked, such as while a confirmation awaits its outcome. */
   disabled: boolean
 }
 
@@ -37,6 +40,12 @@ function placementText(placement: ConfirmedPlacement) {
 /** One proposed crop: the app's rendering, what it was cut from, how it was adjusted, its flags. */
 export function ImagesCropCard({ batchId, proposalId, crop, placement, control, disabled }: Props) {
   const role = ROLE_LABEL[crop.role]
+  const reasonId = useId()
+  const reason = unchoosableReason(crop.state)
+  const checked = control.kind !== 'none' && control.checked
+  // An unrendered crop can't be chosen, but one already chosen can still be unchosen.
+  const controlDisabled = disabled || (reason !== undefined && !checked)
+  const describedBy = reason ? reasonId : undefined
 
   return (
     <Card aria-label={`Crop ${crop.index}: ${role}`}>
@@ -76,10 +85,11 @@ export function ImagesCropCard({ batchId, proposalId, crop, placement, control, 
               type="radio"
               name={control.name}
               checked={control.checked}
-              disabled={disabled}
+              disabled={controlDisabled}
+              aria-describedby={describedBy}
               onChange={control.onChoose}
             />
-            Use as the Part image
+            Use crop {crop.index} as the Part image
           </CheckboxLabel>
         )}
         {control.kind === 'stock' && (
@@ -87,12 +97,14 @@ export function ImagesCropCard({ batchId, proposalId, crop, placement, control, 
             <input
               type="checkbox"
               checked={control.checked}
-              disabled={disabled}
+              disabled={controlDisabled}
+              aria-describedby={describedBy}
               onChange={(event) => control.onToggle(event.target.checked)}
             />
-            Attach to the stock
+            Attach crop {crop.index} to the stock
           </CheckboxLabel>
         )}
+        {control.kind !== 'none' && reason && <Muted id={reasonId}>{reason}</Muted>}
         {control.kind === 'none' && (
           <Muted>Extras aren’t attached; crop it yourself in Capture to keep one.</Muted>
         )}

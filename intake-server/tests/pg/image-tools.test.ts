@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import sharp from 'sharp'
 import type { MediaLitViewRecipeDto } from '@invimport/contracts'
 import { formedBatch } from '../support/lot-pipeline.ts'
@@ -13,6 +13,8 @@ import { runSessionTurn } from '#/agents/session/session-runner.ts'
 import { readImagesReview } from '#/processing/images-review.ts'
 import { renderFigureStep } from '#/media/figure-renders.ts'
 import type { SessionImageOperations } from '#/agents/tools/image-tools.ts'
+import { editMedia } from '#/media/edit.ts'
+import { grantMedia } from '#/media/grants.ts'
 
 type Batch = Awaited<ReturnType<typeof formedBatch>>
 type Result = StageToolResult
@@ -406,4 +408,137 @@ test('a synthetic /7 Images session publishes an accepted images/1 through propo
     mine[0].crops.map((crop) => crop.role),
     ['stock_image'],
   )
+})
+
+/** Removes the batch's photo as the operator would, through the media edit. */
+async function removePhoto(batch: Batch) {
+  const { fixture, batchId } = batch
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+    [batchId],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [(await photo(batch)).evidence_id] },
+  })
+}
+
+test('an image rendered while its photo was removed is not returned', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true, images: true })
+  const source = await photo(batch)
+  const real = childImageOperations()
+  let release: () => void = () => {}
+  const started = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let rendering: () => void = () => {}
+  const isRendering = new Promise<void>((resolve) => {
+    rendering = resolve
+  })
+  const paused: SessionImageOperations = {
+    ...real,
+    grid: async (input) => {
+      rendering()
+      await started
+      return real.grid(input)
+    },
+  }
+  const session = tools(batch, paused)
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  const imager = await running(batch.fixture, images.attemptId)
+  const call = session.inspect_region(imager, { evidence_id: source.evidence_id })
+  await isRendering
+  await removePhoto(batch)
+  release()
+  const output = await call
+  assert.equal((output.result as Result).error, 'media_evidence_removed')
+  assert.equal(output.images, undefined)
+})
+
+test('propose_images refuses a photo outside the lot now, and a recipe given twice', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true, images: true })
+  const { fixture } = batch
+  const session = tools(batch, childImageOperations())
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  const cited = await fetched(batch, session, images.attemptId)
+  const source = await photo(batch)
+  const imager = await running(fixture, images.attemptId)
+  const base = {
+    schema_version: 'images/1',
+    subject_id: images.lot.id,
+    summary: 'The crystal.',
+    sources: [cited],
+    relies_on: { fields: ['identity'], sources: [cited] },
+  }
+  const twice = await result(
+    session.propose_images(imager, {
+      proposal: {
+        ...base,
+        images: [
+          { role: 'part_image', recipe: recipe(source) },
+          { role: 'stock_image', recipe: recipe(source) },
+        ],
+      },
+    }),
+  )
+  assert.equal(twice.error, 'validation_failed')
+  assert.equal(twice.issues?.[0].path, '/proposal/images/1/recipe')
+
+  // A second recipe on the same page is checked too, not only the first to name it.
+  const second = await result(
+    session.propose_images(imager, {
+      proposal: {
+        ...base,
+        images: [
+          { role: 'part_image', recipe: recipe(source) },
+          {
+            role: 'stock_image',
+            recipe: { ...recipe(source, { x: 0, y: 0, width: 50, height: 50 }), page_width: 700 },
+          },
+        ],
+      },
+    }),
+  )
+  assert.equal(second.error, 'validation_failed')
+  assert.equal(second.issues?.[0].path, '/proposal/images/1/recipe/page_width')
+
+  // The photo leaves the lot: its observations move out, so it is no longer in the lot's scope.
+  await fixture.db.pool
+    .query(
+      `UPDATE capture_lot_evidence_observation SET status='suggested'
+      WHERE batch_id=$1 AND lot_id=$2`,
+      [batch.batchId, images.lot.id],
+    )
+    .catch(() => undefined)
+  await fixture.db.pool
+    .query(`DELETE FROM capture_lot_evidence_observation WHERE batch_id=$1 AND lot_id=$2`, [
+      batch.batchId,
+      images.lot.id,
+    ])
+    .catch(() => undefined)
+  const moved = await result(
+    session.propose_images(imager, {
+      proposal: { ...base, images: [{ role: 'stock_image', recipe: recipe(source) }] },
+    }),
+  )
+  assert.equal(moved.error, 'source_not_delivered')
+  assert.equal(moved.issues?.[0].rule, 'lot_scope')
+})
+
+test('a spent image budget refuses before the decoder runs', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true, images: true })
+  const calls: string[] = []
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  const imager = await running(batch.fixture, images.attemptId)
+  const spent = tools(
+    batch,
+    childImageOperations(calls),
+    new Map([[sha256Run(imager), 8 * 1024 * 1024]]),
+  )
+  const over = await result(
+    spent.inspect_region(imager, { evidence_id: (await photo(batch)).evidence_id }),
+  )
+  assert.equal(over.error, 'capacity_reached')
+  assert.deepEqual(calls, [])
 })

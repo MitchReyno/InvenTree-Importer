@@ -103,8 +103,9 @@ import {
 } from '#/media/figure-renders.ts'
 import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 import { DecoderDispatcherBusyError } from '#/media/dispatcher-client.ts'
-import { PREVIEW_MAX_PAGES } from '@invimport/contracts/media'
+import { MEDIA_PREVIEW_MAX_BYTES, PREVIEW_MAX_PAGES } from '@invimport/contracts/media'
 import {
+  lotEvidenceIds,
   namedToolPage,
   recipePages,
   requireRegionInPage,
@@ -1008,6 +1009,7 @@ function imagesProposal(principal: SessionPrincipal, args: unknown): ImagesPropo
   }
   const { proposal } = validated<SessionProposeImagesArgsDto>('SessionProposeImagesArgs', args)
   refuseUnstorableText(proposal, '/proposal')
+  refuseRepeatedRecipes(proposal)
   const refusal = stageOutputRefusal(principal.manifest as ProcessingInputV7Dto, proposal)
   if (refusal) {
     throw refusal
@@ -1016,6 +1018,57 @@ function imagesProposal(principal: SessionPrincipal, args: unknown): ImagesPropo
 }
 
 type ImagesProposalDto = SessionProposeImagesArgsDto['proposal']
+
+/**
+ * Every recipe's photo must be in the lot's scope now, not only once delivered: a photo moved to
+ * another lot can't be proposed for this one.
+ */
+async function requireLotScope(
+  client: PoolClient,
+  batchId: string,
+  lotId: string,
+  pages: ToolPage[],
+  pageOf: number[],
+) {
+  const inScope = await lotEvidenceIds(client, batchId, lotId)
+  for (const [index, pageIndex] of pageOf.entries()) {
+    if (!inScope.has(pages[pageIndex].evidenceId)) {
+      throw new ToolRefusal(
+        'source_not_delivered',
+        'A recipe names a photo that is no longer in this lot.',
+        [
+          {
+            path: `/proposal/images/${index}/recipe/source_version_id`,
+            rule: 'lot_scope',
+            reason: 'The photo is not in this lot now.',
+          },
+        ],
+      )
+    }
+  }
+}
+
+/** Two crops with the same recipe would be one derived crop, which can't take two places. */
+function refuseRepeatedRecipes(proposal: ImagesProposalDto) {
+  const seen = new Set<string>()
+  for (const [index, image] of proposal.images.entries()) {
+    const digest = figureRecipeDigest(image.recipe).toString('hex')
+    if (seen.has(digest)) {
+      throw new ToolRefusal(
+        'validation_failed',
+        'Two crops have the same recipe; propose it once.',
+        [
+          {
+            path: `/proposal/images/${index}/recipe`,
+            rule: 'unique',
+            reason: 'An earlier crop has this recipe.',
+          },
+        ],
+      )
+    }
+    seen.add(digest)
+  }
+}
 
 /**
  * Keeps each crop of a published `images/1` in order, and queues the app's rendering of each for
@@ -2150,6 +2203,21 @@ async function runImageTool(
     result: { ok: false, error, message, pending_inbox: pending },
   })
 
+  // Limits that need no decoding are refused before any page is read.
+  const run = capabilityDigest(token).toString('hex')
+  if ((context.imageBudget.get(run) ?? 0) >= SESSION_IMAGE_BUDGET_BYTES) {
+    return refused(
+      'capacity_reached',
+      'This run’s image budget is used up, so nothing was rendered. Continue without it.',
+    )
+  }
+  const pageBytes = checked.pages.reduce((total, page) => total + page.previewBytes, 0)
+  if (pageBytes > MEDIA_PREVIEW_MAX_BYTES) {
+    return refused(
+      'validation_failed',
+      'These pages are too large to render together; use fewer pages at a time.',
+    )
+  }
   const pages = await Promise.all(checked.pages.map((page) => store!.read(page.previewDigest)))
   let outcome: ImageOperationOutcome
   try {
@@ -2163,8 +2231,16 @@ async function runImageTool(
   if (outcome.kind !== 'ready') {
     return refused('validation_failed', checked.refused[outcome.kind])
   }
+  // The session may have ended, or the operator removed the photo, while the decoder ran.
+  const versionIds = checked.pages.map((page) => page.versionId)
+  const still = await withSession(context, token, { capture: false }, async (client, principal) => {
+    await refuseRemovedVersions(client, principal.batchId, versionIds)
+    return ok(client, principal)
+  })
+  if (!still.result.ok) {
+    return still
+  }
   const image = await boundedImage(outcome.image.bytes, outcome.image, AGENT_IMAGE_LONG_EDGE, true)
-  const run = capabilityDigest(token).toString('hex')
   if (!image || !reserveImageBudget(context, run, image.bytes.length)) {
     return refused(
       'capacity_reached',
@@ -2179,7 +2255,12 @@ async function runImageTool(
     scale: image.scale,
   }
   return {
-    result: { ok: true, pending_inbox: pending, ...outcome.fields, images: [described] },
+    result: {
+      ok: true,
+      pending_inbox: still.result.pending_inbox,
+      ...outcome.fields,
+      images: [described],
+    },
     images: [{ mediaType: image.mediaType, base64: image.bytes.toString('base64') }],
   }
 }
@@ -2824,7 +2905,7 @@ export function sessionTools(context: SessionToolContext) {
         async (client, principal, capture, onWriter) => {
           const proposal = imagesProposal(principal, args)
           const deliverable = await deliverableVersions(client, principal)
-          await recipePages(
+          const { pages, pageOf } = await recipePages(
             client,
             principal.batchId,
             deliverable,
@@ -2833,6 +2914,7 @@ export function sessionTools(context: SessionToolContext) {
               path: `/proposal/images/${index}/recipe`,
             })),
           )
+          await requireLotScope(client, principal.batchId, proposal.subject_id, pages, pageOf)
           const { id, streamId } = await publish(client, principal, capture!, onWriter, proposal)
           await storeProposalImages(client, principal.batchId, id, proposal)
           await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })

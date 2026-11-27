@@ -45,6 +45,15 @@ async function requireScopedBatch(client: PoolClient, config: ProcessingConfig, 
   }
 }
 
+/** The batch's media revision; a batch with no media yet is at its first. */
+async function mediaRevision(client: PoolClient, batchId: string) {
+  const rows = await client.query<{ revision: string }>(
+    'SELECT revision::text FROM public.media_batch WHERE batch_id=$1',
+    [batchId],
+  )
+  return rows.rows[0]?.revision ?? '1'
+}
+
 /** Every `images/1` the batch's Images sessions published, newest first. */
 async function imagesProposalRows(client: PoolClient, batchId: string) {
   const rows = await client.query<ImagesProposalRow>(
@@ -160,7 +169,11 @@ export async function readImagesReview(
     const proposals = rows.map((row) =>
       reviewedProposal(row, crops.get(row.id) ?? new Map(), Boolean(facts.get(row.id)?.stale)),
     )
-    const review = { proposals, selections: await imageSelections(client, batchId) }
+    const review = {
+      media_revision: await mediaRevision(client, batchId),
+      proposals,
+      selections: await imageSelections(client, batchId),
+    }
     validate('ProcessingImagesReview', review)
     return review
   })

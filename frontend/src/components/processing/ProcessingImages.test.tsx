@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { expect, test, vi, type Mock } from 'vitest'
 import { render } from '#/test/render'
 import { deferred } from '#/test/deferred'
+import { createServerQueryClient } from '#/queries/client'
 import { ProcessingImages } from './ProcessingImages'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type {
@@ -195,6 +196,7 @@ function proposalReview(
   selections: ProcessingImagesReviewDto['selections'] = [],
 ): ProcessingImagesReviewDto {
   return {
+    media_revision: '7',
     proposals: [
       {
         proposal_id: 'proposal',
@@ -211,12 +213,13 @@ function proposalReview(
   }
 }
 
-const mediaAtRevision: MediaSnapshotDto = { ...saved, revision: '7' }
+// Polled separately, and newer than the review: Confirm never sends its revision.
+const mediaAtRevision: MediaSnapshotDto = { ...saved, revision: '9' }
 
 function mountReview(
   review: ProcessingImagesReviewDto,
   {
-    edit = vi.fn<MediaClient['edit']>(async () => ({ ...mediaAtRevision, revision: '8' })),
+    edit = vi.fn<MediaClient['edit']>(async () => ({ ...mediaAtRevision, revision: '10' })),
     chat = vi.fn<NonNullable<ProcessingClient['chat']>>(async () => ({
       item_id: 'item',
       seq: '4',
@@ -229,8 +232,12 @@ function mountReview(
     upload: vi.fn(),
     edit,
   }
-  const processing = { images: vi.fn(async () => review), chat }
+  const processing = {
+    images: vi.fn<(batchId: string) => Promise<ProcessingImagesReviewDto>>(async () => review),
+    chat,
+  }
   const onDirtyChange = vi.fn()
+  const cache = createServerQueryClient()
   render(
     <ProcessingImages
       batchId="batch"
@@ -239,8 +246,22 @@ function mountReview(
       lotLabel={(id) => (id === 'lot' ? 'GE S2CN1 diodes' : undefined)}
       onDirtyChange={onDirtyChange}
     />,
+    { cache },
   )
-  return { media, processing, onDirtyChange }
+
+  /** The review is read again and returns this, or fails with it. */
+  async function reread(next: ProcessingImagesReviewDto | Error) {
+    if (next instanceof Error) {
+      processing.images.mockRejectedValue(next)
+    } else {
+      processing.images.mockResolvedValue(next)
+    }
+    await act(async () => {
+      await cache.invalidateQueries()
+    })
+  }
+
+  return { media, processing, onDirtyChange, reread }
 }
 
 async function findCard(name: string) {
@@ -272,11 +293,11 @@ test('the Images review shows each proposed crop with its role, source, region, 
   expect(within(part).getByText('¼ turn')).toBeVisible()
   expect(within(part).getByText('straightened −3.5°')).toBeVisible()
   expect(within(part).getByText('white balance')).toBeVisible()
-  expect(within(part).getByRole('radio', { name: 'Use as the Part image' })).toBeChecked()
+  expect(within(part).getByRole('radio', { name: 'Use crop 1 as the Part image' })).toBeChecked()
 
   const stock = await findCard('Crop 2: Stock image')
   expect(within(stock).getByText('no adjustments')).toBeVisible()
-  expect(within(stock).getByRole('checkbox', { name: 'Attach to the stock' })).toBeChecked()
+  expect(within(stock).getByRole('checkbox', { name: 'Attach crop 2 to the stock' })).toBeChecked()
 
   const extra = await findCard('Crop 3: Extra')
   expect(extra).toHaveTextContent('From IMG_3010 · region 0, 0, 2000 × 2800 · page 2')
@@ -328,7 +349,7 @@ test('nothing is sent until Confirm, and changed choices hold the navigation gua
   const { media, processing, onDirtyChange } = mountReview(proposalReview())
   const stock = await findCard('Crop 2: Stock image')
 
-  await user.click(within(stock).getByRole('checkbox', { name: 'Attach to the stock' }))
+  await user.click(within(stock).getByRole('checkbox', { name: 'Attach crop 2 to the stock' }))
   await user.click(screen.getByRole('radio', { name: 'No Part image' }))
 
   expect(onDirtyChange).toHaveBeenLastCalledWith(true, expect.anything())
@@ -341,7 +362,7 @@ test('an unchecked stock image is not sent', async () => {
   const { media } = mountReview(proposalReview())
   const stock = await findCard('Crop 2: Stock image')
 
-  await user.click(within(stock).getByRole('checkbox', { name: 'Attach to the stock' }))
+  await user.click(within(stock).getByRole('checkbox', { name: 'Attach crop 2 to the stock' }))
   await confirmWhenReady(user)
 
   await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
@@ -387,7 +408,9 @@ test('a confirmed selection is shown as confirmed and the choices start from it'
   const part = await findCard('Crop 1: Part image')
   expect(part).toHaveTextContent('Confirmed as the Part image · preparing')
   const stock = await findCard('Crop 2: Stock image')
-  expect(within(stock).getByRole('checkbox', { name: 'Attach to the stock' })).not.toBeChecked()
+  expect(
+    within(stock).getByRole('checkbox', { name: 'Attach crop 2 to the stock' }),
+  ).not.toBeChecked()
 
   await confirmWhenReady(user)
   await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
@@ -430,9 +453,12 @@ test('preparing, failed and removed crops show why in place of the picture and r
   const part = await findCard('Crop 1: Part image')
   expect(part).toHaveTextContent('Rendering…')
   expect(within(part).queryByRole('img')).not.toBeInTheDocument()
+  expect(within(part).getByRole('radio', { name: 'Use crop 1 as the Part image' })).toBeDisabled()
+  expect(screen.getByRole('radio', { name: 'No Part image' })).toBeChecked()
   const stock = await findCard('Crop 2: Stock image')
   expect(stock).toHaveTextContent('Couldn’t render this crop')
   expect(within(stock).queryByRole('img')).not.toBeInTheDocument()
+  expect(within(stock).getByRole('checkbox', { name: 'Attach crop 2 to the stock' })).toBeDisabled()
   const extra = await findCard('Crop 3: Extra')
   expect(extra).toHaveTextContent('Photo removed from Capture')
   expect(within(extra).queryByRole('img')).not.toBeInTheDocument()
@@ -518,7 +544,7 @@ test('a failed confirm keeps the operator’s choices and says what happened', a
   edit.mockRejectedValue(new IntakeRequestError(412, 'revision_conflict'))
   const { onDirtyChange } = mountReview(proposalReview(), { edit })
   const stock = await findCard('Crop 2: Stock image')
-  const attach = within(stock).getByRole('checkbox', { name: 'Attach to the stock' })
+  const attach = within(stock).getByRole('checkbox', { name: 'Attach crop 2 to the stock' })
 
   await user.click(attach)
   await confirmWhenReady(user)
@@ -545,7 +571,180 @@ test('a failed Images read says so rather than showing no proposals', async () =
 })
 
 test('with no proposals the review says Images has proposed none yet', async () => {
-  mountReview({ proposals: [], selections: [] })
+  mountReview({ media_revision: '7', proposals: [], selections: [] })
 
   expect(await screen.findByText('Images hasn’t proposed any crops yet.')).toBeVisible()
+})
+
+test('an empty confirmed selection means none were kept, so the defaults don’t come back', async () => {
+  mountReview(
+    proposalReview(undefined, undefined, [
+      { lot_id: 'lot', revision: '6', part_image: null, stock_images: [] },
+    ]),
+  )
+
+  expect(await screen.findByRole('radio', { name: 'No Part image' })).toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Attach crop 2 to the stock' })).not.toBeChecked()
+})
+
+test('confirm names the media revision the choices were made on, so a later change conflicts', async () => {
+  const user = userEvent.setup()
+  const edit: EditMock = vi.fn()
+  edit.mockRejectedValueOnce(new IntakeRequestError(412, 'revision_conflict'))
+  edit.mockResolvedValue({ ...mediaAtRevision, revision: '10' })
+  const { media, reread } = mountReview(proposalReview(), { edit })
+
+  await user.click(
+    within(await findCard('Crop 2: Stock image')).getByRole('checkbox', {
+      name: 'Attach crop 2 to the stock',
+    }),
+  )
+  // Another tab confirms meanwhile; this tab's next read is at the newer revision.
+  await reread({
+    ...proposalReview(undefined, undefined, [
+      {
+        lot_id: 'lot',
+        revision: '8',
+        part_image: null,
+        stock_images: [{ version_id: 'other-tab', recipe: stockRecipe, state: 'ready' }],
+      },
+    ]),
+    media_revision: '8',
+  })
+  await confirmWhenReady(user)
+
+  await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
+  expect(media.edit.mock.calls[0][1].expected_revision).toBe('7')
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Capture changed since these were shown',
+  )
+  expect(screen.getByRole('checkbox', { name: 'Attach crop 2 to the stock' })).not.toBeChecked()
+
+  await user.click(screen.getByRole('button', { name: 'Check my choices against the latest' }))
+  await confirmWhenReady(user)
+  await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(2))
+  expect(media.edit.mock.calls[1][1]).toMatchObject({
+    expected_revision: '8',
+    change: { stock_images: [] },
+  })
+})
+
+test('Confirm sends nothing while the proposed crops read has failed', async () => {
+  const user = userEvent.setup()
+  const { media, reread } = mountReview(proposalReview())
+  const confirm = await screen.findByRole('button', { name: 'Confirm images' })
+  await vi.waitFor(() => expect(confirm).not.toHaveAttribute('aria-disabled', 'true'))
+
+  await reread(new Error('offline'))
+  expect(await screen.findByText('Proposed crops are unavailable right now.')).toBeVisible()
+  expect(confirm).toHaveAttribute('aria-disabled', 'true')
+  await user.click(confirm)
+
+  expect(media.edit).not.toHaveBeenCalled()
+})
+
+const newerReview = (): ProcessingImagesReviewDto => {
+  const review = proposalReview()
+  return {
+    ...review,
+    proposals: [
+      {
+        ...review.proposals[0],
+        proposal_id: 'proposal-2',
+        job_id: 'images-job-2',
+        summary: 'A newer proposal',
+        created_at: '2026-11-27T02:00:00.000Z',
+      },
+    ],
+  }
+}
+
+test('a newer proposal waits behind unconfirmed choices until the operator lets them go', async () => {
+  const user = userEvent.setup()
+  const { onDirtyChange, reread } = mountReview(proposalReview())
+
+  await user.click(
+    within(await findCard('Crop 2: Stock image')).getByRole('checkbox', {
+      name: 'Attach crop 2 to the stock',
+    }),
+  )
+  await reread(newerReview())
+
+  expect(await screen.findByText(/Images has proposed newer crops for this lot/)).toBeVisible()
+  expect(screen.getByText('Proposed by Images from 3 photos')).toBeVisible()
+  expect(screen.getByRole('checkbox', { name: 'Attach crop 2 to the stock' })).not.toBeChecked()
+
+  await user.click(screen.getByRole('button', { name: 'Show the newer proposal' }))
+  expect(screen.getByText('A newer proposal')).toBeVisible()
+  expect(screen.getByRole('checkbox', { name: 'Attach crop 2 to the stock' })).toBeChecked()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+test('a newer proposal replaces one with no choices made', async () => {
+  const { reread } = mountReview(proposalReview())
+  await findCard('Crop 1: Part image')
+
+  await reread(newerReview())
+
+  expect(await screen.findByText('A newer proposal')).toBeVisible()
+  expect(screen.queryByText(/proposed newer crops/)).not.toBeInTheDocument()
+})
+
+test('an unconfirmed redo request survives closing its form and a newer proposal, and retries exactly', async () => {
+  const user = userEvent.setup()
+  const chat: ChatMock = vi.fn()
+  chat.mockRejectedValueOnce(new TypeError('connection reset'))
+  chat.mockResolvedValue({ item_id: 'item', seq: '5' })
+  const { reread } = mountReview(proposalReview(), { chat })
+
+  await user.click(await screen.findByRole('button', { name: 'Ask Images to redo one' }))
+  const form = screen.getByRole('form', { name: 'Ask Images to redo a crop' })
+  await user.type(
+    within(form).getByRole('textbox', { name: 'What to change (optional)' }),
+    'less glare',
+  )
+  const send = within(form).getByRole('button', { name: 'Send to Images' })
+  await vi.waitFor(() => expect(send).not.toHaveAttribute('aria-disabled', 'true'))
+  await user.click(send)
+  expect(await within(form).findByRole('alert')).toHaveTextContent('Couldn’t send for certain')
+
+  await user.click(within(form).getByRole('button', { name: 'Close' }))
+  expect(screen.getByText(/A redo request isn’t confirmed yet/)).toBeVisible()
+  await reread(newerReview())
+  await user.click(screen.getByRole('button', { name: 'Ask Images to redo one' }))
+  const reopened = screen.getByRole('form', { name: 'Ask Images to redo a crop' })
+  const retry = within(reopened).getByRole('button', { name: 'Retry' })
+  await vi.waitFor(() => expect(retry).not.toHaveAttribute('aria-disabled', 'true'))
+  await user.click(retry)
+
+  await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(2))
+  expect(chat.mock.calls[1]).toEqual(chat.mock.calls[0])
+  expect(chat.mock.calls[1][1]).toBe('images-job')
+  expect(await screen.findByRole('status', { name: 'Redo request' })).toHaveTextContent(
+    'Sent to Images',
+  )
+})
+
+test('a chosen crop that stops rendering blocks Confirm until it is unticked', async () => {
+  const user = userEvent.setup()
+  const { media, reread } = mountReview(proposalReview())
+
+  await user.click(await screen.findByRole('radio', { name: 'No Part image' }))
+  await reread(
+    proposalReview([
+      crop(1, 'part_image', partRecipe, 'IMG_3011'),
+      crop(2, 'stock_image', stockRecipe, 'IMG_3009', { state: 'failed' }),
+    ]),
+  )
+  const stock = within(await findCard('Crop 2: Stock image')).getByRole('checkbox', {
+    name: 'Attach crop 2 to the stock',
+  })
+  await vi.waitFor(() => expect(stock).toHaveAccessibleDescription(/couldn’t render it/))
+  expect(screen.getByRole('button', { name: 'Confirm images' })).toBeDisabled()
+  expect(screen.getByText(/Untick crop 2/)).toBeVisible()
+
+  await user.click(stock)
+  await confirmWhenReady(user)
+  await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
+  expect(media.edit.mock.calls[0][1].change).toMatchObject({ part_image: null, stock_images: [] })
 })

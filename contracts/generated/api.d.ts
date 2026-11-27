@@ -59162,6 +59162,8 @@ export interface components {
             }[];
         };
         ProcessingImagesReview: {
+            /** Format: int64 */
+            media_revision: string;
             proposals: {
                 proposal_id: string;
                 job_id: string;

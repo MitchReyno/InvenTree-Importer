@@ -125,8 +125,9 @@ function selectionItem(image: CurrentImage): ProcessingImageSelectionItemDto {
 }
 
 /**
- * The Images review's confirmed images: each lot whose latest selection has images, ordered by
- * lot id. A derived crop's version takes its derivation's id, so it is named before it is decoded.
+ * The Images review's confirmed images: each lot's latest selection, ordered by lot id, including
+ * one confirmed or cleared to none. A derived crop's version takes its derivation's id, so it is
+ * named before it is decoded.
  */
 export async function imageSelections(
   client: PoolClient,
@@ -135,9 +136,6 @@ export async function imageSelections(
   const current = await currentImageSelections(client, batchId)
   const projected: ProcessingImageSelectionDto[] = []
   for (const selection of current) {
-    if (!selection.images.length) {
-      continue
-    }
     const partImage = selection.images.find((image) => image.role === 'part_image')
     const stockImages = selection.images.filter((image) => image.role === 'stock_image')
     const dto: ProcessingImageSelectionDto = {

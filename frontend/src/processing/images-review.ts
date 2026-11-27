@@ -73,15 +73,17 @@ export function sameLitRecipe(left: MediaLitViewRecipeDto, right: MediaLitViewRe
 }
 
 /**
- * The choices a lot's review starts from: its confirmed images when it has a selection, else the
- * first Part image crop and every stock crop.
+ * The choices a lot's review starts from: its confirmed images when it has a selection (an empty
+ * one means none were kept), else the first Part image crop and every stock crop. A crop that
+ * isn't rendered can't have been seen, so it is never chosen for the operator.
  */
 export function defaultChoices(
   proposal: ProcessingImagesProposalDto,
   selection: ProcessingImageSelectionDto | undefined,
 ): ImageChoices {
-  const partCrops = proposal.crops.filter((crop) => crop.role === 'part_image')
-  const stockCrops = proposal.crops.filter((crop) => crop.role === 'stock_image')
+  const seen = proposal.crops.filter((crop) => crop.state === 'ready')
+  const partCrops = seen.filter((crop) => crop.role === 'part_image')
+  const stockCrops = seen.filter((crop) => crop.role === 'stock_image')
   if (!selection) {
     return {
       partIndex: partCrops[0]?.index ?? null,
@@ -97,6 +99,31 @@ export function defaultChoices(
   )
 
   return { partIndex: part?.index ?? null, stockIndexes: stock.map((crop) => crop.index) }
+}
+
+/** The chosen crops that aren't rendered, so the operator hasn't seen what they would attach. */
+export function unseenChosen(proposal: ProcessingImagesProposalDto, choices: ImageChoices) {
+  return proposal.crops.filter((crop) => {
+    const chosen =
+      (crop.role === 'part_image' && crop.index === choices.partIndex) ||
+      (crop.role === 'stock_image' && choices.stockIndexes.includes(crop.index))
+
+    return chosen && crop.state !== 'ready'
+  })
+}
+
+/** Why a crop can't be chosen, or nothing when it is rendered. */
+export function unchoosableReason(state: ProcessingImageCropDto['state']) {
+  if (state === 'preparing') {
+    return 'It can be chosen once it’s rendered.'
+  }
+  if (state === 'failed') {
+    return 'It can’t be chosen: the app couldn’t render it.'
+  }
+  if (state === 'removed') {
+    return 'It can’t be chosen: its photo was removed from Capture.'
+  }
+  return undefined
 }
 
 /** The media edit that confirms these choices; stock images keep the proposal's order. */

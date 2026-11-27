@@ -1,6 +1,4 @@
 import styled from 'styled-components'
-import { useQueryClient } from '@tanstack/react-query'
-import type { MediaSnapshotDto } from '@invimport/contracts'
 import { color, size, space } from '#/theme/generated/tokens'
 import type { MediaClient } from '#/media/types'
 import { mediaResource } from '#/media/types'
@@ -45,7 +43,6 @@ export function ProcessingImages({
   onDirtyChange,
 }: Props) {
   const scope = useServerScope()
-  const queryClient = useQueryClient()
   const interval = useRetainedPollInterval()
   const mediaKey = serverQueryKey(scope, 'media', batchId)
   const fresh = useFreshRead({
@@ -64,16 +61,7 @@ export function ProcessingImages({
     <ImagesReview
       batchId={batchId}
       processing={{ images: readImages, chat: processing.chat }}
-      media={
-        client
-          ? {
-              client,
-              waitReason: fresh.commandsReady ? undefined : (fresh.reason ?? 'Updating…'),
-              readyNow: fresh.commandsReadyNow,
-              revisionNow: () => queryClient.getQueryData<MediaSnapshotDto>(mediaKey)?.revision,
-            }
-          : undefined
-      }
+      media={client ? { client } : undefined}
       lotLabel={lotLabel}
       closedReason={closedReason}
       onDirtyChange={onDirtyChange}
