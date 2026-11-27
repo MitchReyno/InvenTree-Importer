@@ -359,6 +359,27 @@ test('Check again after a not-listed answer, with no sign-in change, shows the b
   assert.deepEqual(reading.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
 })
 
+test('a not-listed answer sets the first sign-in baseline when the first poll failed', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-a')
+  state.generations.push(new CatalogReadError('vm_unreachable'))
+  state.answers.push({ generation: 'rev-a', cliVersion: '2.1.319', models: [], notListed: true })
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  const row = await claudeRow(fixture)
+  assert.equal(row?.failure, 'not_listed')
+  assert.equal(row?.latestGeneration, 'rev-a')
+
+  state.generation = 'rev-b'
+  time.advance(60_000)
+  await round(catalog)
+  assert.equal(state.reads, 2)
+})
+
 test('a not-listed answer passes the sign-in fence: one from an old token is read again', async (t) => {
   const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
   t.after(() => fixture.dispose())

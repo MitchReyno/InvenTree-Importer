@@ -10,6 +10,7 @@ import {
   openAiModelIds,
 } from '#/agents/model-catalog/normalise.ts'
 import { guestReader } from '#/agents/model-catalog/readers.ts'
+import { guestCatalogAnswer } from '#/agents/shared-vm/model-catalog.ts'
 
 function fixture(name: string) {
   return JSON.parse(
@@ -73,6 +74,27 @@ function guestClaude(raw: unknown) {
     return { kind: 'read', read: { generation: 'rev-a', cliVersion: '2.1.319', raw } }
   }, 'claude')
 }
+
+test('an invalid alias folded behind a valid one still makes the reply malformed', async () => {
+  const models = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
+    entry.value === 'default' ? { ...entry, displayName: 'x'.repeat(81) } : entry,
+  )
+  await assert.rejects(
+    guestClaude(models).read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+})
+
+test('only the worker finds a list not listed: a guest failure saying so is refused', async () => {
+  assert.throws(() => guestCatalogAnswer({ model_catalog_failure: 'not_listed' }), {
+    message: 'invalid_model_catalog',
+  })
+  const reader = guestReader(async () => ({ kind: 'failure', failure: 'not_listed' }), 'codex')
+  const malformed = (error: unknown) =>
+    error instanceof CatalogReadError && error.code === 'malformed'
+  await assert.rejects(reader.read(AbortSignal.timeout(5_000)), malformed)
+  await assert.rejects(reader.generation(AbortSignal.timeout(5_000)), malformed)
+})
 
 test('an invalid alias-only reply is malformed, not the setup-token state', async () => {
   const long = (claudeOffline.models as Record<string, unknown>[]).map((entry) => ({

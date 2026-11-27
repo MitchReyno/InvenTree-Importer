@@ -96,7 +96,7 @@ function stateNotes(view: ProviderCatalogView, now: number): ModelOption[] {
   const provider = view.provider
   const name = PROVIDER_LABEL[provider]
   const shownAt = view.readAt ? eventTimeText(view.readAt, now) : null
-  if (view.state === 'not_listed') {
+  if (view.notListed) {
     const text = `${name} doesn’t list models for a setup token. Type an exact ID to use another model.`
     return [{ kind: 'note', provider, text, tone: 'quiet' }]
   }
@@ -126,6 +126,7 @@ function stateNotes(view: ProviderCatalogView, now: number): ModelOption[] {
     case 'current':
     case 'reading':
     case 'never_read':
+    case 'not_listed':
     case 'unavailable':
       return []
   }

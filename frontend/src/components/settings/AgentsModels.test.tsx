@@ -304,9 +304,44 @@ test('a setup token’s built-in list says why on the card and Effort offers onl
     ),
   )
   const card = within(screen.getByRole('group', { name: 'Claude' }))
-  expect(card.getByText('Built-in list · Claude doesn’t list models for a setup token')).toBeVisible()
+  expect(
+    card.getByText('Built-in list · Claude doesn’t list models for a setup token'),
+  ).toBeVisible()
   expect(card.queryByText('Built-in list, may be out of date')).toBeNull()
   expect(optionTexts(screen.getByRole('combobox', { name: 'Images effort' }))).toEqual(['Default'])
+})
+
+test('rereading after a setup token’s answer keeps the built-in list and Effort usable', async () => {
+  const rereading = modelCatalog({
+    claude: builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude], {
+      state: 'reading',
+      failure: 'not_listed',
+      attempted_at: READ_0912,
+    }),
+  })
+  await renderAgents(
+    client(
+      settings({
+        stage_selections: {
+          images: { provider: 'claude', model: 'claude-opus-5-5', effort: 'max' },
+        },
+      }),
+      rereading,
+    ),
+  )
+  const card = within(screen.getByRole('group', { name: 'Claude' }))
+  expect(card.getByText('Reading Claude’s models…')).toBeVisible()
+  const effort = screen.getByRole('combobox', { name: 'Images effort' })
+  expect(effort).toBeEnabled()
+  expect(optionTexts(effort)).toEqual(['Default', 'Max'])
+  fireEvent.focus(screen.getByRole('combobox', { name: 'Images' }))
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Images' }), { key: 'ArrowDown' })
+  expect(
+    screen.getByRole('option', {
+      name: 'Claude doesn’t list models for a setup token. Type an exact ID to use another model.',
+    }),
+  ).toBeVisible()
+  expect(screen.getByRole('option', { name: /Fable 5\.2/ })).toBeVisible()
 })
 
 test('Check again on a card asks for that provider’s list to be read again', async () => {

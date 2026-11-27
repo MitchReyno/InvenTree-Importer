@@ -31,7 +31,8 @@ export function effortLabel(effort: AgentEffortDto) {
 
 /**
  * One provider's list as the pickers use it. `waiting`: a read runs and there is no list to show
- * yet. `warns`: the list was read under the current sign-in, so a saved model or effort it lacks
+ * yet. `notListed`: the last read found the provider lists no models for this sign-in, so the
+ * built-in list stands, also while a reread runs. `warns`: the list was read under the current sign-in, so a saved model or effort it lacks
  * is worth a warning; a built-in, earlier sign-in's or unconfirmed list never warns.
  */
 export type ProviderCatalogView = {
@@ -39,6 +40,7 @@ export type ProviderCatalogView = {
   /** The server's state, or `unavailable` while the list couldn't be read from this server. */
   state: AgentCatalogState | 'unavailable'
   waiting: boolean
+  notListed: boolean
   builtin: boolean
   warns: boolean
   models: readonly AgentCatalogModelDto[]
@@ -55,6 +57,7 @@ function unavailable(provider: AgentProviderId): ProviderCatalogView {
     provider,
     state: 'unavailable',
     waiting: false,
+    notListed: false,
     builtin: true,
     warns: false,
     models: BUILT_IN_MODEL_CATALOG[provider],
@@ -104,10 +107,12 @@ function providerView(
     return unavailable(provider)
   }
   const readFromProvider = !read.builtin && read.state !== 'never_read'
+  const notListed = read.builtin && read.failure === 'not_listed'
   return {
     provider,
     state: read.state,
-    waiting: read.state === 'reading' && read.builtin,
+    waiting: read.state === 'reading' && read.builtin && !notListed,
+    notListed,
     builtin: read.builtin,
     warns: current && readFromProvider && read.state !== 'stale_sign_in',
     models: read.models,
@@ -247,10 +252,11 @@ const PROVIDER_NAME: Record<AgentProviderId, string> = { claude: 'Claude', codex
  * today 09:12", or that it is reading, built in, from an earlier sign-in or not read just now.
  */
 export function catalogLine(view: ProviderCatalogView, now: number) {
-  if (view.waiting) {
+  // A reread after a setup token's answer keeps the built-in list in the pickers meanwhile.
+  if (view.waiting || (view.notListed && view.state === 'reading')) {
     return `Reading ${PROVIDER_NAME[view.provider]}’s models…`
   }
-  if (view.state === 'not_listed') {
+  if (view.notListed) {
     return `Built-in list · ${PROVIDER_NAME[view.provider]} doesn’t list models for a setup token`
   }
   if (view.builtin) {
@@ -270,6 +276,7 @@ export function catalogLine(view: ProviderCatalogView, now: number) {
     case 'current':
     case 'reading':
     case 'never_read':
+    case 'not_listed':
     case 'unavailable':
       return line
   }

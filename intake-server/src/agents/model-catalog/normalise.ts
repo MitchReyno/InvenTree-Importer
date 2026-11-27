@@ -111,6 +111,18 @@ function claudeCliEntry(raw: unknown): ClaudeCliEntry | undefined {
   return { value, id: resolved, displayName, efforts: levels }
 }
 
+function asModel(entry: ClaudeCliEntry): AgentCatalogModelDto {
+  return {
+    id: entry.id,
+    name: entry.displayName,
+    older: false,
+    default: false,
+    efforts: entry.efforts,
+    default_effort: null,
+    usable: null,
+  }
+}
+
 /** The entry whose name and efforts stand for its model: the exact one, then a named alias. */
 function representative(entries: ClaudeCliEntry[]) {
   return (
@@ -133,6 +145,7 @@ export function claudeCliModels(
   models: unknown,
   aliasesOnly: AgentCatalogFailure = 'unavailable',
 ): AgentCatalogModelDto[] {
+  const entries: ClaudeCliEntry[] = []
   const groups = new Map<string, ClaudeCliEntry[]>()
   let defaultId: string | undefined
   let exactEntries = 0
@@ -144,6 +157,7 @@ export function claudeCliModels(
     if (entry.value === entry.id) {
       exactEntries++
     }
+    entries.push(entry)
     if (entry.value === 'default') {
       defaultId = entry.id
     }
@@ -164,9 +178,11 @@ export function claudeCliModels(
       usable: null,
     }
   })
-  // Checked first, so an invalid alias list stays malformed rather than reading as the CLI's own.
   const checked = checkedCatalog(markOlderClaude(folded))
   if (exactEntries === 0) {
+    // Every alias is checked, not only the one each fold keeps, so an invalid alias list stays
+    // malformed rather than reading as the CLI's own.
+    checkedCatalog(entries.map(asModel))
     throw new CatalogReadError(checked.length > 0 ? aliasesOnly : 'unavailable')
   }
   return checked

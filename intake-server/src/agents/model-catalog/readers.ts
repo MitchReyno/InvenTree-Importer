@@ -2,7 +2,11 @@
 // belongs to. The guest reads for shared-VM profiles; the session worker reads for host profiles.
 import { createHmac } from 'node:crypto'
 import { join } from 'node:path'
-import type { AgentCatalogModelDto, AgentSelectionDto } from '@invimport/contracts'
+import type {
+  AgentCatalogFailure,
+  AgentCatalogModelDto,
+  AgentSelectionDto,
+} from '@invimport/contracts'
 import { AgentChild } from '#/agents/child.ts'
 import { NativeSessionError } from '#/agents/failure-model.ts'
 import { CODEX_CONFIG, rejectHostCustomizations } from '#/agents/codex.ts'
@@ -53,6 +57,11 @@ export type GuestCatalog = (
   signal?: AbortSignal,
 ) => Promise<BridgeCatalogAnswer>
 
+/** A guest failure; `not_listed` comes only from the worker's own reading of a reply. */
+function guestFailure(failure: AgentCatalogFailure) {
+  return new CatalogReadError(failure === 'not_listed' ? 'malformed' : failure)
+}
+
 /** The guest's list for a subscription, read by its management process through the relay. */
 export function guestReader(catalog: GuestCatalog, provider: CatalogProvider): CatalogReader {
   return {
@@ -62,7 +71,7 @@ export function guestReader(catalog: GuestCatalog, provider: CatalogProvider): C
     async read(signal) {
       const answer = await catalog(provider, 'read', signal)
       if (answer.kind === 'failure') {
-        throw new CatalogReadError(answer.failure)
+        throw guestFailure(answer.failure)
       }
       if (answer.kind !== 'read') {
         throw new CatalogReadError('malformed')
@@ -88,7 +97,7 @@ export function guestReader(catalog: GuestCatalog, provider: CatalogProvider): C
     async generation(signal) {
       const answer = await catalog(provider, 'generation', signal)
       if (answer.kind === 'failure') {
-        throw new CatalogReadError(answer.failure)
+        throw guestFailure(answer.failure)
       }
       if (answer.kind !== 'generation') {
         throw new CatalogReadError('malformed')
