@@ -178,7 +178,7 @@
 - [x] 6.3 Run one short session per provider at a non-default effort; confirm its turn completed and its `sent_effort` matches, and record the effective effort as unverified. Claude's session finished; Codex's completed its turn and waits for an answer (see `notes.md`); both recorded `sent_effort: low`.
 - [x] 6.4 Record the outcome in `notes.md` and run `pnpm lint:markdown`.
 - [x] 6.5 Attach the evidence to PR-E.
-- [x] 6.6 After the Claude fix, measure `bench-claude-catalog`'s memory and task use during a read that returns the full list. Not applicable after PR-G: a setup token never gets the full list, so no such read runs in the guest. PR-E measured the use during an alias-only read (see `notes.md`).
+- [x] 6.6 After the Claude fix, measure `bench-claude-catalog`'s memory and task use during a read that returns the full list. Not applicable after PR-G: a setup token never gets the full list, so no such read runs in the guest. PR-E measured the use during a worker-driven read that failed (see `notes.md`).
 
 ## 7. Step instructions in multi-lot groups
 
