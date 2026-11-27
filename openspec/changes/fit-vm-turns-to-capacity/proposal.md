@@ -72,7 +72,7 @@ None.
 
 ## Impact and dependencies
 
-- Intake server: `shared-vm/coordinator.ts`, new `shared-vm/turn-capacity.ts`, `shared-vm/startup-gate.ts` and `shared-vm/lane-offers.ts`, `guest-main.ts`/`guest-turn.ts` (memory in the greeting), `session/slots.ts`, `session/session-runner.ts`, `session/session-worker-main.ts`, `session/claude-session-admission.ts`, `failure-model.ts`, `held-capacity.ts` (a cold lane needs longer to answer a probe); migration `0048`, `schema.ts`, `grants.ts`.
+- Intake server: `shared-vm/coordinator.ts`, new `shared-vm/turn-capacity.ts`, `shared-vm/startup-gate.ts` and `shared-vm/lane-offers.ts`, `guest-main.ts`/`guest-turn.ts` (memory in the greeting), `session/slots.ts`, `session/session-runner.ts`, `session/session-worker-main.ts`, `session/claude-session-admission.ts`, `failure-model.ts`, `held-capacity.ts` (a cold lane needs longer to answer a probe); migration `0049`, `schema.ts`, `grants.ts`.
 - Tooling: `relay.mjs`, `lima/agent.yaml`, `vm-provision.cjs`/`vm-setup.cjs` (resize step), tooling tests.
 - Runner image: the guest reports memory and the 45 s admission limit (managed `pnpm dev` refreshes it).
 - Docs: agents architecture, `docs/agent-sessions.md`, `docs/development.md`, deployment README.

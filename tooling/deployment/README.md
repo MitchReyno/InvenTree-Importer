@@ -163,7 +163,7 @@ An attempt sealed with an effort (the agent settings save one per step and per p
 
 Likewise, an attempt sealed with a step's instructions (saved in Settings › Agents for Examine, Research or Images) needs a runner image from a build with migration `0045`: an older guest refuses its manifest, and the turn fails before the CLI starts. Apply the migration and refresh the API role's grants before starting the new build's API and session worker, and refresh the runner image. Attempts of a step without instructions run on either image.
 
-Migration `0048` adds `agent_session.startup_timeouts`, which the coordinator's runner role updates in every turn's settlement. Apply it, then refresh the coordinator role's grants the way they were provisioned, before starting the new build's session worker: without the grant, every settlement is refused and its slot stays held. Deploy the relays, the coordinator and the runner image from the same build, since the relays' lane offers need this coordinator.
+Migration `0049` adds `agent_session.startup_timeouts`, which the coordinator's runner role updates in every turn's settlement. Apply it, then refresh the coordinator role's grants the way they were provisioned, before starting the new build's session worker: without the grant, every settlement is refused and its slot stays held. Deploy the relays, the coordinator and the runner image from the same build, since the relays' lane offers need this coordinator.
 
 ### Model lists from the guest
 

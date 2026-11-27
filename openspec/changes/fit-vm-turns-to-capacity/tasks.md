@@ -69,7 +69,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - PR delivery: PR-A.
 - Outcome: an admission timeout requeues as a new turn up to twice, then fails as `agent_admission_timeout` with its own text.
-- Scope and approach: migration `0048_startup_timeouts.sql`, `schema.ts`, `grants.ts`, `session-runner.ts`, `failure-model.ts`, `claude-session-admission.ts` (45 s) (design D4).
+- Scope and approach: migration `0049_startup_timeouts.sql`, `schema.ts`, `grants.ts`, `session-runner.ts`, `failure-model.ts`, `claude-session-admission.ts` (45 s) (design D4).
 - Acceptance: "A startup timeout goes back to the queue a bounded number of times".
 - TDD approach: RED: a PG test whose driver reports the guest's `agent_turn_failed` with cause `agent_admission_timeout` (trunk: `failed`, `provider_network`).
 - Verification: the PG test, `supervisor-fence`, `held-capacity`, `turn-capacity` PG tests, `session-failures` tests.
