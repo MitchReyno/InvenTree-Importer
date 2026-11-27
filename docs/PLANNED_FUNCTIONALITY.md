@@ -131,9 +131,9 @@ Each step in Settings › Agents gets optional instructions of up to 1,000 chara
     - PR-B (each provider's model list read, stored and served, with the built-in fallback) in #293;
     - PR-C (the pickers listing each provider's models, an Effort select beside each, the list's states and the Processing "Not offered" pill) in #295;
     - PR-D (instructions for Examine, Research and Images, sealed into each attempt and given as operator guidance in the `/6` opening and the `/7` brief) in #296;
-    - PR-E (the live check) in #297: Codex's model list read in the agent VM matched the pinned CLI's list on the host, and a Claude and a Codex session each sent the chosen effort.
-  - In review: PR-G. The guest's Claude read stored no list because the pinned CLI lists only its aliases for a setup token, which can't tell it the account. Settings shows Claude's built-in list with that reason, by Mitch's decision.
-  - Remaining: PR-G's merge and its live check; PR-F (step instructions in multi-lot groups), which waits for BI-022's PR-I.
+    - PR-E (the live check) in #297: Codex's model list read in the agent VM matched the pinned CLI's list on the host, and a Claude and a Codex session each sent the chosen effort;
+    - PR-G in #300: the pinned CLI lists only its aliases for a setup token, which can't tell it the account, so Settings shows Claude's built-in list with that reason, by Mitch's decision. A free guest read after the merge confirmed the reply the worker records that way.
+  - Remaining: PR-F (step instructions in multi-lot groups), which waits for BI-022's PR-I.
 - Size: L — settings and sealed-input fields, effort passed by both session adapters, a model catalogue read in the guest with its own connection, table, schedule and API, the pickers and their states, and the step instruction editor, in five PRs after the plan plus a live check; the multi-lot part waits for BI-022 PR-I.
 - Prerequisites: [BI-022](#bi-022--agent-stage-inputs-and-outputs) (`agent-stage-inputs-outputs`) PR-A (#275, sealed briefs), before the step instructions PR only.
 - OpenSpec: [agent-model-catalog-and-step-instructions](../openspec/changes/agent-model-catalog-and-step-instructions/)

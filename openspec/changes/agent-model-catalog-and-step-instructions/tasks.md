@@ -170,7 +170,7 @@
 - **Risks and decisions:** the sessions are real provider turns with their cost; the read itself makes no paid call.
 
 - [x] 6.1 Ask Mitch for the go-ahead, naming the reads and the two short sessions. Given on 2026-11-26.
-- [ ] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Codex's list matched and no turn started. Claude's read stored no list, which PR-E recorded as an open bug; the cause is the setup token (see `notes.md`), and PR-G replaces Claude's half of this check with task 8.4, confirming the setup-token state live.
+- [x] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Codex verified live; Claude shows the setup-token state by design. Codex's list matched and no turn started (PR-E). Claude's read stored no list because of the setup token (see `notes.md`); after PR-G, task 8.4's free guest read on 2026-11-27 got the same alias-only reply, which the merged worker records as `not_listed`.
 - [x] 6.3 Run one short session per provider at a non-default effort; confirm its turn completed and its `sent_effort` matches, and record the effective effort as unverified. Claude's session finished; Codex's completed its turn and waits for an answer (see `notes.md`); both recorded `sent_effort: low`.
 - [x] 6.4 Record the outcome in `notes.md` and run `pnpm lint:markdown`.
 - [x] 6.5 Attach the evidence to PR-E.
@@ -206,7 +206,7 @@
 - [x] 8.1 RED: the normaliser, guest reader, schedule, API and frontend tests above.
 - [x] 8.2 GREEN: the contracts, migration, worker, API and frontend.
 - [x] 8.3 Update `agents/ARCHITECTURE.md` and the deployment README, and run the contracts tests, the intake unit and PG tiers and the frontend checks.
-- [ ] 8.4 After the merge, confirm the state live with a free guest read.
+- [x] 8.4 After the merge, confirm the state live with a free guest read. Done on 2026-11-27 (see `notes.md`); Settings' view of it needs the running stack on the merged build.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -217,7 +217,7 @@
 - [x] PR-D: implement task 5, review the exact head, publish with the demo, CI green, merge. Merged as #296 at `87cce5b2`.
 - [ ] PR-F: implement task 7 once BI-022's PR-I has merged, review the exact head, publish, CI green, merge.
 - [x] PR-E: run task 6 with Mitch's go-ahead, review the exact head, publish the partial result with its evidence, CI green, merge. 6.5 is required before the merge; 6.2 and 6.6 may stay open for the Claude fix and its approved recheck. Merged as #297 at `53ce6711`.
-- [ ] PR-G: implement task 8, review the exact head, publish with the captures, CI green, merge.
+- [x] PR-G: implement task 8, review the exact head, publish with the captures, CI green, merge. Merged as #300 at `548dd9d0`.
 - [ ] Update BI-023 as PRs merge. It is Done only after PR-A to PR-D and PR-F merge and their acceptance is evidenced; the live check (PR-E) is recorded separately.
 - [ ] Mark R3, R4 and R5 in the design log as Built, with their PRs.
 - [ ] Before syncing: re-run strict validation and `pnpm openspec:overlap --change agent-model-catalog-and-step-instructions`. `polish-ui-styling-and-loading` adds "One searchable model picker" and "Model picker limits and exact IDs" to app-settings; sync it first.
