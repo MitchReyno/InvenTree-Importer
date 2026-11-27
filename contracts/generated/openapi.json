@@ -300352,6 +300352,51 @@
                         }
                       }
                     ]
+                  },
+                  "binding": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "part_subject_id",
+                      "part_pk",
+                      "draft"
+                    ],
+                    "properties": {
+                      "part_subject_id": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "part_pk": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "draft": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 }
               }
@@ -326011,6 +326056,51 @@
                         }
                       }
                     ]
+                  },
+                  "binding": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "part_subject_id",
+                      "part_pk",
+                      "draft"
+                    ],
+                    "properties": {
+                      "part_subject_id": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "part_pk": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "draft": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 }
               }
@@ -326352,6 +326442,51 @@
           }
         }
       },
+      "MatchBinding": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "part_subject_id",
+          "part_pk",
+          "draft"
+        ],
+        "properties": {
+          "part_subject_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "part_pk": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "SealedMatch": {
         "additionalProperties": false,
         "type": "object",
@@ -326549,6 +326684,51 @@
                 }
               }
             ]
+          },
+          "binding": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "part_subject_id",
+              "part_pk",
+              "draft"
+            ],
+            "properties": {
+              "part_subject_id": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "part_pk": {
+                "anyOf": [
+                  {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "draft": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
           }
         }
       },

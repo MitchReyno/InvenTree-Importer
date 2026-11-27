@@ -4,12 +4,14 @@ import type { MatchReader } from '#/inventory/match-reads.ts'
 import { matchSearch } from './search.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { settlePendingSearches, type MatchSearch } from './settle.ts'
+import { requestDriftedSearches } from './commands.ts'
 
 /** How often the API looks for committed search requests to run. */
 export const MATCH_SWEEP_INTERVAL_MS = 1000
 
 /**
- * The API process's durable sweep over committed, unsettled search requests. One sweep runs at a
+ * The API process's durable sweep: it requests a search for each lot Capture has rebound since
+ * Match saw it, then settles committed, unsettled search requests. One sweep runs at a
  * time; a failed one is reported by a fixed event and the next interval tries again, so a request
  * committed before a restart or a failure still settles.
  */
@@ -28,7 +30,9 @@ export function startMatchSweep(
     if (stopped || running) {
       return
     }
-    running = settlePendingSearches(pool, config, search)
+    // Lots Capture has rebound since Match saw them are searched first, then every request settles.
+    running = requestDriftedSearches(pool, config)
+      .then(() => settlePendingSearches(pool, config, search))
       .then(() => {
         failing = false
       })

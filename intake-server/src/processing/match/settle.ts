@@ -65,7 +65,6 @@ async function openQuestion(client: PoolClient, row: MatchRow) {
   return rows[0]
 }
 
-/** What the lot had when its search settled: its outcome, any open question and its identity. */
 /** The InvenTree Part a lot is bound to in Capture, or null for a draft Part or none. */
 export function captureTargetOf(snapshot: CaptureSnapshotDto, lotId: string) {
   const lot = snapshot.lots.find((candidate) => candidate.id === lotId)
@@ -73,6 +72,7 @@ export function captureTargetOf(snapshot: CaptureSnapshotDto, lotId: string) {
   return part?.choice.mode === 'set' ? part.choice.value.pk : null
 }
 
+/** What the lot had when its search settled: its outcome, any open question and its identity. */
 export async function standingOf(
   client: PoolClient,
   row: MatchRow,

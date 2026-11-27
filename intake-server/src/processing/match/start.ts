@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
-import { checkJobCapacity, queueJob } from '#/processing/jobs.ts'
+import { checkJobPairCapacity, queueJob } from '#/processing/jobs.ts'
 import { lotStageOf, sealedMatchFor } from '#/processing/match-outcome.ts'
 import { reservedMediaFor, type reserveProcessingMedia } from '#/processing/media.ts'
 import { fail, type Stage } from '#/processing/model.ts'
@@ -38,23 +38,26 @@ export async function startMatchedStages(
     for (const stage of stages) {
       const lotStage = lotStageOf(stage)
       const gate = await matchGate(client, lotId, lotStage)
-      if (!gate.allowed || !gate.outcome) {
+      if (!gate.allowed || !gate.outcome || !gate.binding) {
         continue
       }
-      queue.push({ lotId, stage, pins, match: sealedMatchFor(gate.outcome.outcome, lotStage) })
+      queue.push({
+        lotId,
+        stage,
+        pins,
+        match: sealedMatchFor(gate.outcome.outcome, lotStage, gate.binding),
+      })
     }
   }
   if (!queue.length) {
     return fail('match_waiting', 409)
   }
-  for (const lotId of new Set(queue.map((item) => item.lotId))) {
-    await checkJobCapacity(
-      client,
-      snapshot.id,
-      [lotId],
-      queue.filter((item) => item.lotId === lotId).map((item) => item.stage),
-    )
-  }
+  // The whole Start fits the batch's job limit, or nothing is queued.
+  await checkJobPairCapacity(
+    client,
+    snapshot.id,
+    queue.map((item) => ({ subjectId: item.lotId, stage: item.stage })),
+  )
   const jobIds: string[] = []
   const attemptIds: string[] = []
   for (const item of queue) {

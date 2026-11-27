@@ -23,7 +23,7 @@ import { transaction } from '#/db/database.ts'
 import { inventoryFake, type MatchFakeRecords } from '../fixtures/inventory-fake.ts'
 import { processingFixture } from '../support/processing.ts'
 import { formedBatch, settleMatch, type Fixture } from '../support/lot-pipeline.ts'
-import { call, running, withClients } from '../support/stage-sessions.ts'
+import { call, requeueLot, running, withClients } from '../support/stage-sessions.ts'
 import { runSessionTurn } from '#/agents/session/session-runner.ts'
 import { claimSessionSlot } from '#/agents/session/slots.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
@@ -1120,7 +1120,6 @@ test('a lot relinked in Capture away from its decided Part is asked about again 
   assert.equal(moved.status, 200, JSON.stringify(moved.value))
   const lot = async () =>
     (await readMatch(fixture, capture.batch.id)).lots.find((item) => item.lot_id === a.id)!
-  assert.equal((await lot()).state, 'searching')
   const gate = () =>
     transaction(fixture.runner.pool, (client) => matchGate(client, a.id, 'images', images.match))
   assert.equal((await gate()).allowed, false)
@@ -1255,4 +1254,216 @@ test('a lot relinked by a path that asks Match nothing keeps no place in the slo
   await transaction(fixture.runner.pool, async (client) => {
     assert.equal(await claimSessionSlot(client, fixture.config, runnable.id), true)
   })
+})
+
+/** A draft Part of the batch confirming `mpn` with the observed maker. */
+async function draftPart(fixture: Fixture, batchId: string, mpn: string) {
+  const refs = await observe(fixture, batchId)
+  const edit = async (change: unknown) => {
+    const current = (await fixture.http(`/batches/${batchId}`)).value as CaptureSnapshotDto
+    const response = await fixture.http(`/batches/${batchId}/edits`, {
+      expected_revision: current.revision,
+      change,
+    })
+    assert.equal(response.status, 200, JSON.stringify(response.value))
+    return response.value as CaptureSnapshotDto
+  }
+  const label = `Draft ${mpn}`
+  const part = (await edit({ kind: 'add_part', label })).parts.find((item) => item.label === label)!
+  await edit({
+    kind: 'part',
+    id: part.id,
+    choice: {
+      mode: 'create',
+      spec: {
+        name: mpn,
+        category: refs.category,
+        parameters: [],
+        manufacturer: { company: refs.company, mpn },
+        supplier: null,
+        tags: [],
+      },
+    },
+  })
+  return part
+}
+
+test('an operator lot moved to another draft by any path waits, then is searched for the new draft', async (t) => {
+  const { fixture, reader } = await matchFixture(t)
+  const { capture, a } = await operatorLots(fixture, MPN)
+  assert.deepEqual(await settleMatch(fixture, reader), ['clear', 'clear'])
+  const before = (await stageJobs(fixture, a.id)).find((job) => job.stage === 'research')!
+  assert.equal(before.match?.binding?.part_subject_id, capture.batch.parts[0].id)
+  const other = await draftPart(fixture, capture.batch.id, '1N4148W-7-F')
+  // Written as a Review move would, through no Capture edit hook.
+  await fixture.db.pool.query('UPDATE capture_lot SET part_subject_id=$2 WHERE id=$1', [
+    a.id,
+    other.id,
+  ])
+  const gate = await transaction(fixture.runner.pool, (client) =>
+    matchGate(client, a.id, 'research', before.match),
+  )
+  assert.deepEqual(gate, { allowed: false, reason: 'binding_changed' })
+  // The sweep searches the new draft's identifiers; the stale attempt is replaced.
+  assert.deepEqual(await settleMatch(fixture, reader), ['renew'])
+  const after = (await stageJobs(fixture, a.id)).find((job) => job.stage === 'research')!
+  assert.notEqual(after.attemptId, before.attemptId)
+  assert.equal(after.match?.binding?.part_subject_id, other.id)
+  const requested = await fixture.db.pool.query<{ request_bytes: Buffer }>(
+    'SELECT request_bytes FROM processing_match_search WHERE lot_id=$1 ORDER BY generation DESC LIMIT 1',
+    [a.id],
+  )
+  assert.deepEqual(
+    decodeRequest(requested.rows[0].request_bytes).keys.map((key) =>
+      key.kind === 'mpn' ? key.mpn : key.kind,
+    ),
+    ['1N4148W-7-F'],
+  )
+  const now = await transaction(fixture.runner.pool, (client) =>
+    matchGate(client, a.id, 'research', after.match),
+  )
+  assert.equal(now.allowed, true)
+})
+
+test('a stage sealed under an earlier outcome, as when New Part could not queue, keeps no queue place', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture } = batch
+  const current = await fixture.http('/agent-settings')
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
+  const crystal = await batch.lot('16 mhz crystal')
+  const led = await batch.lot('led 0603 red')
+  // The crystal's Images is sealed under an outcome revision Match no longer has in force.
+  const crystalPins = (
+    await fixture.db.pool.query<{ pin: string }>(
+      `SELECT unnest(ARRAY(SELECT jsonb_array_elements_text(convert_from(i.manifest_bytes,'UTF8')::jsonb->'pinned_proposal_ids'))) AS pin
+       FROM processing_job j JOIN processing_attempt a ON a.id=j.current_attempt_id
+       JOIN processing_input i ON i.id=a.input_id WHERE j.subject_id=$1 AND j.stage='images'`,
+      [crystal.id],
+    )
+  ).rows.map((row) => row.pin)
+  const stale = await requeueLot(
+    fixture,
+    batch.batchId,
+    crystal.id,
+    'images',
+    {
+      outcome: { revision: '999', basis: { kind: 'decision', decision: 'add_stock' } },
+      mode: { stage: 'images', mode: 'stock', part_image: false },
+    },
+    crystalPins,
+  )
+  // It is the oldest queued session.
+  await fixture.db.pool.query(
+    `UPDATE agent_session SET queued_since=queued_since - interval '1 hour' WHERE attempt_id=$1`,
+    [stale],
+  )
+  const gate = await transaction(fixture.runner.pool, async (client) => {
+    const sealed = await client.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
+      `SELECT i.manifest_bytes, i.manifest_digest FROM processing_attempt a
+       JOIN processing_input i ON i.id=a.input_id WHERE a.id=$1`,
+      [stale],
+    )
+    const input = decodeSessionInput(sealed.rows[0].manifest_bytes, sealed.rows[0].manifest_digest)
+    return matchGate(client, crystal.id, 'images', 'match' in input ? input.match : undefined)
+  })
+  assert.deepEqual(gate, { allowed: false, reason: 'outcome_changed' })
+  const runnable = await fixture.db.pool.query<{ id: string }>(
+    `SELECT a.id FROM processing_attempt a JOIN processing_job j ON j.id=a.job_id
+     JOIN agent_session s ON s.attempt_id=a.id
+     WHERE j.subject_id=$1 AND a.state='queued' ORDER BY s.queued_since, a.id LIMIT 1`,
+    [led.id],
+  )
+  // Only the crystal's Research, still current, is ahead of the LED's first session.
+  const crystalResearch = (await batch.successors(crystal.id)).find(
+    (row) => row.stage === 'research',
+  )!
+  await fixture.db.pool.query(
+    `UPDATE agent_session SET queued_since=now() + interval '1 hour' WHERE attempt_id=$1`,
+    [crystalResearch.attempt_id],
+  )
+  await transaction(fixture.runner.pool, async (client) => {
+    assert.equal(await claimSessionSlot(client, fixture.config, runnable.rows[0].id), true)
+  })
+})
+
+test('a Part the detail read finds gone is never offered to add stock to', async (t) => {
+  const { fixture, reader } = await matchFixture(t, RES_0144)
+  const { capture, a } = await operatorLots(fixture, MPN)
+  const gone: MatchReader = {
+    ...reader,
+    targetContextId: reader.targetContextId,
+    list: reader.list.bind(reader) as MatchReader['list'],
+    part: async (pk) => (pk === '144' ? { kind: 'not_found' } : reader.part(pk)),
+  }
+  await settlePendingSearches(
+    fixture.api.pool,
+    fixture.config,
+    matchSearch(fixture.api.pool, fixture.config, gone),
+  )
+  const lot = (await readMatch(fixture, capture.batch.id)).lots.find(
+    (item) => item.lot_id === a.id,
+  )!
+  assert.deepEqual(lot.candidates, [])
+  assert.equal(openQuestion(await readMatch(fixture, capture.batch.id), a.id), undefined)
+})
+
+test('New Part gives a lot moved off every Part a draft of its own', async (t) => {
+  const { fixture, reader } = await matchFixture(t, RES_0144)
+  const { capture, a } = await operatorLots(fixture, MPN)
+  await settleMatch(fixture, reader)
+  const first = openQuestion(await readMatch(fixture, capture.batch.id), a.id)!
+  const added = await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${first.id}/answers`,
+    answer(first, 'add_stock_1'),
+  )
+  assert.equal(added.status, 200, JSON.stringify(added.value))
+  // Review's Move lots with no destination leaves the lot on no Part.
+  await fixture.db.pool.query('UPDATE capture_lot SET part_subject_id=NULL WHERE id=$1', [a.id])
+  await settleMatch(fixture, reader)
+  const again = openQuestion(await readMatch(fixture, capture.batch.id), a.id)!
+  const renewed = await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${again.id}/answers`,
+    answer(again, 'new_part'),
+  )
+  assert.equal(renewed.status, 200, JSON.stringify(renewed.value))
+  const snapshot = (await fixture.http(`/batches/${capture.batch.id}`)).value as CaptureSnapshotDto
+  const own = snapshot.lots.find((lot) => lot.id === a.id)!.part_subject_id
+  assert.ok(own)
+  assert.equal(snapshot.parts.find((part) => part.id === own)!.choice.mode, 'unset')
+  assert.deepEqual(
+    (await stageJobs(fixture, a.id)).map((job) => [job.stage, job.match?.mode.mode]),
+    [
+      ['images', 'full'],
+      ['research', 'full'],
+    ],
+  )
+})
+
+test('a lot moved to a draft with the same identifiers keeps its outcome but not its sealed work', async (t) => {
+  const { fixture, reader } = await matchFixture(t)
+  const { capture, a } = await operatorLots(fixture, MPN)
+  await settleMatch(fixture, reader)
+  const before = (await stageJobs(fixture, a.id)).find((job) => job.stage === 'research')!
+  const twin = await draftPart(fixture, capture.batch.id, MPN)
+  await fixture.db.pool.query('UPDATE capture_lot SET part_subject_id=$2 WHERE id=$1', [
+    a.id,
+    twin.id,
+  ])
+  assert.deepEqual(await settleMatch(fixture, reader), ['keep'])
+  const after = (await stageJobs(fixture, a.id)).find((job) => job.stage === 'research')!
+  assert.equal(after.match?.outcome?.revision, before.match?.outcome?.revision)
+  assert.notEqual(after.attemptId, before.attemptId)
+  // Work sealed for the old draft can't resume, even under the same outcome.
+  const stale = await transaction(fixture.runner.pool, (client) =>
+    matchGate(client, a.id, 'research', before.match),
+  )
+  assert.deepEqual(stale, { allowed: false, reason: 'binding_changed' })
 })

@@ -1,5 +1,5 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { Id, Revision } from './scalars.ts'
+import { Digest, Id, PositivePk, Revision } from './scalars.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -75,15 +75,29 @@ export const MatchOutcome = object({
  * What a `/7` Research or Images input seals of Match: the outcome it was queued under, or null
  * when there is none, and the stage's mode. `research/1` and `images/1` pin both.
  */
+/**
+ * What Match's state for a lot depends on in Capture: its Part subject, the InvenTree Part that
+ * subject selects, and for a lot the operator added without evidence a digest of the identifiers
+ * its draft confirms. Examine's lots are identified by their pinned proposal instead.
+ */
+export const MatchBinding = object({
+  part_subject_id: Type.Union([Id, Type.Null()]),
+  part_pk: Type.Union([PositivePk, Type.Null()]),
+  draft: Type.Union([Digest, Type.Null()]),
+})
+
 export const SealedMatch = object({
   outcome: Type.Union([object({ revision: Revision, basis: MatchOutcomeBasis }), Type.Null()]),
   mode: StageMode,
+  /** The lot's Capture binding the attempt was queued under; a changed one holds the attempt. */
+  binding: Type.Optional(MatchBinding),
 })
 
-export const matchOutcomeSchemas = { StageMode, MatchOutcome, SealedMatch }
+export const matchOutcomeSchemas = { StageMode, MatchOutcome, MatchBinding, SealedMatch }
 
 export type StageModeDto = Static<typeof StageMode>
 export type MatchOutcomeDto = Static<typeof MatchOutcome>
 export type SealedMatchDto = Static<typeof SealedMatch>
+export type MatchBindingDto = Static<typeof MatchBinding>
 export type MatchDecisionDto = Static<typeof MatchDecision>
 export type MatchOutcomeBasisDto = Static<typeof MatchOutcomeBasis>

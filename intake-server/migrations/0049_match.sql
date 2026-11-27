@@ -14,10 +14,43 @@ CREATE TABLE processing_match (
   waits text[] NOT NULL DEFAULT '{}' CHECK (waits <@ ARRAY['research','images']::text[]),
   -- The identity the latest search was requested for, as canonical JSON.
   identity_bytes bytea NOT NULL,
+  -- The lot's Capture binding (processing_match_binding) when its latest search was requested
+  -- or its decision bound it: Match state is current only while Capture still matches it.
+  binding jsonb NOT NULL,
   question_id uuid,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX processing_match_batch ON processing_match(batch_id);
+
+-- What Match's state and a /7 stage attempt depend on in Capture: the lot's Part subject, the
+-- InvenTree Part it selects, and, for a lot the operator added without evidence, a digest of the
+-- identifiers its draft confirms (name, MPN and maker, SKU and supplier). Examine's lots are
+-- identified by their pinned proposal instead.
+CREATE FUNCTION processing_match_binding(lot uuid) RETURNS jsonb
+LANGUAGE sql STABLE AS $$
+  SELECT jsonb_build_object(
+    'part_subject_id', l.part_subject_id,
+    'part_pk', CASE WHEN c.value->>'mode' = 'set' THEN c.value->'value'->>'pk' END,
+    'draft', CASE
+      WHEN l.origin <> 'agent' AND c.value->>'mode' = 'create'
+        AND NOT EXISTS (SELECT 1 FROM public.capture_lot_evidence_observation e
+                        WHERE e.lot_id = l.id AND e.status = 'active')
+      THEN encode(sha256(convert_to(jsonb_build_object(
+        'name', c.value->'spec'->>'name',
+        'mpn', c.value->'spec'->'manufacturer'->>'mpn',
+        'manufacturer_pk', c.value->'spec'->'manufacturer'->'company'->>'pk',
+        'sku', c.value->'spec'->'supplier'->>'sku',
+        'supplier_pk', c.value->'spec'->'supplier'->'company'->>'pk')::text, 'UTF8')), 'hex')
+    END)
+  FROM public.capture_lot l
+  LEFT JOIN LATERAL (
+    SELECT s.value FROM public.capture_selection s
+    WHERE s.subject_id = l.part_subject_id AND s.field = 'choice'
+    ORDER BY s.version DESC LIMIT 1
+  ) c ON true
+  WHERE l.id = lot
+$$;
+REVOKE ALL ON FUNCTION processing_match_binding(uuid) FROM PUBLIC;
 
 -- Each search request, with what it searched for and, once settled, what it found. A result
 -- settles only while its generation is the lot's latest; an older one is discarded.

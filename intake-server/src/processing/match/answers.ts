@@ -33,7 +33,16 @@ import {
   skippedStages,
   tellOutcome,
 } from './settle.ts'
-import { decodeIdentity, lockMatch, readMatch, searchPending, type MatchRow } from './state.ts'
+import {
+  adoptBinding,
+  currentBinding,
+  decodeIdentity,
+  lockMatch,
+  readMatch,
+  sameBinding,
+  searchPending,
+  type MatchRow,
+} from './state.ts'
 import { pinnedIdentityCurrent } from '#/processing/stable-identity.ts'
 import { decodeQuestionContent, type StoredQuestion } from './stored-question.ts'
 
@@ -115,6 +124,8 @@ async function requireAnswerable(
   row: MatchRow | undefined,
   planned: Planned,
   retired: boolean,
+  /** False once the answer itself has rebound the lot in this transaction. */
+  checkBinding = true,
 ) {
   if (retired || !stillAnswerable(row, planned)) {
     fail('stale_question', 409)
@@ -131,6 +142,11 @@ async function requireAnswerable(
     identity.kind === 'examine' &&
     !(await pinnedIdentityCurrent(client, [identity.proposal_id]))
   ) {
+    fail('match_waiting', 409)
+  }
+  // Capture has bound the lot otherwise since the question was asked: the Match sweep searches it
+  // again before anything is decided.
+  if (checkBinding && !sameBinding(await currentBinding(client, row!.lotId), row!.binding)) {
     fail('match_waiting', 409)
   }
 }
@@ -183,8 +199,9 @@ async function bindTarget(
   }
   const decision = planned.effect.decision
   if (decision === 'new_part') {
+    // A lot on a draft keeps it; one on an existing Part, or on none, gets a draft of its own.
     const part = snapshot.parts.find((candidate) => candidate.id === lot.part_subject_id)
-    if (part?.choice.mode !== 'set') {
+    if (part && part.choice.mode !== 'set') {
       return false
     }
     const draft = await scope.addPart(lot.label)
@@ -337,8 +354,10 @@ async function applyAnswers(
     [...new Set(planned.map((item) => item.question.lotId))].sort(),
   )
   for (const item of byLot) {
+    // The decision's own binding is what Match now holds the lot to.
+    await adoptBinding(client, item.question.lotId)
     const row = await lockMatch(client, item.question.lotId)
-    await requireAnswerable(client, row, item, retired.has(item.question.lotId))
+    await requireAnswerable(client, row, item, retired.has(item.question.lotId), false)
     await settleAnswer(
       client,
       config,

@@ -131,23 +131,38 @@ export async function checkJobCapacity(
   subjectIds: string[],
   stages: Stage[],
 ) {
+  await checkJobPairCapacity(
+    client,
+    batchId,
+    subjectIds.flatMap((subjectId) => stages.map((stage) => ({ subjectId, stage }))),
+  )
+}
+
+/** Refuses when queueing every one of these subject stages would pass the batch's job limit. */
+export async function checkJobPairCapacity(
+  client: PoolClient,
+  batchId: string,
+  pairs: readonly { subjectId: string; stage: Stage }[],
+) {
   const jobs = await executeDatabaseQuery(
     queryDatabase(client)
       .select({ subjectId: processingJobs.subjectId, stage: processingJobs.stage })
       .from(processingJobs)
       .where(eq(processingJobs.batchId, batchId)),
   )
-  let newJobs = 0
-  for (const subjectId of subjectIds) {
-    for (const stage of stages) {
-      const exists = jobs.some((job) => job.subjectId === subjectId && job.stage === stage)
-      if (!exists) {
-        newJobs += 1
-      }
-    }
-  }
-
-  if (jobs.length + newJobs > MAX_JOBS_PER_BATCH) {
+  if (jobsAfter(jobs, pairs) > MAX_JOBS_PER_BATCH) {
     fail('processing_capacity')
   }
+}
+
+/** How many jobs a batch holds once every one of these subject stages has one. */
+export function jobsAfter(
+  jobs: readonly { subjectId: string | null; stage: string }[],
+  pairs: readonly { subjectId: string; stage: Stage }[],
+) {
+  const existing = new Set(jobs.map((job) => `${job.subjectId}:${job.stage}`))
+  const fresh = new Set(
+    pairs.map((pair) => `${pair.subjectId}:${pair.stage}`).filter((key) => !existing.has(key)),
+  )
+  return jobs.length + fresh.size
 }

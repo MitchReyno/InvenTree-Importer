@@ -323,3 +323,33 @@ Under the lot's Match lock, approval SHALL refuse a preparation whose `/7` lot h
 - **GIVEN** a prepared lot whose validation passed
 - **WHEN** a replacing amendment opens a question without a search, and the operator approves the original preparation
 - **THEN** approval is refused for the open question.
+
+### Requirement: Match state follows the lot's Capture binding
+
+Match SHALL record, with each search it requests and each decision that binds a lot, the lot's Capture binding: its Part subject, the InvenTree Part that subject selects, and, for a lot the operator added without evidence, the identifiers its draft confirms (name, MPN with its maker, SKU with its supplier). Each queued `/7` Research or Images attempt SHALL seal that binding with its Match outcome. Examine's lots are identified by their pinned proposal; the binding adds their Part subject and Part.
+
+The claim, Start, replacement and Start-fresh gate, and every queue scan, SHALL compare the binding with Capture, whatever path changed Capture. While the lot's binding differs from the one Match recorded, its stages SHALL be held and the Match sweep SHALL request a search from the lot's current identity; an answer to its open question SHALL wait for that search. An attempt sealed under another binding or another outcome revision SHALL NOT start or resume, and SHALL NOT hold a place in the slot queue. When the search settles, the outcome it leaves in force is queued again for each stage whose current work was sealed under another binding.
+
+#### Scenario: Operator lot moved between drafts
+
+- **GIVEN** an operator lot on draft A confirming MPN A, cleared by Match, with Research queued
+- **WHEN** it is moved to draft B confirming MPN B with its maker, by Review or any other path
+- **THEN** Research does not start from the old outcome; Match searches MPN B, and the stages are queued again under the result, sealed with draft B.
+
+#### Scenario: Moved to a draft with the same identifiers
+
+- **GIVEN** an operator lot on a draft, cleared by Match, with Research queued
+- **WHEN** it is moved to another draft confirming the same identifiers
+- **THEN** the search keeps the outcome and its revision, and Research is queued again sealed with the new draft; the attempt sealed with the old one never resumes.
+
+#### Scenario: Relinked after a decision
+
+- **GIVEN** a lot decided as add stock to Part A, with Images queued
+- **WHEN** Capture binds it to another Part or moves it off every Part
+- **THEN** Images waits, Match searches and asks again, and an answer of new Part gives the lot a draft of its own.
+
+#### Scenario: New Part that could not be queued
+
+- **GIVEN** a lot decided as add stock, with Images queued, in a batch at its job limit
+- **WHEN** the operator answers New Part, whose new Research job doesn't fit
+- **THEN** the decision is recorded, the Images attempt sealed under add stock neither starts nor holds a place ahead of other lots' sessions, and the operator can Start the stages once the batch has room.

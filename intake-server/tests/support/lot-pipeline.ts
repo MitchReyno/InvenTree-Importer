@@ -1,3 +1,4 @@
+import { requestDriftedSearches } from '#/processing/match/commands.ts'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
@@ -23,12 +24,14 @@ import type { MatchReader } from '#/inventory/match-reads.ts'
 export type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
 /**
- * Settles every committed Match search as the API's sweep would, on the API's role, with the
+ * Requests a search for each lot Capture has rebound and settles every committed Match search
+ * as the API's sweep would, on the API's role, with the
  * InvenTree reader given (none: every remote read is unavailable).
  */
 export async function settleMatch(fixture: Fixture, reader?: MatchReader) {
   const outcomes: string[] = []
   for (;;) {
+    await requestDriftedSearches(fixture.api.pool, fixture.config)
     const settled = await settlePendingSearches(
       fixture.api.pool,
       fixture.config,

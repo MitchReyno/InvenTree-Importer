@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { canonicalRecord, strictJson } from '@invimport/contracts/json'
 import {
   validate,
+  type MatchBindingDto,
   type MatchIdentityDto,
   type MatchKeyDto,
   type MatchOutcomeDto,
@@ -48,11 +49,13 @@ export async function requestSearch(
   // the new search settles, since claims and answers already wait for a pending search.
   const rows = await client.query<{ generation: string }>(
     `INSERT INTO public.processing_match
-       (lot_id,batch_id,search_generation,state,waits,identity_bytes)
-     VALUES ($1,$2,1,'searching',ARRAY['research','images']::text[],$3)
+       (lot_id,batch_id,search_generation,state,waits,identity_bytes,binding)
+     VALUES ($1,$2,1,'searching',ARRAY['research','images']::text[],$3,
+       public.processing_match_binding($1))
      ON CONFLICT (lot_id) DO UPDATE
        SET search_generation=processing_match.search_generation+1,
            identity_bytes=EXCLUDED.identity_bytes,
+           binding=EXCLUDED.binding,
            updated_at=now()
      RETURNING search_generation::text AS generation`,
     [input.lotId, input.batchId, identity],
@@ -198,4 +201,33 @@ export async function latestOutcome(client: PoolClient, lotId: string) {
   const value: unknown = strictJson(latest.outcomeBytes.toString('utf8'))
   validate('MatchOutcome', value)
   return value as MatchOutcomeDto
+}
+
+/** The lot's Capture binding now, as Match and stage attempts record it. */
+export async function currentBinding(client: PoolClient, lotId: string): Promise<MatchBindingDto> {
+  const rows = await client.query<{ binding: MatchBindingDto | null }>(
+    'SELECT public.processing_match_binding($1) AS binding',
+    [lotId],
+  )
+  return rows.rows[0]?.binding ?? { part_subject_id: null, part_pk: null, draft: null }
+}
+
+/** Whether two bindings name the same Part subject, InvenTree Part and draft identifiers. */
+export function sameBinding(a: MatchBindingDto | undefined, b: MatchBindingDto | undefined) {
+  return (
+    a !== undefined &&
+    b !== undefined &&
+    a.part_subject_id === b.part_subject_id &&
+    a.part_pk === b.part_pk &&
+    a.draft === b.draft
+  )
+}
+
+/** Records the lot's Capture binding now as Match's, after a decision of Match's own bound it. */
+export async function adoptBinding(client: PoolClient, lotId: string) {
+  await client.query(
+    `UPDATE public.processing_match SET binding=public.processing_match_binding($1), updated_at=now()
+     WHERE lot_id=$1`,
+    [lotId],
+  )
 }

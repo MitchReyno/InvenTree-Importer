@@ -57129,6 +57129,11 @@ export interface components {
                     mode: "stock";
                     part_image: boolean;
                 };
+                binding?: {
+                    part_subject_id: string | null;
+                    part_pk: string | null;
+                    draft: string | null;
+                };
             };
         } | {
             /** @constant */
@@ -61688,6 +61693,11 @@ export interface components {
                     mode: "stock";
                     part_image: boolean;
                 };
+                binding?: {
+                    part_subject_id: string | null;
+                    part_pk: string | null;
+                    draft: string | null;
+                };
             };
         };
         StageMode: {
@@ -61767,6 +61777,11 @@ export interface components {
                 mode: "skipped";
             };
         };
+        MatchBinding: {
+            part_subject_id: string | null;
+            part_pk: string | null;
+            draft: string | null;
+        };
         SealedMatch: {
             outcome: {
                 /** Format: int64 */
@@ -61807,6 +61822,11 @@ export interface components {
                 /** @constant */
                 mode: "stock";
                 part_image: boolean;
+            };
+            binding?: {
+                part_subject_id: string | null;
+                part_pk: string | null;
+                draft: string | null;
             };
         };
         MatchKey: {
@@ -63460,6 +63480,7 @@ export type SessionReadVocabularyArgs = components['schemas']['SessionReadVocabu
 export type ProcessingInputV7 = components['schemas']['ProcessingInputV7']
 export type StageMode = components['schemas']['StageMode']
 export type MatchOutcome = components['schemas']['MatchOutcome']
+export type MatchBinding = components['schemas']['MatchBinding']
 export type SealedMatch = components['schemas']['SealedMatch']
 export type MatchKey = components['schemas']['MatchKey']
 export type MatchIdentity = components['schemas']['MatchIdentity']

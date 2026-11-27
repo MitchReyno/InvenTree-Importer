@@ -16,12 +16,14 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     processing_stage_instructions,processing_stage_guide,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal,
     agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis,agent_model_catalog,
     processing_proposal_image,processing_match,processing_match_search,processing_match_outcome,
-    processing_match_question,processing_match_answer TO ${role};`)
+    processing_match_question,processing_match_answer TO ${role};
+    -- Claims, Start and queue scans compare each lot's Capture binding with Match's.
+    GRANT EXECUTE ON FUNCTION processing_match_binding(uuid) TO ${role};`)
   if (purpose === 'api') {
     // Match runs its searches and records outcomes, questions and answers in the API; its
     // import reference lookup reads the retained execution journal.
     await pool.query(`GRANT INSERT, UPDATE(search_generation,settled_generation,outcome_revision,state,waits,
-        identity_bytes,question_id,updated_at) ON processing_match TO ${role};
+        identity_bytes,binding,question_id,updated_at) ON processing_match TO ${role};
       GRANT INSERT, UPDATE(settlement,result_bytes,result_digest,settled_at,attempts,retry_after) ON processing_match_search TO ${role};
       GRANT INSERT ON processing_match_outcome,processing_match_question,processing_match_answer TO ${role};
       GRANT UPDATE(state,closed_at) ON processing_match_question TO ${role};
@@ -118,8 +120,9 @@ export async function grantAgentWriter(pool: Pool, role: string) {
       agent_session_inbox_release,processing_question_basis,processing_identity_basis,processing_proposal_image,
       processing_match,processing_match_search,processing_match_outcome,processing_match_question TO ${role};
     -- A stable Examine identity requests its Match search; the API runs it.
-    GRANT INSERT, UPDATE(search_generation,identity_bytes,updated_at) ON processing_match TO ${role};
+    GRANT INSERT, UPDATE(search_generation,identity_bytes,binding,updated_at) ON processing_match TO ${role};
     GRANT INSERT ON processing_match_search TO ${role};
+    GRANT EXECUTE ON FUNCTION processing_match_binding(uuid) TO ${role};
     GRANT INSERT ON processing_proposal,processing_proposal_stale,processing_message,agent_session_outbox,
       processing_question,processing_question_figure,processing_figure_render,processing_identity_basis TO ${role};
     GRANT UPDATE(state,revision) ON processing_job TO ${role};

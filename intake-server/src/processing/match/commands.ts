@@ -19,14 +19,14 @@ import { stableIdentityOf } from '#/processing/stable-identity.ts'
 import { examineKeys, operatorKeys, operatorLot } from './keys.ts'
 import type { MatchResult } from './outcome.ts'
 import { matchQuestion } from './questions.ts'
-import { captureTargetOf, openMatchQuestion, standingOf } from './settle.ts'
-import { checksTarget, outcomeTarget } from './outcome.ts'
+import { openMatchQuestion, standingOf } from './settle.ts'
 import {
-  currentOutcome,
+  currentBinding,
   decodeIdentity,
   decodeRequest,
   lockMatch,
   requestSearch,
+  sameBinding,
   searchPending,
   type MatchRow,
 } from './state.ts'
@@ -226,40 +226,70 @@ export async function reopenMatch(
   )
 }
 
-/** Whether Capture binds the lot to another Part than its outcome in force set. */
-async function targetChanged(client: PoolClient, snapshot: CaptureSnapshotDto, row: MatchRow) {
-  if (searchPending(row)) {
-    return false
-  }
-  const outcome = await currentOutcome(client, row)
-  if (!outcome || !checksTarget(outcome.outcome)) {
-    return false
-  }
-  return captureTargetOf(snapshot, row.lotId) !== outcomeTarget(outcome)
-}
+/** How many lots one sweep looks at whose Capture binding has moved on from Match's. */
+export const MATCH_DRIFT_LIMIT = 50
 
 /**
- * Searches again each lot Capture now binds to another Part than its outcome in force set, so it
- * is decided afresh; returns the lots searched. Runs after any operator change to Capture that
- * can relink a lot, and does nothing where the role can't read Match.
+ * Requests a search for each lot of this actor, target and context whose Capture binding is no
+ * longer the one Match last searched or decided for, whatever path changed it: a relink, a draft's
+ * identifiers, a Review move. Its stages wait at the gate until that search settles. Returns the
+ * lots searched.
  */
-export async function requestTargetSearches(client: PoolClient, after: CaptureSnapshotDto) {
-  const searched = new Set<string>()
-  if (!(await readsMatch(client))) {
-    return searched
+export async function requestDriftedSearches(
+  pool: Pool,
+  config: ProcessingConfig,
+  limit = MATCH_DRIFT_LIMIT,
+) {
+  const drifted = await pool.query<{ lot_id: string; batch_id: string }>(
+    `SELECT m.lot_id, m.batch_id FROM public.processing_match m
+     JOIN public.capture_batch b ON b.id=m.batch_id
+     WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3 AND NOT b.archived
+       AND m.search_generation=m.settled_generation
+       AND NOT EXISTS (SELECT 1 FROM public.capture_lot_retirement r WHERE r.lot_id=m.lot_id)
+       AND public.processing_match_binding(m.lot_id) IS DISTINCT FROM m.binding
+     ORDER BY m.updated_at, m.lot_id
+     LIMIT $4`,
+    [config.actorId, config.targetId, config.targetContextId, limit],
+  )
+  const byBatch = new Map<string, string[]>()
+  for (const row of drifted.rows) {
+    byBatch.set(row.batch_id, [...(byBatch.get(row.batch_id) ?? []), row.lot_id])
   }
-  for (const lot of after.lots.filter((item) => item.retired !== true)) {
-    const row = await lockMatch(client, lot.id)
-    if (row && (await targetChanged(client, after, row))) {
-      await requestSearch(client, {
-        batchId: after.id,
-        lotId: lot.id,
-        identity: decodeIdentity(row),
-        keys: await requestedKeys(client, row),
-        reason: 'operator',
-      })
-      searched.add(lot.id)
-    }
+  const searched: string[] = []
+  for (const [batchId, lotIds] of [...byBatch].sort(([a], [b]) => a.localeCompare(b))) {
+    await transaction(pool, async (client) => {
+      const capture = await lockCaptureForInputs(client, config, batchId)
+      for (const lotId of [...lotIds].sort()) {
+        const row = await lockMatch(client, lotId)
+        if (
+          !row ||
+          searchPending(row) ||
+          sameBinding(await currentBinding(client, lotId), row.binding)
+        ) {
+          continue
+        }
+        const now = await identityNow(client, capture.snapshot, lotId, row)
+        if (!now) {
+          // Nothing to search with yet (Examine's next identity, say): it waits behind the rest.
+          await client.query(
+            'UPDATE public.processing_match SET updated_at=now() WHERE lot_id=$1',
+            [lotId],
+          )
+          continue
+        }
+        await requestSearch(client, {
+          batchId,
+          lotId,
+          identity: now.identity,
+          keys: now.keys,
+          reason: 'operator',
+        })
+        searched.push(lotId)
+      }
+      if (searched.length) {
+        await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
+      }
+    })
   }
   return searched
 }
@@ -287,11 +317,7 @@ export function matchCaptureHooks(config: ProcessingConfig) {
       if ((await batchInputVersion(client, config, after.id)) !== 'bench-intake-input/7') {
         return
       }
-      const searched = await requestTargetSearches(client, after)
       for (const lot of after.lots.filter(operatorLot)) {
-        if (searched.has(lot.id)) {
-          continue
-        }
         const row = await lockMatch(client, lot.id)
         const keys = await operatorKeysNow(client, after, lot, row)
         if (!row && !keys.length) {

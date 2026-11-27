@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg'
 import type {
   AgentSettingsDto,
   CaptureSnapshotDto,
+  MatchBindingDto,
   MatchIdentityDto,
   MatchOutcomeDto,
 } from '@invimport/contracts'
@@ -13,6 +14,7 @@ import { checkJobCapacity, queueJob, supersedeJobAttempts } from '#/processing/j
 import { sealedMatchFor, type MatchStage } from '#/processing/match-outcome.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { isSessionProfile } from '#/processing/session-policy.ts'
+import { currentBinding, sameBinding } from './state.ts'
 
 const STAGES: readonly MatchStage[] = ['research', 'images']
 /** Attempt states that end a stage's work; anything else is still the stage's current work. */
@@ -71,8 +73,13 @@ async function stageJob(client: PoolClient, batchId: string, lotId: string, stag
   } satisfies StageJob
 }
 
-/** Whether the stage's current work was sealed for this outcome and identity. */
-function sealedFor(job: StageJob, outcome: MatchOutcomeDto, pins: readonly string[]) {
+/** Whether the stage's current work was sealed for this outcome, identity and Capture binding. */
+function sealedFor(
+  job: StageJob,
+  outcome: MatchOutcomeDto,
+  pins: readonly string[],
+  binding: MatchBindingDto,
+) {
   const manifest = decodeSessionInput(job.inputBytes, job.inputDigest)
   if (manifest.schema_version !== 'bench-intake-input/7') {
     return false
@@ -80,14 +87,16 @@ function sealedFor(job: StageJob, outcome: MatchOutcomeDto, pins: readonly strin
   return (
     'match' in manifest &&
     manifest.match?.outcome?.revision === outcome.revision &&
+    sameBinding(manifest.match.binding, binding) &&
     manifest.pinned_proposal_ids.length === pins.length &&
     manifest.pinned_proposal_ids.every((id, index) => id === pins[index])
   )
 }
 
 /**
- * Queues the lot's Research and Images in the modes the outcome sets, pinned to its identity. A
- * stage whose current work was sealed for this outcome and identity is left as it is; a stage
+ * Queues the lot's Research and Images in the modes the outcome sets, pinned to its identity and
+ * sealed with the lot's Capture binding. A stage whose current work was sealed for this outcome,
+ * identity and binding is left as it is; a stage
  * the outcome skips has work that hasn't started superseded. Caller holds the capture, media and
  * Match locks. Returns the stages queued.
  */
@@ -102,6 +111,7 @@ export async function queueOutcomeStages(
   settings?: AgentSettingsDto,
 ) {
   const pins = pinsOf(identity)
+  const binding = await currentBinding(client, lotId)
   const toQueue: MatchStage[] = []
   for (const stage of STAGES) {
     const job = await stageJob(client, snapshot.id, lotId, stage)
@@ -113,7 +123,7 @@ export async function queueOutcomeStages(
       }
       continue
     }
-    if (live && sealedFor(job, outcome, pins)) {
+    if (live && sealedFor(job, outcome, pins, binding)) {
       continue
     }
     toQueue.push(stage)
@@ -130,7 +140,7 @@ export async function queueOutcomeStages(
       lockSettings: false,
       settings,
       inputVersion: 'bench-intake-input/7',
-      match: sealedMatchFor(outcome, stage),
+      match: sealedMatchFor(outcome, stage, binding),
     })
   }
   return queueable

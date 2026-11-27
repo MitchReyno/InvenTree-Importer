@@ -34,6 +34,7 @@ import { sessionTools, type SessionToolOutput } from '#/agents/tools/handlers.ts
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 import { lockBlob } from '#/media/blob-store.ts'
 import { replaceSession } from '#/processing/session-replacement.ts'
+import { currentBinding } from '#/processing/match/state.ts'
 import type { PoolClient } from 'pg'
 import { setTimeout as delay } from 'node:timers/promises'
 
@@ -165,10 +166,14 @@ test('a /7 stage publishes only its own kind, and Research only what its mode al
   const research = await stageJob(batch, '16 mhz crystal', 'research')
   const images = await stageJob(batch, '16 mhz crystal', 'images')
   const { manifest } = await inputOf(fixture, research.attemptId)
-  // Match found nothing to search with, so the lot's stages run as after a clear search.
+  // Match found nothing to search with, so the lot's stages run as after a clear search, sealed
+  // with the lot's Capture binding.
   assert.deepEqual(manifest.match, {
     outcome: { revision: '1', basis: { kind: 'clear' } },
     mode: { stage: 'research', mode: 'full' },
+    binding: await transaction(fixture.db.pool, (client) =>
+      currentBinding(client, research.lot.id),
+    ),
   })
   const { note, reliesOn } = citations(manifest)
   const full = researchOutput(research.lot.id, manifest, CATEGORY_AND_DESCRIPTION(note))
@@ -1964,6 +1969,7 @@ test('a count-only correction stales what relied on the observation; Start fresh
   const gapsMatch: SealedMatchDto = {
     outcome: { revision: outcome.revision, basis: outcome.basis },
     mode: { stage: 'research', mode: 'gaps', fields: ['datasheet'] },
+    binding: await transaction(fixture.db.pool, (client) => currentBinding(client, led.id)),
   }
   const ledResearch = await stageJob(batch, 'led 0603 red', 'research')
   const ledPins = (await inputOf(fixture, ledResearch.attemptId)).manifest.pinned_proposal_ids

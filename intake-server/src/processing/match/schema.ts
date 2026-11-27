@@ -2,12 +2,15 @@ import {
   bigint,
   customType,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core'
+
+import type { MatchBindingDto } from '@invimport/contracts'
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 
@@ -21,6 +24,7 @@ export const processingMatches = pgTable('processing_match', {
   state: text().$type<MatchRowState>().notNull(),
   waits: text().array().$type<('research' | 'images')[]>().notNull(),
   identityBytes: bytea('identity_bytes').notNull(),
+  binding: jsonb().$type<MatchBindingDto>().notNull(),
   questionId: uuid('question_id'),
   updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 })

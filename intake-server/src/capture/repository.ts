@@ -1396,12 +1396,6 @@ export async function lockCaptureForOperatorCommand(
       if (tell) {
         await tellChangedLots(client, batchId, initial, await snapshot(client, config, batchId))
       }
-      const after = await snapshot(client, config, batchId)
-      // A Review change can relink a lot away from its Match decision, which then asks again.
-      if (tell) {
-        const { requestTargetSearches } = await import('#/processing/match/commands.ts')
-        await requestTargetSearches(client, after)
-      }
       await retainRevision(client, retained, command, publish)
       return snapshot(client, config, batchId)
     },

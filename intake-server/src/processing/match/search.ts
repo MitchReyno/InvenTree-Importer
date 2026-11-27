@@ -329,15 +329,22 @@ async function missingParameters(reader: MatchReader, part: MatchPart, deadline:
   }
 }
 
-/** What InvenTree lacks for one candidate Part, and its stock with the lot's batch codes. */
+/**
+ * What InvenTree lacks for one candidate Part, and its stock with the lot's batch codes; nothing
+ * when the Part has gone since it was listed.
+ */
 async function candidate(
   reader: MatchReader,
   hit: Hit,
   keys: readonly MatchKeyDto[],
   supplierPk: string | undefined,
   deadline: number,
-): Promise<MatchPartCandidateDto> {
-  const part = (await single(withinBudget(reader.part(hit.part.pk), deadline))) ?? hit.part
+): Promise<MatchPartCandidateDto | undefined> {
+  // A Part the list named but its own read can't find is gone: never offered to add stock to.
+  const part = await single(withinBudget(reader.part(hit.part.pk), deadline))
+  if (!part) {
+    return undefined
+  }
   const missing: MatchMissingDto[] = []
   const attachments = await everyRow((page) =>
     reader.list({ kind: 'list_part_attachments', part: part.pk, ...page }, budgeted(deadline)),
@@ -525,7 +532,10 @@ export function matchSearch(
         .slice(0, MAX_MATCH_CANDIDATES)
       const candidates: MatchCandidateDto[] = []
       for (const hit of ranked) {
-        candidates.push(await candidate(reader, hit, request.keys, supplierPk, deadline))
+        const found = await candidate(reader, hit, request.keys, supplierPk, deadline)
+        if (found) {
+          candidates.push(found)
+        }
       }
       const lots = await transaction(pool, (client) => competingLots(client, config, request))
       if (lots === 'incomplete') {

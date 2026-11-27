@@ -6,7 +6,7 @@ import { issueSessionCapability } from '#/agents/tools/capability.ts'
 import { closeWithin } from '#/agents/session/session-runner.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import { queueJob } from '#/processing/jobs.ts'
-import { currentOutcome, readMatch } from '#/processing/match/state.ts'
+import { currentBinding, currentOutcome, readMatch } from '#/processing/match/state.ts'
 import { reserveProcessingMedia, reservedMediaFor } from '#/processing/media.ts'
 import type { Fixture } from './lot-pipeline.ts'
 
@@ -73,7 +73,8 @@ export async function withClients(
 
 /**
  * Queues a `/7` lot stage again, pinned to the identities given, in the mode given. With no
- * outcome given, it seals the lot's current Match outcome, so Match's claim gate lets it run; a
+ * outcome given, it seals the lot's current Match outcome and Capture binding, so Match's claim
+ * gate lets it run; a
  * mode the outcome wouldn't set is how tests reach the other modes. The job's earlier attempt is
  * superseded. Returns the new attempt.
  */
@@ -93,6 +94,7 @@ export async function requeueLot(
       ? {
           outcome: { revision: current.outcome.revision, basis: current.outcome.basis },
           mode: match.mode,
+          binding: await currentBinding(client, lotId),
         }
       : match
     await prepareMediaTransaction(client)

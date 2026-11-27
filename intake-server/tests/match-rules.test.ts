@@ -21,6 +21,7 @@ import {
   type MatchStanding,
 } from '#/processing/match/outcome.ts'
 import { questionOptions } from '#/processing/match/questions.ts'
+import { jobsAfter } from '#/processing/jobs.ts'
 
 const LOT = '0b0bb2b7-9595-41f3-92bf-e901d1823cfb'
 const PROPOSAL = '19290aa2-9c8f-4e8c-a95c-744abfbc3fd6'
@@ -263,5 +264,29 @@ test('what a Part lacks is part of what a decision covers', () => {
   assert.equal(
     coveredOf(result({ candidates: [part({ missing: [{ kind: 'supplier_part' }] })] })),
     coveredOf(result({ candidates: [part()] })),
+  )
+})
+
+test('a Start counts every new job of every lot against the batch limit at once', () => {
+  const jobs = Array.from({ length: 99 }, (_, index) => ({
+    subjectId: `lot-${index}`,
+    stage: 'research',
+  }))
+  // Two lots' Images, each fitting alone, take the batch past 100 together.
+  assert.equal(
+    jobsAfter(jobs, [
+      { subjectId: 'a', stage: 'images' },
+      { subjectId: 'b', stage: 'images' },
+    ]),
+    101,
+  )
+  // A stage a lot already has adds no job, and a pair named twice counts once.
+  assert.equal(
+    jobsAfter(jobs, [
+      { subjectId: 'lot-0', stage: 'research' },
+      { subjectId: 'a', stage: 'images' },
+      { subjectId: 'a', stage: 'images' },
+    ]),
+    100,
   )
 })
