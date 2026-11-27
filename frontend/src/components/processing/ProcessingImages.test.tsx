@@ -1028,3 +1028,102 @@ test('a redo names the proposal and the crop’s region, so two proposals from o
     'Please redo crop 2 of proposal proposal-2 (Stock image, from IMG_3009 · region 900, 50, 1000 × 1200 · page 1).',
   )
 })
+
+test('edits wait until a confirmed receipt has been read back, so none is erased', async () => {
+  const user = userEvent.setup()
+  const { processing, onDirtyChange } = mountReview(proposalReview())
+  await findCard('Crop 2: Stock image')
+  // The review read after the receipt stalls.
+  const stalled = deferred<ProcessingImagesReviewDto>()
+  processing.images.mockImplementation(() => stalled.promise)
+
+  await confirmWhenReady(user)
+  const stock = screen.getByRole('checkbox', { name: 'Attach crop 2 to the stock' })
+  await vi.waitFor(() => expect(processing.images.mock.calls.length).toBeGreaterThan(1))
+  expect(stock).toBeDisabled()
+  await user.click(stock)
+  expect(stock).toBeChecked()
+
+  await act(async () => {
+    stalled.resolve(
+      proposalReview(undefined, undefined, [
+        {
+          lot_id: 'lot',
+          revision: '10',
+          part_image: { version_id: 'part', recipe: partRecipe, state: 'ready' },
+          stock_images: [{ version_id: 'stock', recipe: stockRecipe, state: 'ready' }],
+        },
+      ]),
+    )
+    await stalled.promise
+  })
+  await vi.waitFor(() => expect(stock).toBeEnabled())
+  await user.click(stock)
+  expect(stock).not.toBeChecked()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true, expect.anything())
+})
+
+const secondStockRecipe = litRecipe('version-3012', { x: 300, y: 300, width: 900, height: 900 })
+const thirdStockRecipe = litRecipe('version-3013', { x: 10, y: 10, width: 500, height: 500 })
+
+test('stock images keep their saved order, and newly ticked ones go after them', async () => {
+  const user = userEvent.setup()
+  // The proposal lists B before A; the lot has A then B confirmed.
+  const { media } = mountReview(
+    proposalReview(
+      [
+        crop(1, 'stock_image', secondStockRecipe, 'IMG_3012'),
+        crop(2, 'stock_image', stockRecipe, 'IMG_3009'),
+        crop(3, 'stock_image', thirdStockRecipe, 'IMG_3013'),
+      ],
+      undefined,
+      [
+        {
+          lot_id: 'lot',
+          revision: '6',
+          part_image: null,
+          stock_images: [
+            { version_id: 'a', recipe: stockRecipe, state: 'ready' },
+            { version_id: 'b', recipe: secondStockRecipe, state: 'ready' },
+          ],
+        },
+      ],
+    ),
+  )
+
+  expect(await findCard('Crop 2: Stock image')).toHaveTextContent('Will be stock image 1')
+  expect(await findCard('Crop 1: Stock image')).toHaveTextContent('Will be stock image 2')
+  await user.click(screen.getByRole('checkbox', { name: 'Attach crop 3 to the stock' }))
+  expect(await findCard('Crop 3: Stock image')).toHaveTextContent('Will be stock image 3')
+
+  await confirmWhenReady(user)
+  await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
+  expect(media.edit.mock.calls[0][1].change).toMatchObject({
+    stock_images: [stockRecipe, secondStockRecipe, thirdStockRecipe],
+  })
+})
+
+test('changing only the redo crop holds the navigation guard until the draft is discarded', async () => {
+  const user = userEvent.setup()
+  const { onDirtyChange } = mountReview(proposalReview())
+
+  await user.click(await screen.findByRole('button', { name: 'Ask Images to redo one' }))
+  const form = screen.getByRole('form', { name: 'Ask Images to redo a crop' })
+  await user.selectOptions(within(form).getByRole('combobox', { name: 'Crop' }), '2')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true, expect.anything())
+
+  await user.click(within(form).getByRole('button', { name: 'Discard draft' }))
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+test('retargeting a redo draft to a newer proposal holds the navigation guard', async () => {
+  const user = userEvent.setup()
+  const { onDirtyChange, reread } = mountReview(proposalReview())
+
+  await user.click(await screen.findByRole('button', { name: 'Ask Images to redo one' }))
+  const form = screen.getByRole('form', { name: 'Ask Images to redo a crop' })
+  await reread(newerReview())
+  await user.click(await within(form).findByRole('button', { name: 'Use the newer proposal' }))
+
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true, expect.anything())
+})

@@ -54,7 +54,10 @@ async function mediaRevision(client: PoolClient, batchId: string) {
   return rows.rows[0]?.revision ?? '1'
 }
 
-/** Every `images/1` the batch's Images sessions published, newest first. */
+/**
+ * Every `images/1` the batch's Images sessions published, each lot's job newest first: by its
+ * attempt, then by the attempt's outbox sequence, which publication assigns in order.
+ */
 async function imagesProposalRows(client: PoolClient, batchId: string) {
   const rows = await client.query<ImagesProposalRow>(
     `SELECT p.id, j.id AS job_id, p.value_bytes, p.value_digest, o.created_at
@@ -65,7 +68,7 @@ async function imagesProposalRows(client: PoolClient, batchId: string) {
          ON o.session_id=p.attempt_id AND o.kind='proposal' AND o.payload->>'proposal_id'=p.id::text
       WHERE j.batch_id=$1 AND j.stage='images'
         AND EXISTS (SELECT 1 FROM public.processing_proposal_image i WHERE i.proposal_id=p.id)
-      ORDER BY o.created_at DESC, p.id`,
+      ORDER BY j.id, a.number DESC, o.seq DESC`,
     [batchId],
   )
   return rows.rows

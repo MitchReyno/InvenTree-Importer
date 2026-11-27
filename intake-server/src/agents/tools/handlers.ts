@@ -2288,18 +2288,42 @@ async function runImageTool(
   if (running.count >= IMAGE_TOOLS_AT_ONCE) {
     return refused('capacity_reached', 'The image renderer is busy. Try again in a minute.')
   }
+  // The slot is held until the image is encoded and authorized, or the call fails.
   running.count += 1
+  try {
+    return await renderAndDeliver(context, token, run, checked, store!, refused)
+  } finally {
+    running.count -= 1
+  }
+}
+
+/** Reads every page, settling all reads before a failure propagates so none is left running. */
+async function readPages(store: BlobStore, pages: ToolPage[]) {
+  const settled = await Promise.allSettled(pages.map((page) => store.read(page.previewDigest)))
+  const failed = settled.find((item) => item.status === 'rejected')
+  if (failed) {
+    throw failed.reason
+  }
+  return settled.map((item) => (item as PromiseFulfilledResult<Buffer>).value)
+}
+
+/** Decodes, encodes within the run's budget and makes the final check, holding the caller's slot. */
+async function renderAndDeliver(
+  context: SessionToolContext,
+  token: string,
+  run: string,
+  checked: ImageToolPlan,
+  store: BlobStore,
+  refused: (error: SessionToolErrorDto, message: string) => SessionToolOutput,
+): Promise<SessionToolOutput> {
   let outcome: ImageOperationOutcome
   try {
-    const pages = await Promise.all(checked.pages.map((page) => store!.read(page.previewDigest)))
-    outcome = await checked.run(pages)
+    outcome = await checked.run(await readPages(store, checked.pages))
   } catch (error) {
     if (error instanceof DecoderDispatcherBusyError) {
       return refused('capacity_reached', 'The image renderer is busy. Try again in a minute.')
     }
     throw error
-  } finally {
-    running.count -= 1
   }
   if (outcome.kind !== 'ready') {
     return refused('validation_failed', checked.refused[outcome.kind])

@@ -397,10 +397,9 @@ test('a synthetic /7 Images session publishes an accepted images/1 through propo
   t.after(() => server.close())
   const images = await stageJob(batch, '16 mhz crystal', 'images')
   const deps = { ...batch.deps, toolUrl: server.url }
-  assert.equal(
-    await runSessionTurn(deps, images.attemptId, new AbortController().signal),
-    'waiting_input',
-  )
+  // Its quantity question may be asked or, when another covers it, returned instead.
+  const state = await runSessionTurn(deps, images.attemptId, new AbortController().signal)
+  assert.ok(state === 'waiting_input' || state === 'finished', state)
   const review = await readImagesReview(batch.fixture.api.pool, batch.fixture.config, batch.batchId)
   const mine = review.proposals.filter((item) => item.lot_id === images.lot.id)
   assert.equal(mine.length, 1)
@@ -664,4 +663,51 @@ test('a worker runs a bounded number of image tool calls; another is refused bef
   release()
   assert.equal((await first).result.ok, true)
   assert.equal((await second).result.ok, true)
+})
+
+test('a lot’s newer images/1 reads first, ordered by publication, not by clock', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true, images: true })
+  const { fixture } = batch
+  const session = tools(batch, childImageOperations())
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  const cited = await fetched(batch, session, images.attemptId)
+  const source = await photo(batch)
+  const imager = await running(fixture, images.attemptId)
+  const publish = async (
+    summary: string,
+    region: { x: number; y: number; width: number; height: number },
+  ) =>
+    result(
+      session.propose_images(imager, {
+        proposal: {
+          schema_version: 'images/1',
+          subject_id: images.lot.id,
+          summary,
+          sources: [cited],
+          relies_on: { fields: ['identity'], sources: [cited] },
+          images: [{ role: 'stock_image', recipe: recipe(source, region) }],
+        },
+      }),
+    )
+  const first = await publish('First crop.', { x: 0, y: 0, width: 100, height: 100 })
+  const second = await publish('Corrected crop.', { x: 10, y: 10, width: 100, height: 100 })
+  // Even with the clock showing them out of order, publication order decides.
+  await fixture.db.pool.query(
+    'ALTER TABLE agent_session_outbox DISABLE TRIGGER agent_session_outbox_immutable',
+  )
+  await fixture.db.pool.query(
+    `UPDATE agent_session_outbox SET created_at = CASE WHEN payload->>'proposal_id'=$1
+       THEN now() + interval '1 hour' ELSE now() END
+     WHERE kind='proposal' AND payload->>'proposal_id' IN ($1,$2)`,
+    [first.id, second.id],
+  )
+  await fixture.db.pool.query(
+    'ALTER TABLE agent_session_outbox ENABLE TRIGGER agent_session_outbox_immutable',
+  )
+  const review = await readImagesReview(fixture.api.pool, fixture.config, batch.batchId)
+  const mine = review.proposals.filter((item) => item.lot_id === images.lot.id)
+  assert.deepEqual(
+    mine.map((item) => item.proposal_id),
+    [second.id, first.id],
+  )
 })

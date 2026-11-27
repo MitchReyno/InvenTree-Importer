@@ -148,6 +148,8 @@ export function ImagesProposalSection({
   const [redoOpen, setRedoOpen] = useState(false)
   // Started when the form first opens, on the proposal shown then.
   const [redoDraft, setRedoDraft] = useState<RedoDraft | null>(null)
+  // A confirmed receipt is being read back; the controls stay locked until the reads have it.
+  const [reconciling, setReconciling] = useState(false)
   // Crop pictures the browser has loaded, by address, so a confirmation never attaches one unseen.
   const [loadedPictures, setLoadedPictures] = useState<ReadonlySet<string>>(() => new Set())
   const [redoSent, setRedoSent] = useState(false)
@@ -170,7 +172,7 @@ export function ImagesProposalSection({
     pinnedProposal && pinnedProposal.proposal_id !== current.proposal_id ? pinnedProposal : current
   const newerProposal = proposal !== current
   const shown = choices ?? defaultChoices(proposal, selection)
-  const locked = command.busy || command.pending
+  const locked = command.busy || command.pending || reconciling
   const hasPartCrops = proposal.crops.some((crop) => crop.role === 'part_image')
   const removal = removalLine(confirmRemovals(selection, selectImagesChange(proposal, shown)))
   const unseen = unseenChosen(proposal, shown)
@@ -180,9 +182,17 @@ export function ImagesProposalSection({
       crop.state === 'ready' &&
       !loadedPictures.has(imagesCropImage(batchId, proposal.proposal_id, crop.index, 'view')),
   )
-  const redoChange = redoDraft?.change ?? ''
+  const redoEdited = redoDraft?.edited === true
+  const redoLabel = `Images: ${lotLabel} · redo request`
   const choicesLabel = `Images: ${lotLabel} · image choices`
   const caughtUp = basis !== null && basis.mediaRevision !== mediaRevision && !newerProposal
+
+  /** Where a chosen stock crop lands among the stock images if confirmed, counted from 1. */
+  function stockPosition(crop: ProcessingImageCropDto) {
+    const position = shown.stockIndexes.indexOf(crop.index)
+
+    return crop.role === 'stock_image' && position !== -1 ? position + 1 : undefined
+  }
 
   function chosen(crop: ProcessingImageCropDto) {
     const part = crop.role === 'part_image' && crop.index === shown.partIndex
@@ -201,7 +211,16 @@ export function ImagesProposalSection({
     onChoicesDirty,
     namedChanges(choices, command.pending),
   )
-  useReportDirty(redoChange.trim() !== '' || redo.pending, onRedoDirty)
+  useReportDirty(redoEdited || redo.pending, onRedoDirty, redoChanges(redoEdited, redo.pending))
+
+  /** An edited, unsent redo draft can be named and dropped; a request awaiting its outcome can't. */
+  function redoChanges(edited: boolean, pending: boolean): UnsavedChange[] {
+    return edited && !pending ? [{ label: redoLabel, discard: handleDiscardRedoDraft }] : []
+  }
+
+  function reportRedo(edited: boolean, pending: boolean) {
+    reportDirty(onRedoDirty, edited || pending, redoChanges(edited, pending))
+  }
 
   let confirmClosedReason = closedReason
   if (!confirmClosedReason && !media) {
@@ -305,8 +324,14 @@ export function ImagesProposalSection({
       reportChoices(sent, command.hasPendingIntent())
       return
     }
-    // The defaults follow the confirmed images once both reads have them.
-    await target.accept(next)
+    // The defaults follow the confirmed images once both reads have them; nothing is editable
+    // meanwhile, so no edit made after the send is cleared with the sent choices.
+    setReconciling(true)
+    try {
+      await target.accept(next)
+    } finally {
+      setReconciling(false)
+    }
     setBasis(null)
     setChoices(null)
     setConfirmedNow(true)
@@ -330,23 +355,39 @@ export function ImagesProposalSection({
 
   function handleToggleRedo() {
     if (!redoOpen && redoDraft === null) {
-      setRedoDraft({ target: proposal, cropIndex: String(proposal.crops[0].index), change: '' })
+      setRedoDraft(freshRedoDraft())
     }
     setRedoOpen(!redoOpen)
   }
 
+  function freshRedoDraft(): RedoDraft {
+    return {
+      target: proposal,
+      cropIndex: String(proposal.crops[0].index),
+      change: '',
+      edited: false,
+    }
+  }
+
   function handleRedoDraft(next: RedoDraft) {
-    setRedoDraft(next)
+    setRedoDraft({ ...next, edited: true })
     setRedoSent(false)
-    reportDirty(onRedoDirty, next.change.trim() !== '' || redo.hasPendingIntent(), [])
+    reportRedo(true, redo.hasPendingIntent())
+  }
+
+  function handleDiscardRedoDraft() {
+    setRedoDraft(freshRedoDraft())
+    setRedoSent(false)
+    reportRedo(false, redo.hasPendingIntent())
   }
 
   /** Moves the draft to the newest proposal, keeping its crop when that proposal has one. */
   function handleRetarget(draft: RedoDraft) {
     const sameCrop = current.crops.some((crop) => String(crop.index) === draft.cropIndex)
     const cropIndex = sameCrop ? draft.cropIndex : String(current.crops[0].index)
-    setRedoDraft({ ...draft, target: current, cropIndex })
+    setRedoDraft({ ...draft, target: current, cropIndex, edited: true })
     setRedoSent(false)
+    reportRedo(true, redo.hasPendingIntent())
   }
 
   async function handleRedoSend(draft: RedoDraft) {
@@ -357,24 +398,24 @@ export function ImagesProposalSection({
     const crop =
       target.crops.find((item) => String(item.index) === draft.cropIndex) ?? target.crops[0]
     setRedoSent(false)
-    reportDirty(onRedoDirty, true, [])
+    reportRedo(false, true)
     // A pending request is retried exactly; a new one names the draft's own proposal's session.
     const receipt = await redo.submit({
       jobId: target.job_id,
       text: redoMessage(target, crop, draft.change),
     })
     if (receipt === null) {
-      reportDirty(onRedoDirty, draft.change.trim() !== '' || redo.hasPendingIntent(), [])
+      reportRedo(draft.edited, redo.hasPendingIntent())
       return
     }
-    setRedoDraft({ ...draft, change: '' })
+    setRedoDraft({ ...draft, change: '', edited: false })
     setRedoSent(true)
-    reportDirty(onRedoDirty, false, [])
+    reportRedo(false, false)
   }
 
   function handleRedoDiscard() {
     redo.discard()
-    reportDirty(onRedoDirty, redoChange.trim() !== '', [])
+    reportRedo(redoEdited, false)
   }
 
   return (
@@ -429,6 +470,7 @@ export function ImagesProposalSection({
               crop={crop}
               placement={confirmedPlacement(crop, selection)}
               control={controlFor(crop, shown, partName, handleChoosePart, handleToggleStock)}
+              willBeStock={stockPosition(crop)}
               onPictureLoaded={handlePictureLoaded}
               disabled={locked || closedReason !== undefined}
             />
@@ -499,6 +541,7 @@ export function ImagesProposalSection({
           closedReason={closedReason}
           onSend={() => void handleRedoSend(redoDraft)}
           onDiscard={handleRedoDiscard}
+          onDiscardDraft={handleDiscardRedoDraft}
           onClose={() => setRedoOpen(false)}
         />
       )}

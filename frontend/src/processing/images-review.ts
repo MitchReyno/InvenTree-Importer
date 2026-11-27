@@ -96,11 +96,16 @@ export function defaultChoices(
   const part = confirmedPart
     ? partCrops.find((crop) => sameLitRecipe(crop.recipe, confirmedPart.recipe))
     : undefined
-  const stock = stockCrops.filter((crop) =>
-    selection.stock_images.some((item) => sameLitRecipe(crop.recipe, item.recipe)),
-  )
+  // Stock images keep the order they were confirmed in, whatever order the proposal lists them.
+  const stockIndexes: number[] = []
+  for (const item of selection.stock_images) {
+    const match = stockCrops.find((crop) => sameLitRecipe(crop.recipe, item.recipe))
+    if (match && !stockIndexes.includes(match.index)) {
+      stockIndexes.push(match.index)
+    }
+  }
 
-  return { partIndex: part?.index ?? null, stockIndexes: stock.map((crop) => crop.index) }
+  return { partIndex: part?.index ?? null, stockIndexes }
 }
 
 /** The chosen crops that aren't rendered, so the operator hasn't seen what they would attach. */
@@ -128,7 +133,7 @@ export function unchoosableReason(state: ProcessingImageCropDto['state']) {
   return undefined
 }
 
-/** The media edit that confirms these choices; stock images keep the proposal's order. */
+/** The media edit that confirms these choices, with stock images in the chosen order. */
 export function selectImagesChange(
   proposal: ProcessingImagesProposalDto,
   choices: ImageChoices,
@@ -136,9 +141,13 @@ export function selectImagesChange(
   const part = proposal.crops.find(
     (crop) => crop.role === 'part_image' && crop.index === choices.partIndex,
   )
-  const stock = proposal.crops.filter(
-    (crop) => crop.role === 'stock_image' && choices.stockIndexes.includes(crop.index),
-  )
+  const stockCrops = proposal.crops.filter((crop) => crop.role === 'stock_image')
+  // In the chosen order: confirmed ones first, as saved, then those ticked since.
+  const stock = choices.stockIndexes.flatMap((index) => {
+    const match = stockCrops.find((crop) => crop.index === index)
+
+    return match ? [match] : []
+  })
 
   return {
     kind: 'select_images',

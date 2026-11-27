@@ -27,6 +27,8 @@ type Props = {
   /** Where the crop already sits among the lot's confirmed images. */
   placement: ConfirmedPlacement | null
   control: CropControl
+  /** The stock position this crop takes if the choices are confirmed, counted from 1. */
+  willBeStock?: number
   /** Called with the picture's address once it has loaded. */
   onPictureLoaded: (src: string) => void
   /** Every control is locked, such as while a confirmation awaits its outcome. */
@@ -46,6 +48,7 @@ export function ImagesCropCard({
   crop,
   placement,
   control,
+  willBeStock,
   onPictureLoaded,
   disabled,
 }: Props) {
@@ -91,6 +94,7 @@ export function ImagesCropCard({
           </Flags>
         )}
         {placement && <Small>{placementText(placement)}</Small>}
+        {willBeStock !== undefined && <Small>Will be stock image {willBeStock}</Small>}
         {control.kind === 'part' && (
           <CheckboxLabel>
             <input

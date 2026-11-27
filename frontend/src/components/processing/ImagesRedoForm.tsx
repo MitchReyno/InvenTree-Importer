@@ -11,7 +11,13 @@ import { color, radius, space } from '#/theme/generated/tokens'
  * A redo draft as its lot keeps it, so closing the form or a newer read never drops it. It names
  * the proposal it was started on, whose session and crop it asks about, until retargeted.
  */
-export type RedoDraft = { target: ProcessingImagesProposalDto; cropIndex: string; change: string }
+export type RedoDraft = {
+  target: ProcessingImagesProposalDto
+  cropIndex: string
+  change: string
+  /** The operator has changed the crop, the text or the target since the draft started. */
+  edited: boolean
+}
 
 type Props = {
   draft: RedoDraft
@@ -29,6 +35,8 @@ type Props = {
   closedReason?: string
   onSend: () => void
   onDiscard: () => void
+  /** Drops an edited draft that hasn't been sent. */
+  onDiscardDraft: () => void
   onClose: () => void
 }
 
@@ -55,6 +63,7 @@ export function ImagesRedoForm({
   closedReason,
   onSend,
   onDiscard,
+  onDiscardDraft,
   onClose,
 }: Props) {
   const fieldId = useId()
@@ -117,6 +126,11 @@ export function ImagesRedoForm({
           {pending ? 'Retry' : 'Send to Images'}
         </Button>
         {pending && !busy && <Button onClick={onDiscard}>Discard request</Button>}
+        {draft.edited && !locked && (
+          <Button variant="ghost" onClick={onDiscardDraft}>
+            Discard draft
+          </Button>
+        )}
         <Button variant="ghost" onClick={onClose}>
           Close
         </Button>
