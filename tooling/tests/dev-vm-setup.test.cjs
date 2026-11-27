@@ -181,9 +181,17 @@ async function world(t, initial = {}) {
     throw new Error(`unexpected guest command: ${args.join(' ')}`)
   }
 
+  // Tracked files only, listed once: other test files running in parallel add and remove
+  // untracked files under the digest's inputs, which would change the digest between two runs.
+  const gitListings = new Map()
   const exec = async (command, args, options) => {
     if (command === 'git') {
-      return runCommand(command, args, options)
+      const tracked = args.filter((arg) => arg !== '--others' && arg !== '--exclude-standard')
+      const key = JSON.stringify(tracked)
+      if (!gitListings.has(key)) {
+        gitListings.set(key, runCommand(command, tracked, options))
+      }
+      return gitListings.get(key)
     }
     if (command === 'sh' && args[1].includes('openssl verify')) {
       // `cd` checks the host side; `printf` checks the guest's certificate against the host CA.
