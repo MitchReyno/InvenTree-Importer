@@ -289,9 +289,18 @@ export function cropAspect(recipe: MediaLitViewRecipeDto) {
   return turned ? `${height} / ${width}` : `${width} / ${height}`
 }
 
-/** The chat message asking Images to redo one crop, naming it as the review shows it. */
-export function redoMessage(crop: ProcessingImageCropDto, change: string) {
-  const named = `Please redo crop ${crop.index} (${ROLE_LABEL[crop.role]}, from ${crop.evidence_label})`
+/**
+ * The chat message asking Images to redo one crop. It names the proposal and the crop's region and
+ * page, since one session's proposals can share a crop number, role and file.
+ */
+export function redoMessage(
+  proposal: ProcessingImagesProposalDto,
+  crop: ProcessingImageCropDto,
+  change: string,
+) {
+  const { x, y, width, height } = crop.recipe.view.region
+  const where = `from ${crop.evidence_label} · region ${x}, ${y}, ${width} × ${height} · page ${crop.recipe.page}`
+  const named = `Please redo crop ${crop.index} of proposal ${proposal.proposal_id} (${ROLE_LABEL[crop.role]}, ${where})`
   const wanted = change.trim()
 
   return wanted ? `${named}: ${wanted}` : `${named}.`

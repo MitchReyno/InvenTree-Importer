@@ -613,3 +613,55 @@ test('a label the decoder would count as too long is refused before rendering', 
   assert.equal(preview.error, 'validation_failed')
   assert.deepEqual(calls, [])
 })
+
+test('a worker runs a bounded number of image tool calls; another is refused before reading pages', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true, images: true })
+  const real = childImageOperations()
+  let release: () => void = () => {}
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let entered = 0
+  const holding: SessionImageOperations = {
+    ...real,
+    grid: async (input) => {
+      entered += 1
+      await held
+      return real.grid(input)
+    },
+  }
+  const reads: string[] = []
+  const store = batch.store!
+  const counting = Object.create(store) as typeof store
+  counting.read = async (digest: string) => {
+    reads.push(digest)
+    return store.read(digest)
+  }
+  const session = sessionTools({
+    pool: batch.fixture.runner.pool,
+    writerPool: batch.fixture.writer.pool,
+    config: batch.fixture.config,
+    store: counting,
+    statusIntervalMs: 0,
+    imageBudget: new Map(),
+    deliveredMedia: new Map(),
+    imageOperations: holding,
+    imageToolsRunning: { count: 0 },
+  })
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  const imager = await running(batch.fixture, images.attemptId)
+  const source = await photo(batch)
+  const first = session.inspect_region(imager, { evidence_id: source.evidence_id })
+  const second = session.inspect_region(imager, { evidence_id: source.evidence_id })
+  for (let tries = 0; entered < 2 && tries < 200; tries += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  assert.equal(entered, 2)
+  const readsBefore = reads.length
+  const third = await result(session.inspect_region(imager, { evidence_id: source.evidence_id }))
+  assert.equal(third.error, 'capacity_reached')
+  assert.equal(reads.length, readsBefore, 'the refused call read no page')
+  release()
+  assert.equal((await first).result.ok, true)
+  assert.equal((await second).result.ok, true)
+})

@@ -240,6 +240,7 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
     imageBudget: new Map(),
     deliveredMedia,
     imageOperations: options.imageOperations,
+    imageToolsRunning: { count: 0 },
   })
   const hostGuard = localhostHostValidation()
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 })

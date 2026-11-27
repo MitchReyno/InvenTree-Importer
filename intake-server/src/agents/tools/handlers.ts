@@ -145,6 +145,8 @@ export interface SessionToolContext {
   figurePreviewWaitMs?: number
   /** The decoder operations behind the image tools; without them those tools are unavailable. */
   imageOperations?: SessionImageOperations
+  /** Image tool calls this worker is running now; beyond `IMAGE_TOOLS_AT_ONCE` one is refused. */
+  imageToolsRunning?: { count: number }
 }
 
 /** An `ask` preview waits at most this long for the media worker to render its figures. */
@@ -2153,6 +2155,12 @@ async function previewOutput(
   }
 }
 
+/**
+ * A worker runs at most this many image tool calls at once, so the pages they read and the
+ * packets they build stay bounded whatever the dispatcher's queue; another call is refused at once.
+ */
+export const IMAGE_TOOLS_AT_ONCE = 2
+
 /** `inspect_region` draws its grid this wide when the agent doesn't say. */
 export const DEFAULT_GRID_PREVIEW_WIDTH = 1200
 /** `match_logo` returns this many candidates when the agent doesn't say. */
@@ -2276,15 +2284,22 @@ async function runImageTool(
       'These pages are too large to render together; use fewer pages at a time.',
     )
   }
-  const pages = await Promise.all(checked.pages.map((page) => store!.read(page.previewDigest)))
+  const running = (context.imageToolsRunning ??= { count: 0 })
+  if (running.count >= IMAGE_TOOLS_AT_ONCE) {
+    return refused('capacity_reached', 'The image renderer is busy. Try again in a minute.')
+  }
+  running.count += 1
   let outcome: ImageOperationOutcome
   try {
+    const pages = await Promise.all(checked.pages.map((page) => store!.read(page.previewDigest)))
     outcome = await checked.run(pages)
   } catch (error) {
     if (error instanceof DecoderDispatcherBusyError) {
       return refused('capacity_reached', 'The image renderer is busy. Try again in a minute.')
     }
     throw error
+  } finally {
+    running.count -= 1
   }
   if (outcome.kind !== 'ready') {
     return refused('validation_failed', checked.refused[outcome.kind])

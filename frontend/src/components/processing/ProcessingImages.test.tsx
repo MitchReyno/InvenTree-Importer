@@ -276,12 +276,12 @@ async function findCard(name: string) {
   return screen.findByRole('article', { name })
 }
 
-async function confirmWhenReady(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('button', { name: 'Confirm images' })
+async function confirmWhenReady(user: ReturnType<typeof userEvent.setup>, name = 'Confirm images') {
+  await screen.findByRole('button', { name })
   loadPictures()
 
   // The button's element changes when its reason moves between beside and quiet.
-  const confirm = () => screen.getByRole('button', { name: 'Confirm images' })
+  const confirm = () => screen.getByRole('button', { name })
 
   await vi.waitFor(() => {
     expect(confirm()).toBeEnabled()
@@ -528,7 +528,7 @@ test('asking Images to redo one sends a chat message naming the crop to the prop
   expect(jobId).toBe('images-job')
   expect(input).toEqual({
     idempotency_key: key,
-    text: 'Please redo crop 2 (Stock image, from IMG_3009): keep the whole label in frame',
+    text: 'Please redo crop 2 of proposal proposal (Stock image, from IMG_3009 · region 100, 200, 2400 × 3000 · page 1): keep the whole label in frame',
   })
   expect(await screen.findByRole('status', { name: 'Redo request' })).toHaveTextContent(
     'Sent to Images',
@@ -765,7 +765,7 @@ test('a chosen crop that stops rendering blocks Confirm until it is unticked', a
   expect(screen.getByText(/Untick crop 2/)).toBeVisible()
 
   await user.click(stock)
-  await confirmWhenReady(user)
+  await confirmWhenReady(user, 'Confirm no images')
   await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
   expect(media.edit.mock.calls[0][1].change).toMatchObject({ part_image: null, stock_images: [] })
 })
@@ -822,7 +822,7 @@ test('a confirmed Part image matches only a Part image crop, and confirming says
   expect(
     screen.getByText('Confirming removes the confirmed Part image and stock image 1.'),
   ).toBeVisible()
-  await confirmWhenReady(user)
+  await confirmWhenReady(user, 'Confirm no images')
   await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
   expect(media.edit.mock.calls[0][1].change).toMatchObject({ part_image: null, stock_images: [] })
 })
@@ -849,7 +849,7 @@ test('a redo draft stays on the proposal it started on until the operator retarg
   await vi.waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(1))
   expect(processing.chat.mock.calls[0][1]).toBe('images-job')
   expect(processing.chat.mock.calls[0][2].text).toBe(
-    'Please redo crop 2 (Stock image, from IMG_3009): tighter',
+    'Please redo crop 2 of proposal proposal (Stock image, from IMG_3009 · region 100, 200, 2400 × 3000 · page 1): tighter',
   )
 
   await user.type(within(form).getByRole('textbox', { name: 'What to change (optional)' }), 'again')
@@ -861,7 +861,7 @@ test('a redo draft stays on the proposal it started on until the operator retarg
   await vi.waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(2))
   expect(processing.chat.mock.calls[1][1]).toBe('images-job-2')
   expect(processing.chat.mock.calls[1][2].text).toBe(
-    'Please redo crop 1 (Stock image, from IMG_4000): again',
+    'Please redo crop 1 of proposal proposal-2 (Stock image, from IMG_4000 · region 100, 200, 2400 × 3000 · page 1): again',
   )
 })
 
@@ -904,5 +904,127 @@ test('an uncertain confirmation retries exactly even after a chosen crop stops r
     expect(screen.getByRole('status', { name: 'Images confirmation' })).toHaveTextContent(
       'Confirmed.',
     ),
+  )
+})
+
+test('a default confirmation in flight holds the navigation guard until its receipt lands', async () => {
+  const user = userEvent.setup()
+  const reply = deferred<MediaSnapshotDto>()
+  const edit: EditMock = vi.fn(() => reply.promise)
+  const { onDirtyChange } = mountReview(proposalReview(), { edit })
+
+  await confirmWhenReady(user)
+
+  expect(edit).toHaveBeenCalledTimes(1)
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await act(async () => {
+    reply.resolve({ ...mediaAtRevision, revision: '10' })
+    await reply.promise
+  })
+  await vi.waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false))
+})
+
+test('an uncertain default confirmation keeps the guard, unnamed, until it is abandoned', async () => {
+  const user = userEvent.setup()
+  const edit: EditMock = vi.fn()
+  edit.mockRejectedValue(new TypeError('connection reset'))
+  const { onDirtyChange } = mountReview(proposalReview(), { edit })
+
+  await confirmWhenReady(user)
+  expect(await screen.findByRole('alert')).toHaveTextContent('isn’t certain')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+
+  await user.click(screen.getByRole('button', { name: 'Discard request' }))
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true, expect.anything())
+})
+
+test('a blank redo in flight holds the navigation guard until its receipt lands', async () => {
+  const user = userEvent.setup()
+  const reply = deferred<{ item_id: string; seq: string }>()
+  const chat: ChatMock = vi.fn(() => reply.promise)
+  const { onDirtyChange } = mountReview(proposalReview(), { chat })
+
+  await user.click(await screen.findByRole('button', { name: 'Ask Images to redo one' }))
+  const send = screen.getByRole('button', { name: 'Send to Images' })
+  await vi.waitFor(() => expect(send).not.toHaveAttribute('aria-disabled', 'true'))
+  await user.click(send)
+
+  expect(chat).toHaveBeenCalledTimes(1)
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await act(async () => {
+    reply.resolve({ item_id: 'item', seq: '5' })
+    await reply.promise
+  })
+  await vi.waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false))
+})
+
+test('a proposal whose crops are still rendering can’t be confirmed as empty by default', async () => {
+  const user = userEvent.setup()
+  const { media } = mountReview(
+    proposalReview([
+      crop(1, 'part_image', partRecipe, 'IMG_3011', { state: 'preparing' }),
+      crop(2, 'stock_image', stockRecipe, 'IMG_3009', { state: 'preparing' }),
+    ]),
+  )
+
+  await findCard('Crop 1: Part image')
+  expect(screen.getByRole('button', { name: 'Confirm images' })).toBeDisabled()
+  expect(screen.getByText(/still rendering/)).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Confirm images' }))
+  expect(media.edit).not.toHaveBeenCalled()
+})
+
+test('confirming no images is an explicit act with its own label', async () => {
+  const user = userEvent.setup()
+  const { media } = mountReview(
+    proposalReview(undefined, undefined, [
+      { lot_id: 'lot', revision: '6', part_image: null, stock_images: [] },
+    ]),
+  )
+
+  await findCard('Crop 1: Part image')
+  expect(screen.getByRole('button', { name: 'Confirm images' })).toBeDisabled()
+  expect(screen.getByText(/Choose the images to confirm/)).toBeVisible()
+
+  await user.click(screen.getByRole('radio', { name: 'Use crop 1 as the Part image' }))
+  await user.click(screen.getByRole('radio', { name: 'No Part image' }))
+  await confirmWhenReady(user, 'Confirm no images')
+  await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
+  expect(media.edit.mock.calls[0][1].change).toMatchObject({ part_image: null, stock_images: [] })
+})
+
+test('a redo names the proposal and the crop’s region, so two proposals from one session differ', async () => {
+  const user = userEvent.setup()
+  const { processing, reread } = mountReview(proposalReview())
+
+  await user.click(await screen.findByRole('button', { name: 'Ask Images to redo one' }))
+  const form = screen.getByRole('form', { name: 'Ask Images to redo a crop' })
+  await user.selectOptions(within(form).getByRole('combobox', { name: 'Crop' }), '2')
+  const later = newerReview()
+  later.proposals[0].job_id = 'images-job'
+  later.proposals[0].crops = [
+    crop(1, 'part_image', partRecipe, 'IMG_3011'),
+    crop(
+      2,
+      'stock_image',
+      litRecipe('version-3009', { x: 900, y: 50, width: 1000, height: 1200 }),
+      'IMG_3009',
+    ),
+  ]
+  await reread(later)
+  const send = within(form).getByRole('button', { name: 'Send to Images' })
+  await vi.waitFor(() => expect(send).not.toHaveAttribute('aria-disabled', 'true'))
+  await user.click(send)
+  await vi.waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(1))
+  await user.click(within(form).getByRole('button', { name: 'Use the newer proposal' }))
+  await user.click(within(form).getByRole('button', { name: 'Send to Images' }))
+  await vi.waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(2))
+
+  const [first, second] = processing.chat.mock.calls.map((call) => call[2].text)
+  expect(first).toBe(
+    'Please redo crop 2 of proposal proposal (Stock image, from IMG_3009 · region 100, 200, 2400 × 3000 · page 1).',
+  )
+  expect(second).toBe(
+    'Please redo crop 2 of proposal proposal-2 (Stock image, from IMG_3009 · region 900, 50, 1000 × 1200 · page 1).',
   )
 })

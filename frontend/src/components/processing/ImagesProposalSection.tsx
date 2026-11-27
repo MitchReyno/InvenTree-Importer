@@ -221,6 +221,21 @@ export function ImagesProposalSection({
         ? `The picture of ${named} hasn’t loaded yet; confirm once it shows.`
         : `The pictures of ${named} haven’t loaded yet; confirm once they show.`
   }
+  const pendingChange = selectImagesChange(proposal, shown)
+  const confirmsNothing =
+    pendingChange.part_image === null && pendingChange.stock_images.length === 0
+  const stillRendering = proposal.crops.some(
+    (crop) => crop.role !== 'extra' && crop.state === 'preparing',
+  )
+  // Untouched defaults are never confirmed while crops render, nor as an empty set.
+  if (!confirmClosedReason && choices === null && stillRendering) {
+    confirmClosedReason =
+      'Some crops are still rendering; confirm once they show, or choose yourself.'
+  }
+  if (!confirmClosedReason && choices === null && confirmsNothing) {
+    confirmClosedReason =
+      'Choose the images to confirm. To keep none, choose No Part image and untick the stock.'
+  }
   // An exact retry repeats a request already sent, so the checks on a new selection don't apply.
   const retryClosedReason = closedReason ?? (media ? undefined : confirmClosedReason)
 
@@ -267,6 +282,8 @@ export function ImagesProposalSection({
       expected_revision: confirmedOn.mediaRevision,
       change: selectImagesChange(confirmedOn.proposal, shown),
     }
+    // Unresolved from the moment it is sent, so navigating away can't drop its key.
+    reportChoices(shown, true)
     await finishConfirm(media, await command.submit(input), shown)
   }
 
@@ -275,6 +292,7 @@ export function ImagesProposalSection({
     if (retryClosedReason || !media) {
       return
     }
+    reportChoices(choices, true)
     await finishConfirm(media, await command.retry(), choices)
   }
 
@@ -339,10 +357,11 @@ export function ImagesProposalSection({
     const crop =
       target.crops.find((item) => String(item.index) === draft.cropIndex) ?? target.crops[0]
     setRedoSent(false)
+    reportDirty(onRedoDirty, true, [])
     // A pending request is retried exactly; a new one names the draft's own proposal's session.
     const receipt = await redo.submit({
       jobId: target.job_id,
-      text: redoMessage(crop, draft.change),
+      text: redoMessage(target, crop, draft.change),
     })
     if (receipt === null) {
       reportDirty(onRedoDirty, draft.change.trim() !== '' || redo.hasPendingIntent(), [])
@@ -436,7 +455,7 @@ export function ImagesProposalSection({
             reasonDisplay={confirmClosedReason ? 'beside' : 'quiet'}
             onClick={() => void handleConfirm()}
           >
-            Confirm images
+            {confirmsNothing && choices !== null ? 'Confirm no images' : 'Confirm images'}
           </Button>
         )}
         {command.pending && !command.busy && (
