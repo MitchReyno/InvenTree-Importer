@@ -4,8 +4,7 @@ import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq, isNotNull, notExists, or } from 'drizzle-orm'
 import { captureBatches } from '#/capture/schema.ts'
-import type { MediaRecipeDto } from '@invimport/contracts'
-import { assertMediaRecipe } from '@invimport/contracts/media'
+import type { MediaDerivedRecipeDto } from '@invimport/contracts'
 import {
   mediaDecodeClaims,
   mediaDecodeCommands,
@@ -16,8 +15,7 @@ import {
   mediaVersions,
   mediaDerivations,
 } from './schema.ts'
-import { strictJson } from '@invimport/contracts/json'
-import { appendEvent, sha256, verifyBytes } from '#/db/authority.ts'
+import { appendEvent, sha256 } from '#/db/authority.ts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import { type CaptureBinding } from '#/capture/model.ts'
@@ -28,6 +26,7 @@ import { decodeIsolated, type DispatchOptions } from './decoder-runner.ts'
 import { DecoderDispatcherBusyError } from './dispatcher-client.ts'
 import { MEDIA_TOOLCHAIN, type DecodedMedia } from '@invimport/media-decoder/protocol'
 import { DECODER_BUILD } from './repository.ts'
+import { retainedDerivedRecipe } from './projection.ts'
 
 interface MediaCommand {
   id: string
@@ -132,7 +131,8 @@ async function deferCommand(pool: Pool, command: MediaCommand) {
   })
 }
 
-function retainedRecipe(command: MediaCommand): MediaRecipeDto | undefined {
+/** Capture's crops and the lit crops Images confirms derive through the same decode. */
+function retainedRecipe(command: MediaCommand): MediaDerivedRecipeDto | undefined {
   if (!command.derivation_id) {
     if (command.recipe_bytes || command.recipe_digest) {
       throw new Error('unexpected_decode_recipe')
@@ -142,10 +142,7 @@ function retainedRecipe(command: MediaCommand): MediaRecipeDto | undefined {
   if (!command.recipe_bytes || !command.recipe_digest) {
     throw new Error('recipe_authority_missing')
   }
-  verifyBytes(command.recipe_bytes, command.recipe_digest)
-  const recipe = strictJson(command.recipe_bytes.toString('utf8'))
-  assertMediaRecipe(recipe)
-  return recipe
+  return retainedDerivedRecipe(command.recipe_bytes, command.recipe_digest)
 }
 
 async function publishDerivedVersion(

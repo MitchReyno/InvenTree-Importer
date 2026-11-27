@@ -1,0 +1,316 @@
+import {
+  MEDIA_STOCK_IMAGES_MAX,
+  type MediaEditDto,
+  type MediaLitViewRecipeDto,
+  type ProcessingImageCropDto,
+  type ProcessingImageSelectionDto,
+  type ProcessingImageSelectionItemDto,
+  type ProcessingImagesProposalDto,
+  type ProcessingImagesReviewDto,
+} from '@invimport/contracts'
+
+type CropRole = ProcessingImageCropDto['role']
+
+type SelectImagesChange = Extract<MediaEditDto['change'], { kind: 'select_images' }>
+
+/** Which crops the operator means to confirm: at most one Part image, and stock images. */
+export type ImageChoices = {
+  partIndex: number | null
+  stockIndexes: readonly number[]
+}
+
+/** Where a confirmed image of the lot sits: the Part image, or a stock image counted from 1. */
+export type ConfirmedPlacement =
+  | { kind: 'part'; state: DerivationState }
+  | { kind: 'stock'; position: number; state: DerivationState }
+
+export type DerivationState = 'preparing' | 'ready' | 'failed'
+
+export const ROLE_LABEL: Record<CropRole, string> = {
+  part_image: 'Part image',
+  stock_image: 'Stock image',
+  extra: 'Extra',
+}
+
+const QUARTER_TURN_LABEL = ['', '¼ turn', '½ turn', '¾ turn']
+
+const MILLIDEGREES_PER_DEGREE = 1000
+const THOUSANDTHS = 1000
+
+/** Each lot's newest proposal, in the order the read lists them (newest first). */
+export function newestProposals(review: ProcessingImagesReviewDto) {
+  const byLot = new Map<string, ProcessingImagesProposalDto>()
+  for (const proposal of review.proposals) {
+    if (!byLot.has(proposal.lot_id)) {
+      byLot.set(proposal.lot_id, proposal)
+    }
+  }
+  return [...byLot.values()]
+}
+
+/** Two `/2` recipes describe the same crop; the read may order their fields differently. */
+export function sameLitRecipe(left: MediaLitViewRecipeDto, right: MediaLitViewRecipeDto) {
+  const sameSource =
+    left.version === right.version &&
+    left.source_version_id === right.source_version_id &&
+    left.source_digest === right.source_digest &&
+    left.page === right.page &&
+    left.page_width === right.page_width &&
+    left.page_height === right.page_height
+  const sameRegion =
+    left.view.region.x === right.view.region.x &&
+    left.view.region.y === right.view.region.y &&
+    left.view.region.width === right.view.region.width &&
+    left.view.region.height === right.view.region.height
+  const sameTurn =
+    left.view.quarter_turns === right.view.quarter_turns &&
+    left.view.straighten_millidegrees === right.view.straighten_millidegrees
+  const sameLight =
+    left.light.white_balance === right.light.white_balance &&
+    left.light.contrast_clip_permille === right.light.contrast_clip_permille &&
+    left.light.gamma_thousandths === right.light.gamma_thousandths &&
+    left.light.sharpen === right.light.sharpen
+
+  return sameSource && sameRegion && sameTurn && sameLight
+}
+
+/**
+ * The choices a lot's review starts from: its confirmed images when it has a selection (an empty
+ * one means none were kept), else the first Part image crop and every stock crop. A crop that
+ * isn't rendered can't have been seen, so it is never chosen for the operator.
+ */
+export function defaultChoices(
+  proposal: ProcessingImagesProposalDto,
+  selection: ProcessingImageSelectionDto | undefined,
+): ImageChoices {
+  const seen = proposal.crops.filter((crop) => crop.state === 'ready')
+  const partCrops = seen.filter((crop) => crop.role === 'part_image')
+  const stockCrops = seen.filter((crop) => crop.role === 'stock_image')
+  if (!selection) {
+    return {
+      partIndex: partCrops[0]?.index ?? null,
+      stockIndexes: stockCrops.map((crop) => crop.index),
+    }
+  }
+  const confirmedPart = selection.part_image
+  const part = confirmedPart
+    ? partCrops.find((crop) => sameLitRecipe(crop.recipe, confirmedPart.recipe))
+    : undefined
+  // Stock images keep the order they were confirmed in, whatever order the proposal lists them.
+  const stockIndexes: number[] = []
+  for (const item of selection.stock_images) {
+    const match = stockCrops.find((crop) => sameLitRecipe(crop.recipe, item.recipe))
+    if (match && !stockIndexes.includes(match.index)) {
+      stockIndexes.push(match.index)
+    }
+  }
+
+  return { partIndex: part?.index ?? null, stockIndexes }
+}
+
+/** The chosen crops that aren't rendered, so the operator hasn't seen what they would attach. */
+export function unseenChosen(proposal: ProcessingImagesProposalDto, choices: ImageChoices) {
+  return proposal.crops.filter((crop) => {
+    const chosen =
+      (crop.role === 'part_image' && crop.index === choices.partIndex) ||
+      (crop.role === 'stock_image' && choices.stockIndexes.includes(crop.index))
+
+    return chosen && crop.state !== 'ready'
+  })
+}
+
+/** Why a crop can't be chosen, or nothing when it is rendered. */
+export function unchoosableReason(state: ProcessingImageCropDto['state']) {
+  if (state === 'preparing') {
+    return 'It can be chosen once it’s rendered.'
+  }
+  if (state === 'failed') {
+    return 'It can’t be chosen: the app couldn’t render it.'
+  }
+  if (state === 'removed') {
+    return 'It can’t be chosen: its photo was removed from Capture.'
+  }
+  return undefined
+}
+
+/** The media edit that confirms these choices, with stock images in the chosen order. */
+export function selectImagesChange(
+  proposal: ProcessingImagesProposalDto,
+  choices: ImageChoices,
+): SelectImagesChange {
+  const part = proposal.crops.find(
+    (crop) => crop.role === 'part_image' && crop.index === choices.partIndex,
+  )
+  const stockCrops = proposal.crops.filter((crop) => crop.role === 'stock_image')
+  // In the chosen order: confirmed ones first, as saved, then those ticked since.
+  const stock = choices.stockIndexes.flatMap((index) => {
+    const match = stockCrops.find((crop) => crop.index === index)
+
+    return match ? [match] : []
+  })
+
+  return {
+    kind: 'select_images',
+    subject_id: proposal.lot_id,
+    part_image: part?.recipe ?? null,
+    stock_images: stock.map((crop) => crop.recipe),
+  }
+}
+
+export function tooManyStockImages(choices: ImageChoices) {
+  return choices.stockIndexes.length > MEDIA_STOCK_IMAGES_MAX
+}
+
+function derivationState(state: ProcessingImageSelectionItemDto['state']): DerivationState {
+  if (state === 'ready') {
+    return 'ready'
+  }
+  if (state === 'queued') {
+    return 'preparing'
+  }
+  return 'failed'
+}
+
+/** Where this crop already sits among the lot's confirmed images, if it does. */
+export function confirmedPlacement(
+  crop: ProcessingImageCropDto,
+  selection: ProcessingImageSelectionDto | undefined,
+): ConfirmedPlacement | null {
+  if (!selection) {
+    return null
+  }
+  // A recipe confirmed in one role is that role's image only; the same cut as an extra isn't it.
+  const part = selection.part_image
+  if (crop.role === 'part_image' && part && sameLitRecipe(part.recipe, crop.recipe)) {
+    return { kind: 'part', state: derivationState(part.state) }
+  }
+  if (crop.role !== 'stock_image') {
+    return null
+  }
+  const position = selection.stock_images.findIndex((item) =>
+    sameLitRecipe(item.recipe, crop.recipe),
+  )
+  if (position === -1) {
+    return null
+  }
+  return {
+    kind: 'stock',
+    position: position + 1,
+    state: derivationState(selection.stock_images[position].state),
+  }
+}
+
+/** The confirmed images a `select_images` change would drop: "the Part image", "stock image 2". */
+export function confirmRemovals(
+  selection: ProcessingImageSelectionDto | undefined,
+  change: SelectImagesChange,
+) {
+  if (!selection) {
+    return []
+  }
+  const removed: string[] = []
+  const nextPart = change.part_image
+  const part = selection.part_image
+  if (part && !(nextPart && sameLitRecipe(part.recipe, nextPart))) {
+    removed.push('Part image')
+  }
+  selection.stock_images.forEach((item, position) => {
+    const kept = change.stock_images.some((recipe) => sameLitRecipe(item.recipe, recipe))
+    if (!kept) {
+      removed.push(`stock image ${position + 1}`)
+    }
+  })
+  return removed
+}
+
+/** "Confirming removes the confirmed Part image and stock image 1." */
+export function removalLine(removed: readonly string[]) {
+  if (removed.length === 0) {
+    return undefined
+  }
+  const last = removed[removed.length - 1]
+  const listed = removed.length === 1 ? last : `${removed.slice(0, -1).join(', ')} and ${last}`
+
+  return `Confirming removes the confirmed ${listed}.`
+}
+
+function signedDegrees(millidegrees: number) {
+  const degrees = (Math.abs(millidegrees) / MILLIDEGREES_PER_DEGREE).toFixed(1)
+  const sign = millidegrees < 0 ? '−' : '+'
+
+  return `${sign}${degrees}°`
+}
+
+/** What the recipe does besides cutting the region, in the order the app applies it. */
+export function adjustmentChips(recipe: MediaLitViewRecipeDto) {
+  const chips: string[] = []
+  if (recipe.view.quarter_turns !== 0) {
+    chips.push(QUARTER_TURN_LABEL[recipe.view.quarter_turns])
+  }
+  if (recipe.view.straighten_millidegrees !== 0) {
+    chips.push(`straightened ${signedDegrees(recipe.view.straighten_millidegrees)}`)
+  }
+  if (recipe.light.white_balance) {
+    chips.push('white balance')
+  }
+  if (recipe.light.contrast_clip_permille !== null) {
+    chips.push('contrast')
+  }
+  if (recipe.light.gamma_thousandths !== null) {
+    chips.push(`gamma ${(recipe.light.gamma_thousandths / THOUSANDTHS).toFixed(2)}`)
+  }
+  if (recipe.light.sharpen) {
+    chips.push('sharpened')
+  }
+  if (chips.length === 0) {
+    chips.push('no adjustments')
+  }
+  return chips
+}
+
+/** "From IMG_3011 · region 2210, 3120, 1400 × 1400", with the page of a document. */
+export function cropSourceLine(crop: ProcessingImageCropDto) {
+  const { x, y, width, height } = crop.recipe.view.region
+  const region = `From ${crop.evidence_label} · region ${x}, ${y}, ${width} × ${height}`
+
+  return crop.document ? `${region} · page ${crop.recipe.page}` : region
+}
+
+/** Why a crop shows no picture, or nothing when its rendering is ready. */
+export function cropStateText(state: ProcessingImageCropDto['state']) {
+  if (state === 'preparing') {
+    return 'Rendering…'
+  }
+  if (state === 'failed') {
+    return 'Couldn’t render this crop'
+  }
+  if (state === 'removed') {
+    return 'Photo removed from Capture'
+  }
+  return undefined
+}
+
+/** The rendered crop's shape: the region, turned as the recipe turns it. */
+export function cropAspect(recipe: MediaLitViewRecipeDto) {
+  const { width, height } = recipe.view.region
+  const turned = recipe.view.quarter_turns % 2 === 1
+
+  return turned ? `${height} / ${width}` : `${width} / ${height}`
+}
+
+/**
+ * The chat message asking Images to redo one crop. It names the proposal and the crop's region and
+ * page, since one session's proposals can share a crop number, role and file.
+ */
+export function redoMessage(
+  proposal: ProcessingImagesProposalDto,
+  crop: ProcessingImageCropDto,
+  change: string,
+) {
+  const { x, y, width, height } = crop.recipe.view.region
+  const where = `from ${crop.evidence_label} · region ${x}, ${y}, ${width} × ${height} · page ${crop.recipe.page}`
+  const named = `Please redo crop ${crop.index} of proposal ${proposal.proposal_id} (${ROLE_LABEL[crop.role]}, ${where})`
+  const wanted = change.trim()
+
+  return wanted ? `${named}: ${wanted}` : `${named}.`
+}

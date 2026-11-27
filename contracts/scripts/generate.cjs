@@ -341,6 +341,9 @@ async function main() {
         get: get('ProcessingSnapshot', CAPTURE_TIMEOUT_MS),
         post: post('ProcessingStart', 'ProcessingReceipt', '202'),
       },
+      '/api/v1/batches/{id}/processing/images': {
+        get: get('ProcessingImagesReview', CAPTURE_TIMEOUT_MS),
+      },
       '/api/v1/batches/{id}/processing/{jobId}/cancellation': {
         post: post('ProcessingCancellation', 'ProcessingReceipt', '200', CAPTURE_TIMEOUT_MS),
       },
@@ -451,6 +454,13 @@ async function main() {
             { revalidated: true },
           ),
         },
+      '/api/v1/batches/{batchId}/processing/images/{proposalId}/crops/{index}/{size}': {
+        get: browserResource(
+          'image/webp',
+          "The app's rendering of an Images proposal's crop recipe (size view or thumb, index 1 to 10); use a browser resource URL.",
+          { revalidated: true },
+        ),
+      },
       '/api/v1/batches/{batchId}/media/observations/{resourceId}/crop': {
         get: browserResource(
           ['image/png', 'image/webp'],

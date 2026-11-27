@@ -75,6 +75,14 @@ export function processingClient(
         }),
       ),
 
+    /** The Images step's review: each lot's Images proposals and its confirmed images. */
+    images: (id: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/processing/images', {
+          params: { path: { id } },
+        }),
+      ),
+
     /** The brief a `/7` attempt of the session started from. */
     brief: (id: string, jobId: string, attemptId: string) =>
       successfulData(

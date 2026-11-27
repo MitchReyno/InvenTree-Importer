@@ -246,6 +246,44 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
       return { bytes: await store.read(digest), mediaType: 'image/webp' as const }
     },
 
+    /** The app's rendering of an Images proposal's crop, under the batch's scope. */
+    async proposalImage(
+      batchId: string,
+      crop: { proposalId: string; index: number },
+      size: 'view' | 'thumb',
+    ) {
+      const digest = await transaction(pool, async (client) => {
+        await prepareMediaTransaction(client)
+        await captureInTransaction(client, binding, batchId)
+        const rows = await client.query<{
+          removed: boolean
+          state: 'queued' | 'ready' | 'failed' | null
+          digest: string | null
+        }>(
+          `SELECT ${versionRemovedSql('v')} AS removed, r.state,
+             encode(CASE WHEN $3='view' THEN r.view_digest ELSE r.thumb_digest END,'hex') AS digest
+           FROM public.processing_proposal_image i
+           JOIN public.media_version v ON v.batch_id=i.batch_id AND v.id=i.version_id
+           LEFT JOIN public.processing_figure_render r
+             ON r.purpose='view' AND r.recipe_digest=i.recipe_digest
+           WHERE i.proposal_id=$1 AND i.image_index=$2 AND i.batch_id=$4`,
+          [crop.proposalId, crop.index, size, batchId],
+        )
+        const found = rows.rows[0]
+        if (!found || found.removed) {
+          fail('not_found', 404)
+        }
+        if (found!.state === 'queued') {
+          fail('figure_preparing', 409)
+        }
+        if (found!.state === 'failed' || found!.state === null) {
+          fail('figure_render_failed', 409)
+        }
+        return found!.digest!
+      })
+      return { bytes: await store.read(digest), mediaType: 'image/webp' as const }
+    },
+
     /**
      * An observation's region at a display size. A `rev` naming a region other than the current
      * one is refused, so a page never shows a stale crop under a new revision or vice versa.

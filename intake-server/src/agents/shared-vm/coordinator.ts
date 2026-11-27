@@ -984,7 +984,7 @@ export async function startSessionBridge(
           const body = response.body
             ? await readBounded(response.body as unknown as AsyncIterable<Uint8Array>, maxBytes)
             : ''
-          // Only a fetched image can become citable; a preview's images get no release.
+          // Only a fetched image can become citable; a preview's or an image tool's images get no release.
           const evidence = evidenceRequest(msg.mcp)
           const fetchRequest = evidence?.kind === 'fetch' ? evidence : undefined
           const envelope =

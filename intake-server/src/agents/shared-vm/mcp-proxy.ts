@@ -1,9 +1,14 @@
-import { evidenceRequest } from './evidence-request.ts'
+import { evidenceRequest, type EvidenceRequestKind } from './evidence-request.ts'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { finished } from 'node:stream/promises'
 import { once } from 'node:events'
 import { randomBytes } from 'node:crypto'
-import { stageEvidence, stagePreview, type EvidenceDelivery } from './stage-evidence.ts'
+import {
+  stageEvidence,
+  stagePreview,
+  stageToolImage,
+  type EvidenceDelivery,
+} from './stage-evidence.ts'
 import { readBounded } from './frames.ts'
 import { settled } from '#/events/settled.ts'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -49,18 +54,16 @@ export async function startMcpProxy(
 
             const stagingDirectory = () => (evidenceDir ??= mkdtemp('/tmp/bench-evidence-'))
 
-            // A preview's images are staged the same way but never released for citation.
-            const preview = evidence && evidence.kind === 'preview'
+            // Only a fetched image is released for citation; the other kinds are staged alike.
+            const citable = evidence && evidence.kind === 'fetch'
             if (evidence) {
-              staging = preview
-                ? stagePreview(evidence.id, reply.body, stagingDirectory, delivery)
-                : stageEvidence(
-                    evidence.id,
-                    reply.body,
-                    stagingDirectory,
-                    delivery,
-                    reply.evidenceFormat,
-                  )
+              staging = stageReply(
+                evidence,
+                reply.body,
+                reply.evidenceFormat,
+                stagingDirectory,
+                delivery,
+              )
               try {
                 responseBody = await staging
               } finally {
@@ -69,17 +72,17 @@ export async function startMcpProxy(
               if (closing || res.destroyed) {
                 return
               }
-              if (preview && reply.releaseId !== undefined) {
+              if (!citable && reply.releaseId !== undefined) {
                 throw new Error('invalid_evidence_release')
               }
-              if (!preview && responseBody !== reply.body && typeof reply.releaseId !== 'string') {
+              if (citable && responseBody !== reply.body && typeof reply.releaseId !== 'string') {
                 throw new Error('invalid_evidence_release')
               }
             }
             const written = finished(res, { readable: false, cleanup: true })
             res.writeHead(reply.status, { 'content-type': 'application/json' }).end(responseBody)
             await written
-            if (evidence && !preview && responseBody !== reply.body) {
+            if (citable && responseBody !== reply.body) {
               const ack = await request({ releaseId: reply.releaseId })
               if (ack.ok !== true) {
                 throw new Error('evidence_release_unconfirmed')
@@ -122,5 +125,23 @@ export async function startMcpProxy(
         await rm(await evidenceDir, { recursive: true, force: true })
       }
     },
+  }
+}
+
+/** Stages an image-bearing reply's images for the guest as its kind requires. */
+function stageReply(
+  evidence: { id: number | string; kind: EvidenceRequestKind },
+  body: string,
+  evidenceFormat: unknown,
+  directory: () => Promise<string>,
+  delivery: EvidenceDelivery,
+) {
+  switch (evidence.kind) {
+    case 'fetch':
+      return stageEvidence(evidence.id, body, directory, delivery, evidenceFormat)
+    case 'preview':
+      return stagePreview(evidence.id, body, directory, delivery)
+    case 'tool_image':
+      return stageToolImage(evidence.id, body, directory, delivery)
   }
 }

@@ -27,6 +27,7 @@ import {
 } from '#/agents/held-capacity.ts'
 import { evidenceImageMode } from '#/agents/tools/handlers.ts'
 import { startSessionToolServer } from '#/agents/tools/server.ts'
+import { isolatedImageOperations } from '#/agents/tools/image-tools.ts'
 import {
   interruptRunningSessions,
   runSessionTurn,
@@ -239,6 +240,10 @@ async function main() {
       cropCacheDir: join(host.stateRoot, 'region-crops'),
       config,
       store,
+      // The image tools run in the pinned decoder image; without one they are refused.
+      imageOperations: process.env.INTAKE_MEDIA_DECODER_IMAGE
+        ? isolatedImageOperations(process.env.INTAKE_MEDIA_DECODER_IMAGE)
+        : undefined,
     })
     const deps: SessionRunnerDeps = {
       pool: db.pool,

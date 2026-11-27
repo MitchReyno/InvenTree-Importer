@@ -85,12 +85,28 @@ export const LEAD_SESSION_TOOLS = [
   'record_observation',
   'regroup',
 ]
-/** A `/7` session also reads its stage's guide. */
-export const STAGE_LEAD_SESSION_TOOLS = [...LEAD_SESSION_TOOLS, 'read_guide']
-/** A `/7` Research or Images session also reads its lot's brief. */
-export const STAGE_LOT_SESSION_TOOLS = [...SESSION_TOOLS, 'read_guide', 'read_lot']
-/** A `/7` Research session also looks up the catalogue vocabulary. */
-export const STAGE_RESEARCH_SESSION_TOOLS = [...STAGE_LOT_SESSION_TOOLS, 'read_vocabulary']
+/** A `/7` Examine lead also reads its stage's guide, draws grids and matches logos. */
+export const STAGE_LEAD_SESSION_TOOLS = [
+  ...LEAD_SESSION_TOOLS,
+  'inspect_region',
+  'match_logo',
+  'read_guide',
+]
+/** A `/7` Research or Images session also reads its stage's guide and its lot's brief. */
+const STAGE_LOT_SESSION_TOOLS = [...SESSION_TOOLS, 'read_guide', 'read_lot']
+/** A `/7` Research session also looks up the catalogue vocabulary and matches logos. */
+export const STAGE_RESEARCH_SESSION_TOOLS = [
+  ...STAGE_LOT_SESSION_TOOLS,
+  'match_logo',
+  'read_vocabulary',
+]
+/** A `/7` Images session also draws grids, previews crops and proposes them. */
+export const STAGE_IMAGES_SESSION_TOOLS = [
+  ...STAGE_LOT_SESSION_TOOLS,
+  'inspect_region',
+  'preview_images',
+  'propose_images',
+]
 
 /** The intake tools a session is offered, from its sealed input. */
 export function sessionToolNames(manifest: SessionInputDto) {
@@ -100,7 +116,7 @@ export function sessionToolNames(manifest: SessionInputDto) {
   if (manifest.stage === 'examine') {
     return STAGE_LEAD_SESSION_TOOLS
   }
-  return manifest.stage === 'research' ? STAGE_RESEARCH_SESSION_TOOLS : STAGE_LOT_SESSION_TOOLS
+  return manifest.stage === 'research' ? STAGE_RESEARCH_SESSION_TOOLS : STAGE_IMAGES_SESSION_TOOLS
 }
 
 /** Profiles that run on a paired VM deployment, whose turns only that deployment drains. */

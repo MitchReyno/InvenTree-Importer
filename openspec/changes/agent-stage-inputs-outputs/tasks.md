@@ -213,9 +213,9 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - **TDD approach:** a test that an `images/1` recipe with a marks field is refused and that a derived crop never has marks drawn in; the tool scope tests, montage and logo-sheet replies framed and staged through the isolated relay's test harness with a test manifest (the packaged `/4` worker and dispatcher test is task 11's), two confirmed stock images both retained, a synthetic Images session publishing an accepted `images/1` recipe, and the frontend review tests fail first.
 - **Verification:** intake tiers, frontend checks, and a demo video.
 
-- [ ] 10.1 RED: write the tool, relay and UI tests.
-- [ ] 10.2 GREEN: implement the tools, `propose_images` and the review.
-- [ ] 10.3 Run the checks, and record the demo video.
+- [x] 10.1 RED: write the tool, relay and UI tests. (The server tool tests were written after the handlers, with a negative control; see notes.md.)
+- [x] 10.2 GREEN: implement the tools, `propose_images` and the review.
+- [x] 10.3 Run the checks, and record the demo video.
 
 ## 6. Outputs into records and approval, and validation before approval
 

@@ -14,7 +14,8 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_session_ack,agent_slot,agent_session_failure,processing_proposal_stale,
     agent_batch_pause,processing_question_replacement,processing_question_figure,processing_figure_render,
     processing_stage_instructions,processing_stage_guide,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal,
-    agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis,agent_model_catalog TO ${role};`)
+    agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis,agent_model_catalog,
+    processing_proposal_image TO ${role};`)
   if (purpose === 'api') {
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(
@@ -50,6 +51,8 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       GRANT INSERT ON processing_identity_basis TO ${role};
       -- An ask stores its figures and their render requests; the media consumer renders them.
       GRANT INSERT ON processing_question_figure,processing_figure_render TO ${role};
+      -- An Images proposal stores its crops and their render requests, for the Images step.
+      GRANT INSERT ON processing_proposal_image TO ${role};
       -- A preview asked again is kept a day from then.
       GRANT UPDATE(requested_at) ON processing_figure_render TO ${role};
       GRANT INSERT, UPDATE, DELETE ON agent_slot TO ${role};
@@ -102,7 +105,7 @@ export async function grantAgentWriter(pool: Pool, role: string) {
       processing_question,processing_answer,processing_transition,agent_batch_pause,processing_question_replacement,
       processing_question_figure,processing_figure_render,processing_stage_instructions,processing_stage_guide,processing_input_page,
       agent_session_inbox_withdrawal,
-      agent_session_inbox_release,processing_question_basis,processing_identity_basis TO ${role};
+      agent_session_inbox_release,processing_question_basis,processing_identity_basis,processing_proposal_image TO ${role};
     GRANT INSERT ON processing_proposal,processing_proposal_stale,processing_message,agent_session_outbox,
       processing_question,processing_question_figure,processing_figure_render,processing_identity_basis TO ${role};
     GRANT UPDATE(state,revision) ON processing_job TO ${role};

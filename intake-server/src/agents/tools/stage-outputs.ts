@@ -3,7 +3,6 @@ import type {
   ProcessingInputV7Dto,
   StageModeDto,
   StageProposalDto,
-  StagePublishedProposalDto,
   ValidationIssue,
 } from '@invimport/contracts'
 import { ToolRefusal } from './refusal.ts'
@@ -76,7 +75,7 @@ const STAGE_NAMES: Record<BriefStageDto, string> = {
 /** At most this many issues reach the agent, as for schema validation. */
 const MAX_ISSUES = 8
 
-function presentFields(proposal: StagePublishedProposalDto, fields: readonly string[]) {
+function presentFields(proposal: StageProposalDto, fields: readonly string[]) {
   return fields.filter((field) => Object.hasOwn(proposal, field))
 }
 
@@ -89,7 +88,7 @@ function fieldIssues(fields: readonly string[], reason: string): ValidationIssue
 }
 
 /** A proposal of a kind its stage doesn't publish, naming every value field it carries. */
-function wrongKind(stage: BriefStageDto, proposal: StagePublishedProposalDto) {
+function wrongKind(stage: BriefStageDto, proposal: StageProposalDto) {
   const name = STAGE_NAMES[stage]
   const fields = presentFields(proposal, VALUE_FIELDS[proposal.schema_version])
   const allowed = STAGE_KINDS[stage].join(' or ')
@@ -106,7 +105,7 @@ function wrongKind(stage: BriefStageDto, proposal: StagePublishedProposalDto) {
 }
 
 /** Research's mode limits what `research/1` may carry: nothing in identify mode, gaps only. */
-function researchModeRefusal(mode: StageModeDto, proposal: StagePublishedProposalDto) {
+function researchModeRefusal(mode: StageModeDto, proposal: StageProposalDto) {
   if (proposal.schema_version !== 'research/1') {
     return null
   }
@@ -146,7 +145,7 @@ function researchModeRefusal(mode: StageModeDto, proposal: StagePublishedProposa
  */
 export function stageOutputRefusal(
   manifest: ProcessingInputV7Dto,
-  proposal: StagePublishedProposalDto,
+  proposal: StageProposalDto,
 ): ToolRefusal | null {
   const stage = manifest.stage
   // A `/7` input is never sealed for Inventory; its type is wider than its schema.
