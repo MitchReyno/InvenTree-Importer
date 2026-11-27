@@ -1,0 +1,345 @@
+# Planned Bench Intake functionality
+
+This repository index tracks requested future features, fixes, improvements and maintenance for the interactive app on `interactive-app`. Each item links directly to its OpenSpec change for details. Plans are not implementation or release commitments.
+
+Maintain the index with the project-level `planned-functionality` skill. Use the [Bench Intake OpenSpec workflow](openspec.md) for detailed planning. Capturing an item can create a change scaffold with its brief description; it does not require completing all proposal/design/tasks artifacts or authorize implementation.
+
+## Identity and naming
+
+Item IDs use **BI** for **Bench Intake**: `BI-001`, `BI-002`, and so on. Allocate the next unused positive number, padded to at least three digits, after checking this index and Git history. Never reuse an ID or encode type, priority or status in it. The numeric portion can grow beyond three digits.
+
+Every OpenSpec change has one short descriptive kebab-case name, such as `add-bulk-lot-editing`. Use that exact canonical name for its active change directory (native archives may add a date prefix), all branches that deliver it, and its commit/PR subjects. For example, `feat/add-bulk-lot-editing-validation` and `feat(add-bulk-lot-editing): validate bulk edits`. Keep the name stable once referenced; it identifies the change while BI identifies an index item. Several related items may point to one cohesive change.
+
+## Item format and grouping
+
+Group items by type below, then by **Critical**, **High**, **Normal**, **Low**, **Unassessed** priority. Add priority subheadings only where populated. Priority expresses importance, not a delivery date.
+
+```markdown
+### High
+
+#### BI-001 — Bulk lot editing
+
+A two-to-five sentence description of the problem and intended outcome. Explain the relevant scope or limitation.
+
+- Change: `add-bulk-lot-editing`
+- Status: In review
+- Size: Unknown
+- Prerequisites: Unknown — dependencies have not been assessed.
+- OpenSpec: [add-bulk-lot-editing](../openspec/changes/add-bulk-lot-editing/)
+```
+
+| Field         | Values and meaning                                                                                                                                                                                                                                                                     |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Type          | Feature: new capability; Fix: incorrect behavior; Improvement: better existing behavior; Maintenance: technical upkeep. Choose one primary type.                                                                                                                                       |
+| Priority      | Critical: blocks essential use or risks data integrity; High: major impact; Normal: useful standard work; Low: limited impact or polish; Unassessed: importance not yet assessed.                                                                                                      |
+| Status        | Proposed: captured, not committed; Planned: accepted for future work; In progress: implementation underway; Blocked: cannot proceed, with a current blocker; In review: implementation awaiting review/checks; Done: accepted and merged with evidence; Cancelled: no longer intended. |
+| Size          | XS: localized change; S: small change within one area; M: several related changes; L: substantial cross-area work; XL: broad work needing decomposition; Unknown: not assessed. These are relative estimates, not time commitments.                                                    |
+| Prerequisites | Link prerequisite BI items or OpenSpec changes and describe specific external requirements. Use None only after assessment, or Unknown when unassessed. State whether known prerequisites are satisfied.                                                                               |
+
+The index owns current item metadata; OpenSpec artifacts own detailed intent, requirements, design, tasks and PR delivery plans. Keep only current status, size, priority and prerequisites here, with no status history. Retain Done and Cancelled entries unless removal is requested. Done requires acceptance evidence and merged implementation, not merely completed task checkboxes or green CI. Update the OpenSpec link when an authorized archive moves a change.
+
+## Features
+
+### High
+
+#### BI-006 — Agent-led intake
+
+Remove manual lot entry and question-blocked processing from Capture and Processing. One Examine lead session per batch finds each item in the photos and documents, groups those observations into lots (a photo can feed several lots and a lot can span several photos) and identifies each lot; proposed lots appear live and are created as editable drafts. Native Claude and Codex sessions stream status lines, proposals and questions while they work, accept queued answers, chat and new evidence whether running or idle, and resume finished sessions. Reading, sorting and identifying combine into that one Examine stage, and Research and Images run in parallel per lot once its identity is stable.
+
+- Change: `simplify-intake-entry`
+- Status: Done — merged in #97, #107, #112 and #118. `native-agent/2` keeps the `native_unverified` label; the live qualification follow-ups are tracked as BI-010 (`harden-native-agent-sessions`).
+- Size: XL — agent session protocol and tool server, observation-based lot forming, stage restructuring and live UI, delivered in phased PRs.
+- Prerequisites: Native agent integration (`native-agent/1`) is merged; live provider qualification ran on 2026-11-07 (#118) and `native-agent/2` keeps `native_unverified`, so real-provider behavior is not claimed. No dependency on BI-007.
+- OpenSpec: [simplify-intake-entry](../openspec/changes/archive/2026-11-07-simplify-intake-entry/)
+
+#### BI-008 — Batch workspace redesign
+
+Adopt the Bench Intake Design System (tokens, light and dark themes, components, content rules) and masthead option A, and restructure the batch into Capture, Processing, Review and Changes with a second tab row and a need-you panel. Review gains Lots, Map and Records with record-level edits; Changes combines Ready to add (By type and Tree) and Added; an app-level Agents page lists sessions. A styling uplift then moves the remaining styling onto the design system's tokens and shared components, gives each component the design system's name, and closes the visual and structural gaps against the canvas, including the corrections, region edits and data the specs still require.
+
+- Change: `redesign-batch-workspace`
+- Status: Done — PR-A to PR-G merged in #96, #100, #102, #104, #108, #109 and #110 (task 14, BI-006 sessions, observations and proposals, in PR-G), the styling uplift and component alignment (tasks 15–20) as PR-H to PR-K in #135, #139, #145 and #146, corrections and region edits (task 21) in #147, the data the specs require (task 22) in #148, and the remaining canvas detail (task 23) in #170. Re-sending a value InvenTree refused stays with executor follow-up work (design D7).
+- Size: XL — design system, navigation, every batch screen and a record-edit backend, delivered in fourteen PRs (PR-A to PR-N).
+- Prerequisites: None to start. Agent-backed panels (sessions, live lots, region-level Map) arrive with BI-006 and fall back to retained jobs until then.
+- OpenSpec: [redesign-batch-workspace](../openspec/changes/archive/2026-11-09-redesign-batch-workspace/)
+
+### Unassessed
+
+#### BI-004 — Automatic supplier logos
+
+Find a suitable supplier logo automatically when creating a supplier. This is a minimal future-work placeholder; the Batch settings overhaul shows a disabled Find automatically checkbox with a coming-soon explanation, and no proposal is planned yet.
+
+- Change: `automatic-supplier-logos`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: Unknown — discovery sources, image handling and execution support need assessment; BI-003 supplies the planned entry point as a disabled Find automatically control; automatic discovery is not implemented.
+- OpenSpec: [automatic-supplier-logos](../openspec/changes/automatic-supplier-logos/)
+
+#### BI-005 — Purchase-order support
+
+Enable purchase-order creation from retained batch supplier and order context through explicit review, approval and supervised execution. Assess order numbering, dates, line mapping, duplicate prevention and uncertain-result recovery before enabling the currently disabled controls.
+
+- Change: `purchase-order-support`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: Unknown — compatibility and execution support need assessment; BI-003 prepares the planned UI, while actual PO operations remain unsupported.
+- OpenSpec: [purchase-order-support](../openspec/changes/purchase-order-support/)
+
+#### BI-007 — Antigravity agent provider
+
+Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claude and Codex. The CLI offers stream-JSON, an ACP server, conversation resume and MCP, but no confirmed way to disable its built-in tools, so a lockdown spike would have had to come first.
+
+- Change: `antigravity-agent-provider`
+- Status: Cancelled — no longer planned.
+- Size: Unknown
+- Prerequisites: A tool-lockdown spike (not started) and BI-006's session protocol and tool server (Done).
+- OpenSpec: None — no change is registered.
+
+#### BI-015 — Design refresh backend follow-ups
+
+Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry the existing record's fields, for the comparison's InvenTree column and date code. BI-019 (`improve-agent-interaction`) takes over answer options for questions.
+
+- Change: `complete-design-refresh-backend`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first. BI-014 is Done (satisfied).
+- OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
+
+#### BI-022 — Agent stage inputs and outputs
+
+Give each processing agent its own job, the context earlier stages found, and an output something actually uses.
+- Examine, Research and Images each get a sealed brief that weighs the operator's corrections, answers and notes first.
+- Each stage publishes a typed output that the server keeps within the stage's scope, and Images proposes crop recipes the app renders.
+- The Inventory agent is replaced by an app-side Match step. Match searches InvenTree after Examine, after Research identifies an item, and before approval, and asks the operator before spending research or photo work on a Part that may already exist.
+- The repository's skills become per-stage instruction packs and intake MCP tools.
+- Research and Images sessions each handle several lots, up to separate configurable caps per stage.
+
+- Change: `agent-stage-inputs-outputs`
+- Status: In progress — plan merged in #245; PR-A (sealed briefs, #275) and PR-E1 (decoder ports, #274) merged.
+- Size: XL — a new input version and typed outputs, an app Match step with its own questions, identity amendments, media decoder ports that extend BI-019's shared view renderer, records and approval effects, and multi-lot sessions with their caps, and a new profile with a live requalification, in eleven PRs after the plan.
+- Prerequisites: [BI-019](#bi-019--agent-interaction-improvements) (`improve-agent-interaction`) PR-B (#251), PR-D1 (#257), PR-E (#263), PR-F (#258), PR-G (#266, for multi-lot session rows) and PR-K (#272, the shared view recipe and decoder operation, before PR-E1), all satisfied. BI-017's web policy and instructions are shipped (satisfied). PR-G2 also waits for [BI-023](#bi-023--exact-agent-models-effort-and-step-instructions) PR-F (step instructions in multi-lot groups), which follows this change's PR-I. The live requalification needs Mitch's go-ahead.
+- OpenSpec: [agent-stage-inputs-outputs](../openspec/changes/agent-stage-inputs-outputs/)
+
+#### BI-023 — Exact agent models, effort and step instructions
+
+Each step in Settings › Agents gets optional instructions of up to 1,000 characters, sealed into each new session of that step as operator guidance, kept apart from the profile and stage instruction packs. The model pickers list the exact models each provider offers this sign-in, by name and exact ID, read from the provider's own CLI in the agent VM (or its models API with an API key) and kept with the time they were read. An Effort select beside every model picker lists the levels the chosen model accepts, and the chosen level is sealed into each session and passed to the CLI; Default sends none. The list shows its loading, failed, built-in and no-longer-offered states, and a saved model the provider dropped stays selected with a warning.
+
+- Change: `agent-model-catalog-and-step-instructions`
+- Status: In progress.
+  - Merged:
+    - the plan in #278;
+    - PR-A (effort saved, sealed and sent to both CLIs) in #291;
+    - PR-B (each provider's model list read, stored and served, with the built-in fallback) in #293;
+    - PR-C (the pickers listing each provider's models, an Effort select beside each, the list's states and the Processing "Not offered" pill) in #295;
+    - PR-D (instructions for Examine, Research and Images, sealed into each attempt and given as operator guidance in the `/6` opening and the `/7` brief) in #296;
+    - PR-E (the live check) in #297;
+    - PR-G (Claude's setup-token list state) in #300.
+  - Remaining: PR-F (step instructions in multi-lot groups), which waits for BI-022's PR-I.
+- Size: L — settings and sealed-input fields, effort passed by both session adapters, a model catalogue read in the guest with its own connection, table, schedule and API, the pickers and their states, and the step instruction editor, in six PRs after the plan (PR-A to PR-D, PR-F and the setup-token fix PR-G) plus a live check (PR-E); the multi-lot part waits for BI-022 PR-I.
+- Prerequisites: [BI-022](#bi-022--agent-stage-inputs-and-outputs) (`agent-stage-inputs-outputs`) PR-A (#275, sealed briefs), before the step instructions PR only.
+- OpenSpec: [agent-model-catalog-and-step-instructions](../openspec/changes/agent-model-catalog-and-step-instructions/)
+
+#### BI-017 — Simple web access and setup for VM agents
+
+Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob and Grep. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
+
+- Change: `simplify-vm-agent-web-and-setup`
+- Status: Done — PR-A to PR-E merged in #229, #230, #231, #234 and #237, with fixes #235 and #236; the live requalification passed on Claude and Codex with web on and off (#237).
+- Size: L — provider tool admission, the egress proxy policy, a sealed agent setting, launcher setup automation and documentation.
+- Prerequisites: BI-016 (`settings-debug-mode`) for the Settings › Agents structure (#226) and agent-setting sealing (#227), both merged. Read BI-010 before changing the Codex tool surface. Requalifying needs Mitch's fresh go-ahead for a live provider run.
+- OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/archive/2026-11-23-simplify-vm-agent-web-and-setup/)
+
+## Fixes
+
+### High
+
+#### BI-024 — Recover stale agent slots
+
+`pnpm dev` refused to start with `agent_reap_confirmation_required` after a stop mid-turn left a VM turn's slot held, although nothing of the turn was still running. A stopping worker now waits for its turns' reap proofs, and the launcher keeps the relays up until the app has stopped. A starting worker checks each held slot itself and releases only those whose turn is confirmed gone, and `pnpm agents:reap` runs the same check without the app.
+
+- Change: `recover-stale-agent-slots`
+- Status: In progress
+- Size: M — a migration recording each held slot's turn child, the startup check, the shutdown wait, launcher stop order and an operator command.
+- Prerequisites: None.
+- OpenSpec: [recover-stale-agent-slots](../openspec/changes/recover-stale-agent-slots/)
+
+#### BI-025 — Fence held capacity writes against supervisor lock loss
+
+A worker that lost its supervisor lock could still commit a slot claim, a turn child record or a `/1` lane claim already in flight on a pooled connection after a replacement had taken the lock and checked held capacity. Each of those writes, and a turn's settlement, now checks inside its own transaction that its worker still holds the lock (settlement: that no other worker does). A new supervisor waits, within 10 s, for such writes already past their check before it checks held capacity.
+
+- Change: `fence-held-capacity-writes`
+- Status: In progress
+- Size: S — a fence module, a check at the start of four transactions and a barrier in the lock; no migration.
+- Prerequisites: [BI-024](#bi-024--recover-stale-agent-slots) (merged in #281).
+- OpenSpec: [fence-held-capacity-writes](../openspec/changes/fence-held-capacity-writes/)
+
+#### BI-026 — Run several VM turns per provider at once
+
+With Sessions at once above 1, VM sessions for the same provider failed at startup as "configuration not accepted": each provider's relay carried one turn at a time, so a second turn found no connection within its 45 s wait. Each relay now carries several turns at once, up to the session limit, and a turn that still finds no free connection goes back to the queue instead of failing. A turn whose relay is not connected at all fails with a diagnostic that says so.
+
+- Change: `concurrent-vm-relay-turns`
+- Status: In progress
+- Size: M — relay lanes with a claimed marker from the guest, per-provider turn allowance in the coordinator, a requeue outcome in the session runner and a new failure code.
+- Prerequisites: [BI-024](#bi-024--recover-stale-agent-slots) and [BI-025](#bi-025--fence-held-capacity-writes-against-supervisor-lock-loss) (merged in #281 and #286).
+- OpenSpec: [concurrent-vm-relay-turns](../openspec/changes/concurrent-vm-relay-turns/)
+
+#### BI-027 — Fit VM agent turns to the VM's capacity
+
+With Sessions at once at 2 or more, a 2 GiB agent VM ran out of memory: every claimed turn cold-started at once, each relay kept an idle three-container turn ready, and Claude admissions timed out as "The provider connection or protocol failed." VM turns are now bounded by the memory the guest reports, one provider CLI starts at a time per VM, relays start guests only when a turn needs one, and an admission timeout goes back to the queue twice before failing with an accurate diagnostic. The Mac dev VM defaults to 4 CPUs / 4 GiB, `pnpm vm:setup` resizes a stopped VM, and the README documents the Pi 5 (8 GB) sizing.
+
+- Change: `fit-vm-turns-to-capacity`
+- Status: In progress
+- Size: M — a greeting field and capacity rule, a startup gate, a relay/coordinator lane offer, a migration for the retry count and a setup step.
+- Prerequisites: [BI-026](#bi-026--run-several-vm-turns-per-provider-at-once) (merged in #298).
+- OpenSpec: [fit-vm-turns-to-capacity](../openspec/changes/fit-vm-turns-to-capacity/)
+
+#### BI-018 — Bound agent evidence images and record provider errors
+
+Agent sessions could be sent evidence images a provider refuses: lot sessions got the original upload unchanged and Examine region crops were unscaled, so a 6144 × 8160 photo broke Claude's pixel limits. A failed turn kept only `agent_turn_failed`, so the operator couldn't tell why. Every `fetch_evidence` image is now bounded to 2,576 px from the decoded preview (the older single-result native prompt still sends originals). A failed turn records the provider's own error kind when the provider gives one, and a VM turn the specific code behind its failure, whenever the guest's final frame reaches the host.
+
+- Change: `bound-agent-evidence-images`
+- Status: Done — bounded agent images (#238), the provider's turn error (#239), the specific code behind a VM turn failure (#240), Claude's output limits in VM tool sessions (#241) and the live check (#242) merged. The planned live observation of a 6144 × 8160 lot fetch and a live provider error was not made; Mitch accepted the change without it, and it is an open item in the archived notes.
+- Size: M — the tool server's evidence delivery, guest staging, provider adapters, the guest frame and the diagnostic panel.
+- Prerequisites: None. Found during BI-017's requalification; the live check needs Mitch's go-ahead.
+- OpenSpec: [bound-agent-evidence-images](../openspec/changes/archive/2026-11-23-bound-agent-evidence-images/)
+
+#### BI-010 — Harden native agent sessions
+
+BI-006's live qualification (#118) found that a native Codex session is not confined to the intake tools. Codex wraps them inside its `exec` JavaScript tool, also offers its collaboration, clock, `apply_patch` and `image_gen` tools, and loads the user-level skills catalogue, and neither the start-time check nor the in-run check catches this. Real models also stumble on `propose`, whose rejection does not name the failing field. A session cannot cite evidence it picks up mid-session, because no digest is delivered with it. Fix these, detect or exclude Claude's deferred `advisor` tool, and correct the qualification script's chat detection, then re-run the live qualification so `native-agent/2` can drop `native_unverified`.
+
+- Change: `harden-native-agent-sessions`
+- Status: Blocked — tool admission, actionable tool results, retained failure details and the live qualification merged in #133, #134, #137 and #141. Claude Haiku qualified apart from partial status cadence, but Codex still receives code-mode tools on subscription turns, so `native-agent/2` keeps `native_unverified`. Continuing needs a decision on how to detect or refuse that Codex surface.
+- Size: M — adapter tool confinement and checks for both providers, validation messages, a digest in the evidence delivery, and a re-run of the qualification.
+- Prerequisites: BI-006 is Done (satisfied). Live qualification was authorized for Claude Haiku and GPT 6 Luna on 2026-11-07; any further live run needs fresh authorization.
+- OpenSpec: [harden-native-agent-sessions](../openspec/changes/archive/2026-11-19-harden-native-agent-sessions/)
+
+## Improvements
+
+### High
+
+#### BI-014 — Design refresh
+
+Carry the refined design and design system into the app: a calmer masthead and batch header (one attention count, tabs on their own row under the title, server menu holding Open InvenTree, Settings gear), short source chips with details in a popover, help buttons instead of helper text, a purple AI mark at agent touchpoints, and InvenTree descriptions where the app can show them. It adds a Settings page, a Processing › Inventory step page, Review › Records · Locations, and a slim phone header that condenses on scroll. Capture uploads start as soon as files are picked, and evidence can be deleted with undo. Controls that need new backend work ship disabled and are tracked as BI-015.
+
+- Change: `apply-design-refresh`
+- Status: Done — PR-A to PR-G merged in #191, #194, #205, #192, #204, #190 and #206. The controls it shipped disabled are BI-015.
+- Size: XL — every batch screen, the header, a new Settings page and one append-only removal backend, in seven PRs (PR-A to PR-G).
+- Prerequisites: BI-008 (`redesign-batch-workspace`) is Done and archived.
+- OpenSpec: [apply-design-refresh](../openspec/changes/archive/2026-11-18-apply-design-refresh/)
+
+### Normal
+
+#### BI-009 — Local development InvenTree
+
+Developers have no real InvenTree to run Bench Intake or the importer against locally; the only options are the fake inventory or a read-only external server. Add a repository-owned Docker Compose stack, built on the pinned local InvenTree image, that starts in a ready state with generated credentials and API tokens, seeded from the importer config and a small fixture. The intake app's dev databases move onto that stack's own PostgreSQL (`inventree-db`). `pnpm dev` starts the stack when `INTAKE_USE_LOCAL_INVENTREE=true`.
+
+- Change: `local-inventree-dev`
+- Status: Done — merged in #105
+- Size: L — Compose stack and bootstrap, a database move, seeding, a new dev target profile and docs.
+- Prerequisites: Docker with Compose 2.24 or later, and the pinned `inventree/inventree` stable image, which is present locally. No BI item dependencies.
+- OpenSpec: [local-inventree-dev](../openspec/changes/archive/2026-11-07-local-inventree-dev/)
+
+#### BI-012 — Improve Markdown readability
+
+Repository Markdown is uneven. Some documents are long unbroken paragraphs, heading depth differs between similar documents, and an earlier pass (#44) only made the intake guidance and safety contracts easier to read. Improve readability and structure across the remaining repository Markdown, including architecture notes, OpenSpec artifacts and contributor docs, without changing the meaning of requirements or implementation records. Keep generated files, preserved evidence and historical permalinks stable. This is a documentation pass, not a product behavior change.
+
+- Change: `improve-markdown-readability`
+- Status: Proposed
+- Size: L — a repository-wide documentation pass across several areas, not one file.
+- Prerequisites: None. The earlier intake readability pass (#44) is already merged and is not a blocker. No BI item has to land first.
+- OpenSpec: [improve-markdown-readability](../openspec/changes/improve-markdown-readability/)
+
+### Unassessed
+
+#### BI-019 — Agent interaction improvements
+
+Make working with agents smoother. Clicking the dimmed page beside the session drawer, or any dialog, closes it as Esc does, while an unsaved answer still stops the close. An agent asks one question per `ask`, with one step or up to four related steps answered one at a time and sent together. Each step is a choice among options the agent offers, a lot's quantity checked as it is typed, or text, and states the assumption the agent keeps working on. Each session's history entries expand to their details and link to the pages they concern, and every session gets a page showing it as one conversation, with the photos it viewed and the web pages it cited. The activity popover shows each stage's state, counts and status, with bars that distinguish working, waiting for you and paused. Sessions also show as one row each with their retries folded and Start fresh offered only where it can run, failures say their recorded cause in plain words, and the Agents page opens on what needs attention. An answered question folds to one line saying what was answered and whether the agent has read it, and a question can carry up to five pictures the agent chose, rendered by the app with its marks drawn over them. The drawer shows messages, replies and answers in time order, each answer once with its question quoted.
+
+- Change: `improve-agent-interaction`
+- Status: Done — plan merged in #243; PR-A to PR-L merged in #252, #251, #257, #260, #263, #258, #266, #276, #262, #269, #272 and #284, each with its acceptance evidence on the PR. Pictures that PR-K's sweep deleted before #284 stay "Picture couldn't be made".
+- Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page, per-stage activity counts and bar states, answered-question delivery and question pictures rendered by the media decoder, in twelve PRs after the plan.
+- Prerequisites: None. Takes over BI-015's answer options; coordinate session-runner prompt edits with BI-017.
+- OpenSpec: [improve-agent-interaction](../openspec/changes/archive/2026-11-25-improve-agent-interaction/)
+
+#### BI-020 — UI polish and calm loading
+
+Fix a selected row losing its top border in Review › Records, give every page one even spacing between sections, and remove the out-of-design Batch context disclosure and the outdated "live provider not qualified" agent profile notices. Replace the brief "Verifying current…" banners and about 20 one-off loading lines with one pattern: a skeleton on a first visit, cached data shown at once with a quiet background refresh, a progress line only when a refresh is noticeable, and commands disabled with a reason until a fresh read lands. Cached reads are kept in session storage so a reload shows the last data at once. Status reads the same everywhere: one set of state words, times that say which day, a masthead that names what failed (or says no agents are working), a Processing Needs you that agrees with the header, a per-lot stage table, and step pages that count their own step. Capture takes several files at once from any source: the phone's library with multi-select, and drag-and-drop or paste on desktop. Settings › Appearance gets a switch to stop the masthead's electronics animation while keeping the chosen masthead style. Settings › Agents saves switches and choices as they change, keeping Save only for text. A read that a live update cancelled and replaced no longer raises a false "unsaved edits" alarm: a real failure shows a calm notice, and Discard appears only for real unsaved changes. The Agents sub-nav follows the page as it scrolls, and the Settings nav lets the masthead's electronics show through, with only its words backed. Provider cards match the design, with a sign-in status read from the agent VM without the management key, switches, one searchable model picker across both providers, and sign-in in dialogs that check a token's shape and confirm the VM stored it. Dropdowns follow one guideline: the searchable picker for records and growing lists, and a segmented control or native select for short fixed lists, chosen case by case.
+
+- Change: `polish-ui-styling-and-loading`
+- Status: In progress — plan merged in #247 and #248; PR-A (#250), PR-B (#254), PR-C (#259), PR-D (#255), PR-E (#253), PR-F (#256), PR-G (#264), PR-H (#267), PR-G2 (#268), PR-I (#270) and PR-J (#271) merged; PR-K (the Settings nav) is underway, with PR-G's live VM check and PR-H's real-VM Settings check still open.
+- Size: XL — a page layout primitive applied to every page, small fixes, a shared freshness and persistence layer adopted by every screen, one state and time vocabulary, multi-file capture, agent settings autosave with save receipts, a read-only provider status from the agent VM, a dropdown sweep, calm handling of replaced and failed reads, and a Settings nav that follows the scroll and shows the electronics, in eleven PRs after the plan.
+- Prerequisites: None. Coordinate Processing and drawer edits with `improve-agent-interaction` (BI-019). The provider status's live check needs Mitch's go-ahead.
+- OpenSpec: [polish-ui-styling-and-loading](../openspec/changes/polish-ui-styling-and-loading/)
+
+#### BI-021 — Trust live-confirmed reads for commands
+
+On a return visit, let an audited set of commands become available at once when the cached read is consistent through the newest observed live-update cursor: a successful read whose request started after the newest relevant hint, within the same unbroken subscription and resource scope. Because hints can lag commits, only commands whose server-checked revision covers every fact they depend on qualify. Any new relevant hint, replacement cursor set, gap, reset, truncation, reconnect, polling fallback, scope change, manual cache write, cancelled read or failed read clears the proof, and the page waits for a read as it does today. Commands without a server-checked revision, such as batch Pause and Resume, always wait for a read started after the last hint. The server gains a replacement cursor set when a stream is removed, so a removal clears the proof too.
+
+- Change: `trust-live-confirmed-reads`
+- Status: Proposed — captured as a follow-up; planned in full when picked up.
+- Size: M — a freshness rule over the live channel with tests for every way it can break.
+- Prerequisites: BI-020 (`polish-ui-styling-and-loading`), for its freshness hook.
+- OpenSpec: [trust-live-confirmed-reads](../openspec/changes/trust-live-confirmed-reads/)
+
+#### BI-016 — Settings rows, independent providers and debug mode
+
+Make most of the Settings rows that BI-014 shipped disabled work. These are new-batch instructions, the Part description style, a tag-suggestion default, default location and supplier for new batches, an on-demand token check, Replace token for the InvenTree read token, and the import reference shown read-only. Claude and Codex become separately configured providers, and each processing step picks its own provider and model. Settings › Agents gathers every agent-behaviour setting as subsections with sub-nav links. A device-local debug mode hides developer details unless it is on and adds a Debug panel to each screen; the Dev mode pill opens a popover of developer tools.
+
+- Change: `settings-debug-mode`
+- Status: Done — PR-A to PR-E merged in #225, #226, #227, #228 and #232.
+- Size: XL — agent settings contract and sealing, a creation snapshot, a stored read credential, the Settings structure and debug gating across most screens, in five PRs (PR-A to PR-E) after the planning PR.
+- Prerequisites: None. It takes over the Settings rows from BI-015 that it builds; coordinate `.env.example` and launcher edits with `default-env-settings`.
+- OpenSpec: [settings-debug-mode](../openspec/changes/archive/2026-11-23-settings-debug-mode/)
+
+#### BI-013 — Preview renditions for media
+
+Every image in the app is served as the full-resolution decoded PNG, often several megabytes, even for 44 px thumbnails, so pages load slowly, especially on a phone over Tailscale. The decoder should also produce smaller WebP preview sizes for each page and documentary crop. Observation crops should be served at those sizes too, and each frontend surface should load the size it needs. Crops stay cut from the retained original or its full-resolution page, never from a reduced preview. Already-retained media is upgraded in the background.
+
+- Change: `add-preview-renditions`
+- Status: Done — merged in #140, #143 and #144.
+- Size: L — decoder, storage, routes, a background backfill and several frontend surfaces.
+- Prerequisites: None. Frontend edits landed alongside `redesign-batch-workspace`; that restyling was not a blocker.
+- OpenSpec: [add-preview-renditions](../openspec/changes/archive/2026-11-09-add-preview-renditions/)
+
+#### BI-001 — Capture tab uplift
+
+Consolidate all settings currently reached through the Shared details buttons into one Batch settings panel and remove those buttons. Include the original mockup's elements with PO controls disabled and greyed out, and compare right-side versus above-content placement before choosing the layout. Uplift the main evidence panel with three prominent top actions for taking photos, adding documents and writing notes, and organize evidence using groups like the original mockup.
+
+- Change: `capture-tab-uplift`
+- Status: Done
+- Size: L — retained settings/context and group/note contracts, UI consolidation and responsive evidence qualification.
+- Prerequisites: None external identified — existing media/groups and form/revision infrastructure are available; the change includes missing context/group contracts and dependency qualification. PO controls remain disabled; no dependency on BI-002.
+- OpenSpec: [capture-tab-uplift](../openspec/changes/archive/2026-11-04-capture-tab-uplift/)
+
+#### BI-002 — Status signalling uplift
+
+Replace the top-right Manual workflow element with a clickable connection-status indicator that reveals connection details, with an Open InvenTree link to its right as in the original mockup. Add a distinct workflow status/actions indicator on the same header row, using the mockup's Processing in progress state as the reference. Expanding it should show current work status and steps, relevant actions and active agents while keeping connection health separate from workflow progress.
+
+- Change: `status-signalling-uplift`
+- Status: Done
+- Size: L — cross-layer target/work read contracts, accessible header integration and browser qualification.
+- Prerequisites: None external identified — existing retained data and target transport are available; the change includes its read-contract and package-qualification foundations. No ordering dependency on BI-001.
+- OpenSpec: [status-signalling-uplift](../openspec/changes/archive/2026-11-04-status-signalling-uplift/)
+
+#### BI-003 — Batch settings overhaul
+
+Replace technical selection modes and explicit settings saves with concise reusable inputs and safe autosave. Add optional batch/order notes, typo-tolerant searchable default-location and supplier selection with new-record drafts, reviewed evidence-derived quantities, order/date choices, shared Part tags and Custom instructions. Remove the Physical lots and Part proposals panes from Capture and default to the original mockup layout. Preserve explicit location precedence and keep PO creation and automatic logo discovery disabled for separate future work.
+
+- Change: `batch-settings-overhaul`
+- Status: Done
+- Size: L — cross-layer settings, search, inheritance, inference preferences and supervised new-record support.
+- Prerequisites: BI-001 and BI-002 are satisfied; existing capture, review and transport foundations are merged. New catalogue and new-record execution contracts are included in this change; future PO and logo items are not prerequisites.
+- OpenSpec: [batch-settings-overhaul](../openspec/changes/archive/2026-11-05-batch-settings-overhaul/)
+
+## Maintenance
+
+### Normal
+
+#### BI-011 — Remove unused legacy code
+
+Sweep the backend, frontend, contracts, scripts and skills for unused legacy code and remove it. Candidates include superseded components, compatibility shims, fallback adapters and dead configuration; old-link redirects that a current spec requires stay unless that spec changes. The app has essentially one user, so backwards compatibility is not a goal in itself. Keep a legacy path only where a database migration cannot preserve data records that continuing functionality needs; otherwise migrate the data and delete the old path. Code kept for a planned item is not legacy and stays.
+
+- Change: `remove-unused-legacy-code`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: Unknown — not assessed. Running it after BI-008's styling uplift (PR-K), which retires the legacy UI primitives itself, would avoid overlapping that work.
+- OpenSpec: [remove-unused-legacy-code](../openspec/changes/remove-unused-legacy-code/)

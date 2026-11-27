@@ -1,0 +1,498 @@
+import { useEffect, useState, type ReactNode } from 'react'
+import { Banner, Paragraph, Heading, VisuallyHidden, Button, ReadState } from '#/components/ui'
+import { useQueryClient } from '@tanstack/react-query'
+import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
+import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
+import type {
+  CaptureSnapshotDto,
+  ManualPreviewDto,
+  ManualRunDto,
+  OperatorReviewDto,
+} from '@invimport/contracts'
+import type { ProcessingAnswerDto } from '@invimport/contracts'
+import { IntakeRequestError } from '@invimport/contracts/client'
+import {
+  MAX_SELECTED_LOTS,
+  type ManualClient,
+  type ManualStage,
+  type RunRecoverySelection,
+} from '#/manual/types'
+import { useDirtySources } from '#/operator/useDirtySources'
+import { ReviewWorkspace } from './ReviewWorkspace'
+import { ReviewSkeleton } from './ReviewSkeleton'
+import { ChangesSkeleton } from '#/components/changes/ChangesSkeleton'
+import { ReadyToAdd } from '#/components/changes/ReadyToAdd'
+import { Added } from '#/components/changes/Added'
+import { useTargetNavigation } from '#/header/useTargetNavigation'
+import {
+  useApiClients,
+  useConfirmation,
+  useReportRefreshing,
+  useServerScope,
+  useRetainedPollInterval,
+  useBatchCommands,
+} from '#/context'
+import type { DirtyReport } from '#/navigation/unsaved-changes'
+import { readReplacingCancels } from '#/queries/fresh-reads'
+import { useMountSignal } from '#/lifecycle/useMountSignal'
+
+interface Props {
+  batch: CaptureSnapshotDto
+  client: ManualClient
+  stage: Exclude<ManualStage, 'capture'>
+  runId?: string
+  preparationId?: string
+  /** The preparation last shown in this batch, which bare Ready to add returns to. */
+  rememberedPreparationId?: string | null
+  navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
+  /** Present only when its revision matches `batch`; stale projections are not shown. */
+  operatorReview?: OperatorReviewDto
+  /** The operator review for this revision is still being read: a wait, not an unavailable review. */
+  operatorReviewPending?: boolean
+  onDirtyChange?: DirtyReport
+  /** Drawn from restored snapshots before Capture's read lands; nothing can be changed. */
+  displayOnly?: boolean
+}
+
+function commandMessage(error: unknown) {
+  if (error instanceof IntakeRequestError) {
+    const messages: Record<string, string> = {
+      stale_preparation:
+        'Selected facts or review changed. Return to Review and prepare the current effects.',
+      revision_conflict:
+        'Saved state changed. Inspect the current snapshot before submitting another command.',
+      source_history_unsettled:
+        'An earlier original run blocks this source. Inspect its retained results.',
+      original_contribution_already_approved:
+        'This contribution already has an approval. Use its original run; never create replacement stock.',
+      create_not_recoverable: 'This operation cannot safely resume. Inspect the original outcome.',
+    }
+    return (
+      messages[error.code] ??
+      'The command was not accepted. Inspect current review or original-run results.'
+    )
+  }
+  return 'The command outcome is not confirmed. Refresh retained results before deciding what to do next.'
+}
+
+export function ManualWorkspace({
+  batch,
+  client,
+  stage,
+  runId,
+  preparationId,
+  rememberedPreparationId,
+  navigate,
+  operatorReview,
+  operatorReviewPending = false,
+  onDirtyChange,
+  displayOnly = false,
+}: Props) {
+  const { reload } = useBatchCommands()
+  const { media, processing } = useApiClients()
+  const pollInterval = useRetainedPollInterval()
+  const scope = useServerScope()
+  const queryClient = useQueryClient()
+  const mediaFresh = useFreshRead({
+    queryKey: serverQueryKey(scope, 'media', batch.id),
+    queryFn: () => media!.snapshot(batch.id),
+    enabled: stage === 'review' && media !== undefined,
+    refetchInterval: pollInterval,
+  })
+  const mediaQuery = mediaFresh.query
+  const restoredProcessing = useRestoredSnapshot('processing', batch.id)
+  // Cached data is history: acceptance needs this mount's own read, settled at this revision.
+  const processingFresh = useFreshRead({
+    queryKey: serverQueryKey(scope, 'processing', batch.id),
+    queryFn: () => processing!.read(batch.id),
+    enabled: stage === 'review' && processing !== undefined,
+    refetchInterval: pollInterval,
+    restored: restoredProcessing,
+    current: (read) => read.capture_revision === batch.revision,
+  })
+  const restoredWorkspace = useRestoredSnapshot('review-workspace', batch.id)
+  const workspaceKey = serverQueryKey(scope, 'manual', batch.id)
+  const mountSignal = useMountSignal()
+  const workspaceFresh = useFreshRead({
+    queryKey: workspaceKey,
+    queryFn: () => client.workspace(batch.id),
+    refetchInterval: pollInterval,
+    // The stored projection keeps Review's lots only; Changes waits for its own read.
+    restored: stage === 'review' ? restoredWorkspace : undefined,
+  })
+  // Acceptance waits on Processing's read too, so its refresh shows progress like the page's own.
+  useReportRefreshing(processingFresh.phase === 'refreshing')
+  const workspaceQuery = workspaceFresh.query
+  useSnapshotWriter(
+    'review-workspace',
+    batch.id,
+    workspaceFresh.verified ? workspaceQuery.data : undefined,
+    workspaceFresh.verifiedRead,
+  )
+  const workspace = workspaceFresh.data
+  const connectionLost = workspaceFresh.phase === 'failed'
+  // Only a read this mount saw start can enable commands; cached and restored data never do.
+  const waitingForFirstRead = displayOnly || !workspaceFresh.verified
+  const drafts = useDirtySources(onDirtyChange)
+  const targetUrl = useTargetNavigation()
+  const [selected, setSelected] = useState<string[]>([])
+  const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
+  const [busy, setBusy] = useState('')
+  const confirm = useConfirmation()
+  const [error, setError] = useState('')
+
+  /** Reads the workspace again, waiting through a live update's cancel for its replacement. */
+  function refresh() {
+    return readReplacingCancels({
+      client: queryClient,
+      queryKey: workspaceKey,
+      read: async () => {
+        const result = await workspaceQuery.refetch({ throwOnError: true })
+        if (!result.data) {
+          throw new Error('manual_snapshot_missing')
+        }
+        return result.data
+      },
+      signal: mountSignal(),
+    })
+  }
+
+  // A retained approval or a removed lot leaves the selection; history keeps it.
+  const selectable = (id: string) =>
+    !workspace ||
+    workspace.lots.some(
+      (lot) =>
+        lot.lot_id === id &&
+        !lot.issues.some((problem) => problem.code === 'original_contribution_already_approved'),
+    )
+
+  const validSelected = selected.filter(selectable)
+
+  // The preparation a URL names is remembered, so it still shows after it leaves the workspace.
+  const matchingPreview =
+    workspace && stage === 'approve' && preparationId
+      ? workspace.preparations.find((value) => value.id === preparationId)
+      : undefined
+  if (matchingPreview && matchingPreview !== lastPreview) {
+    setLastPreview(matchingPreview)
+  }
+
+  // A bare Ready to add route is replaced once this mount's read shows what to open.
+  useEffect(() => {
+    if (!workspace || stage !== 'approve' || preparationId) {
+      return
+    }
+    // Bare Ready to add opens the remembered preparation, or the newest once that is gone,
+    // judged by this mount's own successful read rather than a cached one.
+    if (waitingForFirstRead || connectionLost) {
+      return
+    }
+    const shown =
+      workspace.preparations.find((value) => value.id === rememberedPreparationId) ??
+      workspace.preparations[0]
+    if (shown) {
+      setLastPreview(shown)
+      navigate('approve', shown.id, { replace: true })
+    }
+  }, [
+    workspace,
+    waitingForFirstRead,
+    connectionLost,
+    stage,
+    preparationId,
+    rememberedPreparationId,
+    navigate,
+  ])
+  const displayedPreview = preparationId
+    ? (workspace?.preparations.find((value) => value.id === preparationId) ??
+      (lastPreview?.id === preparationId ? lastPreview : null))
+    : null
+
+  function choosePreparation(value: ManualPreviewDto) {
+    setLastPreview(value)
+    navigate('approve', value.id)
+  }
+
+  const stale = workspace ? workspace.revision !== batch.revision : true
+
+  async function perform(label: string, work: () => Promise<void>) {
+    setBusy(label)
+    setError('')
+    try {
+      await work()
+    } catch (error) {
+      setError(commandMessage(error))
+    }
+
+    void queryClient.invalidateQueries({
+      queryKey: serverQueryKey(scope, 'operator-review', batch.id),
+    })
+    try {
+      await refresh()
+    } catch {
+      // A failed status read must not relabel a confirmed command as an unknown command.
+      // The query retains its last snapshot and reports the unavailable read separately.
+    } finally {
+      setBusy('')
+    }
+  }
+
+  function toggle(id: string) {
+    setSelected((previous) => {
+      if (previous.includes(id)) {
+        return previous.filter((value) => value !== id)
+      }
+      if (previous.filter(selectable).length >= MAX_SELECTED_LOTS) {
+        return previous
+      }
+
+      return [...previous, id]
+    })
+  }
+
+  /** The gate checked again when a command is sent, so a render made before a newer read can't send. */
+  function commandsReadyNow() {
+    return !displayOnly && workspaceFresh.commandsReadyNow()
+  }
+
+  function reviewLots(ids: string[]) {
+    if (!commandsReadyNow()) {
+      return
+    }
+    void perform('Retaining exact review…', async () => {
+      await client.review(
+        batch.id,
+        { expected_batch_revision: batch.revision, selected_lot_ids: ids },
+        crypto.randomUUID(),
+      )
+      // No command un-reviews a lot, so the confirmation offers no Undo.
+      confirm(`Marked ${ids.length} lot${ids.length === 1 ? '' : 's'} reviewed`)
+    })
+  }
+
+  /** Answers a lot's open question; Processing and the review are read again once accepted. */
+  async function answerQuestion(questionId: string, input: ProcessingAnswerDto, key: string) {
+    // The question may come from a cached or restored read; answering needs this visit's own.
+    if (!processingFresh.commandsReadyNow()) {
+      throw new Error('processing_fresh_read_required')
+    }
+    await processing!.answer(batch.id, questionId, input, key)
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batch.id) }),
+      queryClient.invalidateQueries({
+        queryKey: serverQueryKey(scope, 'operator-review', batch.id),
+      }),
+      // The answer changes the lot in Capture; adopt it rather than wait for an update push.
+      reload(),
+    ])
+  }
+
+  function review() {
+    reviewLots(validSelected)
+  }
+
+  function prepare() {
+    prepareLots(validSelected)
+  }
+
+  function prepareLots(lotIds: string[]) {
+    if (!commandsReadyNow()) {
+      return
+    }
+    void perform('Reading the fixed target and preparing selected effects…', async () => {
+      const result = await client.prepare(
+        batch.id,
+        { expected_batch_revision: batch.revision, selected_lot_ids: lotIds },
+        crypto.randomUUID(),
+      )
+      if (result.status === 'blocked') {
+        setError(result.issues.map((value) => value.message).join(' '))
+        return
+      }
+      setLastPreview(result.preparation)
+      navigate('approve', result.preparation.id)
+    })
+  }
+
+  function approve() {
+    if (!commandsReadyNow()) {
+      return
+    }
+    if (!displayedPreview) {
+      return
+    }
+    const exact = displayedPreview
+    void perform('Retaining exact approval…', async () => {
+      const accepted = await client.approve(
+        {
+          preparation_id: exact.id,
+          expected_plan_sha256: exact.plan_sha256,
+          expected_review_fingerprint: exact.review_fingerprint,
+          selected_lot_ids: exact.selected_lot_ids,
+          expected_target_revision: exact.target_revision,
+        },
+        crypto.randomUUID(),
+      )
+      setLastPreview(null)
+      navigate('results', accepted.run_id)
+    })
+  }
+
+  function command(
+    run: ManualRunDto,
+    action: 'start' | 'cancel' | 'recover',
+    selection?: RunRecoverySelection,
+  ) {
+    if (!commandsReadyNow()) {
+      return
+    }
+    void perform('Retaining original-run command…', async () => {
+      const input = { expected_run_revision: run.revision }
+      if (action === 'recover') {
+        await client.recover(
+          run.run_id,
+          selection?.kind === 'effect'
+            ? { ...input, effect_keys: selection.keys }
+            : selection?.kind === 'assessment'
+              ? { ...input, assessment_keys: selection.keys }
+              : selection?.kind === 'attachment'
+                ? { ...input, attachment_keys: selection.keys }
+                : { ...input, operation_keys: selection?.keys ?? [] },
+          crypto.randomUUID(),
+        )
+      } else {
+        await client[action](run.run_id, input, crypto.randomUUID())
+      }
+    })
+  }
+
+  const disabled = Boolean(busy) || connectionLost || waitingForFirstRead
+  let content: ReactNode
+  if (!workspace) {
+    content = null
+  } else if (stage === 'review') {
+    content = (
+      <ReviewWorkspace
+        batch={batch}
+        workspace={workspace}
+        operatorReview={operatorReview}
+        operatorReviewPending={operatorReviewPending}
+        media={mediaQuery.data}
+        mediaUnavailable={mediaFresh.phase === 'failed'}
+        mediaLoading={media !== undefined && mediaQuery.isPending}
+        processing={processingFresh.data}
+        processingCurrent={processingFresh.phase === 'current'}
+        processingCurrentNow={processingFresh.currentNow}
+        displayOnly={displayOnly}
+        waitReason={
+          waitingForFirstRead && !displayOnly && !busy && !connectionLost ? 'Updating…' : undefined
+        }
+        selected={validSelected}
+        setSelection={setSelected}
+        maxSelected={MAX_SELECTED_LOTS}
+        busy={disabled}
+        stale={stale}
+        toggle={toggle}
+        review={review}
+        reviewLots={reviewLots}
+        answerQuestion={processing ? answerQuestion : undefined}
+        answerWaitReason={
+          processingFresh.commandsReady ? undefined : (processingFresh.reason ?? 'Updating…')
+        }
+        prepare={prepare}
+        onDirtyChange={drafts.forSource('review')}
+      />
+    )
+  } else if (stage === 'approve') {
+    content = (
+      <ReadyToAdd
+        batch={batch}
+        workspace={workspace}
+        preview={displayedPreview}
+        busy={disabled}
+        choose={choosePreparation}
+        pinnedPreparationId={preparationId}
+        prepareLots={prepareLots}
+        approve={approve}
+        readTree={client.tree}
+      />
+    )
+  } else {
+    content = (
+      <Added
+        batch={batch}
+        workspace={workspace}
+        focusedRunId={runId}
+        busy={disabled}
+        command={command}
+        targetUrl={targetUrl}
+      />
+    )
+  }
+  return (
+    <>
+      {stage === 'review' ? (
+        // Review's tabs already name the page; the heading stays for screen readers.
+        <VisuallyHidden as="div">
+          <Heading>Review selected lots</Heading>
+        </VisuallyHidden>
+      ) : (
+        <Heading $onField>{stage === 'approve' ? 'Ready to add' : 'Added'}</Heading>
+      )}
+      {workspace?.preparations_truncated && (
+        <Banner tone="warn">
+          Only the 20 most recent unapproved preparations are considered here. Older exact plans
+          remain retained; prepare current scope again if needed.
+        </Banner>
+      )}
+      {busy && (
+        <div role="status">
+          <Banner tone="warn">{busy}</Banner>
+        </div>
+      )}
+      {(connectionLost || error) && (
+        <div role="alert">
+          <Banner tone="bad">
+            {connectionLost && (
+              <Paragraph>
+                Status unavailable. Showing the last retained snapshot; commands are disabled until
+                the application can verify current state.
+              </Paragraph>
+            )}
+            {error && <Paragraph>{error}</Paragraph>}
+            <Button
+              disabled={Boolean(busy)}
+              onClick={() => {
+                void refresh().catch(() => undefined)
+              }}
+            >
+              Refresh retained state
+            </Button>
+          </Banner>
+        </div>
+      )}
+      {stale && workspace && (
+        <Banner tone="warn">
+          Saved capture changed in another client. Your review display has not silently changed.
+          <br />
+          <Button
+            disabled={Boolean(busy)}
+            onClick={() => {
+              void reload()
+            }}
+          >
+            Load current saved choices
+          </Button>
+        </Banner>
+      )}
+      <ReadState
+        phase={workspaceFresh.phase}
+        hasData={workspace !== undefined}
+        skeleton={stage === 'review' ? <ReviewSkeleton /> : <ChangesSkeleton />}
+      >
+        {content}
+      </ReadState>
+    </>
+  )
+}

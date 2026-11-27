@@ -1,0 +1,625 @@
+import type { PoolClient } from 'pg'
+import { and, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { canonicalRecord } from '@invimport/contracts/json'
+import {
+  validate,
+  type CaptureSnapshotDto,
+  type ProcessingJobDto,
+  type StartFreshEligibilityDto,
+  type ProcessingQuestionV1Dto,
+  type ProcessingQuestionV2Dto,
+  type ProcessingQuestionFigureDto,
+  type QuestionFigureDto,
+  type ProcessingSnapshotDto,
+  type ProcessingStateDto,
+  type ProcessingActivityDto,
+} from '@invimport/contracts'
+import { commands } from '#/db/schema.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
+import type { ProcessingConfig } from './attempts.ts'
+import { readProcessingMediaScopes } from './media.ts'
+import { fail } from './model.ts'
+import {
+  MAX_JOB_RESULTS,
+  MAX_JOBS_PER_BATCH,
+  MAX_PROCESSING_SNAPSHOT_BYTES,
+  MIN_CHANNEL_SECRET_BYTES,
+  MAX_ACTIVITY_BATCHES,
+} from './limits.ts'
+import {
+  isSessionMessage,
+  retainedQuestionSpec,
+  retainedProposalValue,
+  retainedSessionProposal,
+  retainedSessionQuestion,
+  type RetainedQuestionSeal,
+} from './retained.ts'
+import { decodeJobInput, isSessionInput } from './session-input.ts'
+import { agentSessions } from '#/agents/schema.ts'
+import { mediaVersions } from '#/media/schema.ts'
+import { startFreshEligibility } from './start-fresh-eligibility.ts'
+import { latestStatuses } from '#/agents/tools/outbox.ts'
+import { verifyRetainedResearchSources } from './research-sources.ts'
+import { canCancelProcessingAttempt } from './state.ts'
+import {
+  processingJobs,
+  processingAttempts,
+  processingInputs,
+  processingProposals,
+  processingQuestions,
+  processingMessages,
+  processingLanes,
+} from './schema.ts'
+import { activeSubjectJobs, countSteps, retiredLotIds } from './steps.ts'
+import { pausedAmong } from '#/agents/pause.ts'
+import { answeredQuestionFacts } from './answered-questions.ts'
+import { budgetAnswers } from './answer-summary.ts'
+import { questionFigureStates, type FigureStates } from './question-figures.ts'
+import { onBrokenBasis } from './identity-basis.ts'
+import {
+  currentJobState,
+  inputCurrency,
+  jobColumns,
+  jobMedia,
+  lotSubjects,
+  selectedJobs,
+  staleOpenQuestion,
+  type InputCurrency,
+  type SelectedJob,
+} from './job-state.ts'
+
+async function proposalsForJob(
+  client: PoolClient,
+  config: ProcessingConfig,
+  job: SelectedJob,
+  batchLots: ReadonlySet<string>,
+): Promise<ProcessingJobDto['proposals']> {
+  const manifest = decodeJobInput(job.inputBytes, job.inputDigest)
+  const proposals = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        ...getTableColumns(processingProposals),
+        jobId: processingAttempts.jobId,
+        commandId: processingAttempts.commandId,
+        manifestDigest: processingInputs.manifestDigest,
+        envelopeBytes: processingMessages.envelopeBytes,
+        envelopeDigest: processingMessages.envelopeDigest,
+        disposition: processingMessages.disposition,
+      })
+      .from(processingProposals)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, processingProposals.attemptId))
+      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
+      .innerJoin(processingMessages, eq(processingMessages.id, processingProposals.messageId))
+      .where(eq(processingProposals.attemptId, job.attemptId))
+      .orderBy(processingProposals.id)
+      .limit(MAX_JOB_RESULTS + 1),
+  )
+  if (proposals.length > MAX_JOB_RESULTS) {
+    fail('processing_capacity')
+  }
+  const projected: ProcessingJobDto['proposals'] = []
+  let batchVersions: Parameters<typeof retainedSessionProposal>[4] | undefined
+  for (const proposal of proposals) {
+    if (isSessionMessage(proposal)) {
+      if (!isSessionInput(manifest)) {
+        fail('retained_proposal_binding_invalid')
+      }
+      // The propose tool checked delivery; a citation still names a real version of this batch.
+      batchVersions ??= (
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({
+              versionId: mediaVersions.id,
+              evidenceId: mediaVersions.evidenceId,
+              blobDigest: mediaVersions.blobDigest,
+            })
+            .from(mediaVersions)
+            .where(eq(mediaVersions.batchId, manifest.batch_id)),
+        )
+      ).map(({ blobDigest, ...version }) => ({ ...version, digest: blobDigest.toString('hex') }))
+      const value = retainedSessionProposal(
+        proposal,
+        job.subjectId,
+        manifest,
+        batchLots,
+        batchVersions,
+      )
+      projected.push({ id: proposal.id, message_id: proposal.messageId, value })
+      continue
+    }
+    if (isSessionInput(manifest)) {
+      fail('retained_proposal_binding_invalid')
+    }
+    const value = retainedProposalValue(
+      proposal,
+      job.subjectId ?? fail('retained_proposal_binding_invalid'),
+      manifest,
+    )
+    await verifyRetainedResearchSources(
+      client,
+      config,
+      manifest,
+      {
+        attemptId: proposal.attemptId,
+        commandId: proposal.commandId,
+        inputSha256: proposal.manifestDigest.toString('hex'),
+      },
+      value,
+    )
+    projected.push({ id: proposal.id, message_id: proposal.messageId, value })
+  }
+  return projected
+}
+
+async function questionsForJob(
+  client: PoolClient,
+  job: SelectedJob,
+  currentState: ProcessingStateDto,
+  batchSubjects: ReadonlySet<string>,
+): Promise<ProcessingJobDto['questions']> {
+  const questions = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        ...getTableColumns(processingQuestions),
+        commandId: processingAttempts.commandId,
+        manifestDigest: processingInputs.manifestDigest,
+        envelopeBytes: processingMessages.envelopeBytes,
+        envelopeDigest: processingMessages.envelopeDigest,
+        disposition: processingMessages.disposition,
+      })
+      .from(processingQuestions)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, processingQuestions.attemptId))
+      .innerJoin(processingInputs, eq(processingInputs.id, processingQuestions.inputId))
+      .innerJoin(processingMessages, eq(processingMessages.id, processingQuestions.messageId))
+      .where(eq(processingQuestions.jobId, job.id))
+      // Oldest first; questions retained before the time was kept come last.
+      .orderBy(sql`${processingQuestions.askedAt} ASC NULLS LAST`, processingQuestions.id)
+      .limit(MAX_JOB_RESULTS + 1),
+  )
+  if (questions.length > MAX_JOB_RESULTS) {
+    fail('processing_capacity')
+  }
+  const figureStates = await questionFigureStates(client, job.id)
+  return questions.map((question) => {
+    const stale = staleOpenQuestion(question, { state: currentState, attemptId: job.attemptId })
+    return {
+      id: question.id,
+      job_id: question.jobId,
+      attempt_id: question.attemptId,
+      input_sha256: question.manifestDigest.toString('hex'),
+      revision: question.revision.toString(),
+      state: stale ? 'superseded' : question.state,
+      ...questionContent(question, job.subjectId, batchSubjects, figureStates),
+      ...(question.askedAt ? { asked_at: question.askedAt.toISOString() } : {}),
+    }
+  })
+}
+
+/** Caller owns the same repeatable-read transaction as capture authorization and stream cursor. */
+export async function processingSnapshot(
+  client: PoolClient,
+  config: ProcessingConfig,
+  capture: CaptureSnapshotDto,
+  /** The batch's own read says whether Start fresh would be accepted; summaries skip it. */
+  { startFresh = false }: { startFresh?: boolean } = {},
+): Promise<ProcessingSnapshotDto> {
+  const retainedJobs = await selectedJobs(client, capture.id)
+  const media = await readProcessingMediaScopes(client, config, capture, lotSubjects(retainedJobs))
+  const batchLots = new Set(capture.lots.map((lot) => lot.id))
+  const batchSubjects = new Set([...batchLots, ...capture.parts.map((part) => part.id)])
+  const sessionStates = new Map(
+    retainedJobs.length
+      ? (
+          await executeDatabaseQuery(
+            queryDatabase(client)
+              .select({ attemptId: agentSessions.attemptId, state: agentSessions.sessionState })
+              .from(agentSessions)
+              .where(
+                inArray(
+                  agentSessions.attemptId,
+                  retainedJobs.map((job) => job.attemptId),
+                ),
+              ),
+          )
+        ).map((row) => [row.attemptId, row.state])
+      : [],
+  )
+  const currentness = await proposalCurrentness(client, capture.id)
+  const statuses = await latestStatuses(client, [...sessionStates.keys()])
+  const sessionJobIds = retainedJobs
+    .filter((job) => sessionStates.get(job.attemptId))
+    .map((job) => job.id)
+  const eligibility = startFresh
+    ? await startFreshEligibility(client, config, sessionJobIds, {
+        captures: new Map([[capture.id, capture]]),
+        lotMedia: media,
+      })
+    : new Map<string, StartFreshEligibilityDto>()
+  const jobs: ProcessingJobDto[] = []
+  for (const job of retainedJobs) {
+    const sessionState = sessionStates.get(job.attemptId)
+    const latestStatus = statuses.get(job.attemptId)
+    const currency = await inputCurrency(client, config, job, capture, jobMedia(media, job))
+    const state = currentJobState(job, currency)
+    const proposals = (await proposalsForJob(client, config, job, batchLots)).map((proposal) => {
+      const state = currentness.get(proposal.id)
+      return state ? { ...proposal, currentness: state } : proposal
+    })
+    const questions = await questionsForJob(client, job, state, batchSubjects)
+    jobs.push({
+      id: job.id,
+      subject_id: job.subjectId,
+      stage: job.stage,
+      revision: job.revision.toString(),
+      state,
+      attempt_id: job.attemptId,
+      input_sha256: job.inputDigest.toString('hex'),
+      attempt_number: job.attemptNumber.toString(),
+      qualification: jobManifestQualification(job.inputBytes, job.inputDigest),
+      can_cancel: canCancelProcessingAttempt(
+        { current_attempt_id: job.currentAttemptId, state: job.state },
+        { id: job.attemptId, state: job.attemptState },
+        capture.archived,
+      ),
+      ...(currency.blockedCode ? { blocked_code: currency.blockedCode } : {}),
+      ...(sessionState ? { session_state: sessionState } : {}),
+      ...(latestStatus ? { latest_status: latestStatus } : {}),
+      ...(eligibility.has(job.id) ? { start_fresh: eligibility.get(job.id)! } : {}),
+      proposals,
+      questions,
+    })
+  }
+  const configured = Buffer.byteLength(config.channelSecret) >= MIN_CHANNEL_SECRET_BYTES
+  const snapshot: ProcessingSnapshotDto = {
+    runner_status: configuredRunnerStatus(configured, config),
+    batch_id: capture.id,
+    capture_revision: capture.revision,
+    jobs,
+    cursor: capture.cursor,
+    ...((await pausedAmong(client, [capture.id])).size ? { paused: true as const } : {}),
+  }
+  // Answer members are budgeted into the room the snapshot leaves without them, newest first.
+  const answers = await answeredQuestionFacts(client, config, capture.id, jobs)
+  const withoutAnswers = Buffer.byteLength(canonicalRecord(snapshot))
+  if (withoutAnswers > MAX_PROCESSING_SNAPSHOT_BYTES) {
+    fail('processing_capacity')
+  }
+  budgetAnswers(answers, MAX_PROCESSING_SNAPSHOT_BYTES - withoutAnswers)
+  validate('ProcessingSnapshot', snapshot)
+  if (Buffer.byteLength(canonicalRecord(snapshot)) > MAX_PROCESSING_SNAPSHOT_BYTES) {
+    fail('processing_capacity')
+  }
+  return snapshot
+}
+
+const activeStates = new Set<ProcessingStateDto>([
+  'queued',
+  'running',
+  'waiting_for_user',
+  'waiting_for_login',
+  'waiting_for_capacity',
+  'interrupted',
+])
+
+async function heldLaneJob(client: PoolClient, config: ProcessingConfig, attemptId: string) {
+  const jobs = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(jobColumns)
+      .from(processingJobs)
+      .innerJoin(processingAttempts, eq(processingAttempts.jobId, processingJobs.id))
+      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
+      .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .where(
+        and(
+          eq(processingAttempts.id, attemptId),
+          eq(commands.actorId, config.actorId),
+          eq(commands.targetId, config.targetId),
+          eq(commands.targetContextId, config.targetContextId),
+        ),
+      ),
+  )
+  return jobs[0]
+}
+
+function activityJob(
+  job: SelectedJob,
+  currency: InputCurrency,
+  occupiesLane: boolean,
+): ProcessingActivityDto['jobs'][number] {
+  return {
+    batch_id: job.batchId,
+    job_id: job.id,
+    attempt_id: job.attemptId,
+    state: occupiesLane ? job.attemptState : currentJobState(job, currency),
+    input_current: currency.current,
+    ...(currency.blockedCode ? { blocked_code: currency.blockedCode } : {}),
+    occupies_lane: occupiesLane,
+  }
+}
+
+/** A stale dependency never implies that the observed worker or its account claim has stopped. */
+export async function processingActivity(
+  client: PoolClient,
+  config: ProcessingConfig,
+): Promise<ProcessingActivityDto> {
+  const laneRows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ attemptId: processingLanes.attemptId })
+      .from(processingLanes)
+      .where(eq(processingLanes.actorId, config.actorId)),
+  )
+  const heldAttemptId = laneRows[0]?.attemptId ?? null
+  const jobs: ProcessingActivityDto['jobs'] = []
+
+  // Put the held lane first so truncation never hides an account claim. A foreign target/context
+  // contributes only the safe aggregate busy flag, never its batch or attempt identifiers.
+  if (heldAttemptId) {
+    const held = await heldLaneJob(client, config, heldAttemptId)
+    if (held) {
+      const capture = await captureInTransaction(client, config, held.batchId)
+      const media = await readProcessingMediaScopes(
+        client,
+        config,
+        capture.snapshot,
+        lotSubjects([held]),
+      )
+      const currency = await inputCurrency(
+        client,
+        config,
+        held,
+        capture.snapshot,
+        jobMedia(media, held),
+      )
+      jobs.push(activityJob(held, currency, true))
+    }
+  }
+
+  const batches = await executeDatabaseQuery(
+    queryDatabase(client)
+      .selectDistinct({ batchId: processingJobs.batchId })
+      .from(processingJobs)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, processingJobs.currentAttemptId))
+      .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .where(
+        and(
+          inArray(processingJobs.state, [...activeStates]),
+          eq(commands.actorId, config.actorId),
+          eq(commands.targetId, config.targetId),
+          eq(commands.targetContextId, config.targetContextId),
+        ),
+      )
+      .orderBy(processingJobs.batchId)
+      .limit(MAX_ACTIVITY_BATCHES + 1),
+  )
+  let truncated = batches.length > MAX_ACTIVITY_BATCHES
+
+  for (const batch of batches.slice(0, MAX_ACTIVITY_BATCHES)) {
+    const capture = await captureInTransaction(client, config, batch.batchId)
+    const retainedJobs = await selectedJobs(client, batch.batchId)
+    const media = await readProcessingMediaScopes(
+      client,
+      config,
+      capture.snapshot,
+      lotSubjects(retainedJobs),
+    )
+    for (const job of retainedJobs) {
+      if (job.attemptId === heldAttemptId) {
+        continue
+      }
+      const currency = await inputCurrency(
+        client,
+        config,
+        job,
+        capture.snapshot,
+        jobMedia(media, job),
+      )
+      if (activeStates.has(currentJobState(job, currency))) {
+        jobs.push(activityJob(job, currency, false))
+      }
+    }
+    if (jobs.length > MAX_JOBS_PER_BATCH) {
+      truncated = true
+      break
+    }
+  }
+
+  const activity = {
+    jobs: jobs.slice(0, MAX_JOBS_PER_BATCH),
+    lane_occupied: heldAttemptId !== null,
+    truncated,
+  }
+  validate('ProcessingActivity', activity)
+  return activity
+}
+
+/** Inbox observations reuse the destination's exact currentness and supersession policy. */
+export async function inboxProcessing(
+  client: PoolClient,
+  config: ProcessingConfig,
+  capture: CaptureSnapshotDto,
+) {
+  const retained = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: processingJobs.id })
+      .from(processingJobs)
+      .where(eq(processingJobs.batchId, capture.id))
+      .limit(1),
+  )
+  if (!retained.length) {
+    return { open_questions: 0, active_jobs: 0 }
+  }
+  const snapshot = await processingSnapshot(client, config, capture)
+  const jobs = activeSubjectJobs(snapshot.jobs, retiredLotIds(capture))
+  return {
+    open_questions: jobs
+      .flatMap((job) => job.questions)
+      .filter((question) => question.state === 'open').length,
+    active_jobs: jobs.filter((job) => job.state === 'running' || job.state === 'queued').length,
+    steps: countSteps(jobs),
+  }
+}
+
+function jobManifestQualification(
+  bytes: Buffer,
+  digest: Buffer,
+): ProcessingJobDto['qualification'] {
+  const profileId = decodeJobInput(bytes, digest).profile_id
+  return profileId === 'native-agent/1' ||
+    profileId === 'native-agent/2' ||
+    profileId === 'shared-vm-agent/4' ||
+    profileId === 'shared-vm-agent/3' ||
+    profileId === 'shared-vm-agent/2' ||
+    profileId === 'shared-vm-agent/1'
+    ? 'native_unverified'
+    : 'fixture_only'
+}
+
+type QuestionContent =
+  | Pick<ProcessingQuestionV1Dto, 'subject_id' | 'spec' | 'fields' | 'assumption'>
+  | Pick<
+      ProcessingQuestionV2Dto,
+      'subject_id' | 'schema_version' | 'fields' | 'title' | 'reason' | 'steps' | 'figures'
+    >
+
+/**
+ * Each question's content once, in its version's shape. Session questions also carry the fields
+ * they affect and their assumptions; an earlier runner question has neither.
+ */
+function questionContent(
+  question: RetainedQuestionSeal & { id: string },
+  subjectId: string | null,
+  batchSubjects: ReadonlySet<string>,
+  figureStates: FigureStates,
+): QuestionContent {
+  if (!isSessionMessage(question)) {
+    const spec = retainedQuestionSpec(
+      question,
+      subjectId ?? fail('retained_question_binding_invalid'),
+    )
+    return {
+      subject_id: spec.subject_id,
+      spec: { kind: spec.kind, prompt: spec.prompt, reason: spec.reason },
+    }
+  }
+  const ask = retainedSessionQuestion(question, subjectId, batchSubjects)
+  // Only the lead session may ask about the whole batch.
+  const askedSubject =
+    ask.subject_id ?? (subjectId === null ? null : fail('retained_question_binding_invalid'))
+  if ('steps' in ask) {
+    return {
+      subject_id: askedSubject,
+      schema_version: ask.schema_version,
+      fields: ask.fields,
+      ...(ask.title ? { title: ask.title } : {}),
+      reason: ask.reason,
+      steps: ask.steps,
+      ...(ask.figures ? { figures: shownFigures(question.id, ask.figures, figureStates) } : {}),
+    }
+  }
+  return {
+    subject_id: askedSubject,
+    spec: { kind: ask.kind, prompt: ask.prompt, reason: ask.reason },
+    fields: ask.fields,
+    assumption: ask.assumption,
+  }
+}
+
+/** A question's figures with each one's render state and the page it shows. */
+function shownFigures(
+  questionId: string,
+  figures: QuestionFigureDto[],
+  states: FigureStates,
+): ProcessingQuestionFigureDto[] {
+  return figures.map((figure, index) => {
+    const state = states.get(questionId)?.get(index + 1)
+    if (!state) {
+      fail('retained_question_figure_missing')
+    }
+    return { ...figure, ...state! }
+  })
+}
+
+function configuredRunnerStatus(
+  configured: boolean,
+  config: ProcessingConfig,
+): ProcessingSnapshotDto['runner_status'] {
+  if (!configured) {
+    return 'unconfigured'
+  }
+  return config.profileId === 'native-agent/1' ||
+    config.profileId === 'native-agent/2' ||
+    config.profileId === 'shared-vm-agent/4' ||
+    config.profileId === 'shared-vm-agent/3' ||
+    config.profileId === 'shared-vm-agent/1'
+    ? 'native_unverified'
+    : 'fixture_only'
+}
+
+type Currentness = NonNullable<ProcessingJobDto['proposals'][number]['currentness']>
+
+/** A session proposal's staleness and the open questions that make it provisional. */
+export interface ProposalCurrentnessFacts {
+  stale: Extract<Currentness, { state: 'stale' }>['reason'] | null
+  /** Open questions of current attempts on the same subject sharing one of its fields. */
+  provisionalQuestionIds: string[]
+}
+
+/**
+ * Each session proposal's currentness facts, in one bounded query per batch, for every proposal
+ * or only the named ones: stale when a relied-on source changed, provisional while an open
+ * question of a current attempt shares one of its fields and its subject.
+ */
+export async function proposalCurrentnessFacts(
+  client: PoolClient,
+  batchId: string,
+  proposalIds?: readonly string[],
+) {
+  const rows = await client.query<{
+    id: string
+    stale: ProposalCurrentnessFacts['stale']
+    provisional_question_ids: string[]
+  }>(
+    `SELECT p.id, s.reason AS stale,
+       ARRAY(
+         SELECT q.id FROM public.processing_question q JOIN public.processing_job qj ON qj.id=q.job_id
+         WHERE q.batch_id=$1 AND q.state='open' AND q.attempt_id=qj.current_attempt_id
+           AND (convert_from(q.spec_bytes,'UTF8')::jsonb->'fields')
+               ?| ARRAY(SELECT jsonb_array_elements_text(p.relies_on->'fields'))
+           AND COALESCE((convert_from(q.spec_bytes,'UTF8')::jsonb->>'subject_id')::uuid, qj.subject_id)
+               = COALESCE(j.subject_id, (convert_from(p.value_bytes,'UTF8')::jsonb->>'subject_id')::uuid)
+         ORDER BY q.id
+       ) AS provisional_question_ids
+     FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_job j ON j.id=a.job_id
+     LEFT JOIN public.processing_proposal_stale s ON s.proposal_id=p.id
+     WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL
+       AND ($2::uuid[] IS NULL OR p.id = ANY($2::uuid[]))`,
+    [batchId, proposalIds ? [...proposalIds] : null],
+  )
+  // An identity whose basis no longer holds reads as stale, whether or not a stale row says so.
+  const broken = await onBrokenBasis(client, { batchId, proposalIds })
+  return new Map<string, ProposalCurrentnessFacts>(
+    rows.rows.map((row) => [
+      row.id,
+      {
+        stale: row.stale ?? (broken.has(row.id) ? 'source_superseded' : null),
+        provisionalQuestionIds: row.provisional_question_ids,
+      },
+    ]),
+  )
+}
+
+/** Each session proposal's currentness as the snapshot shows it; stale takes precedence. */
+async function proposalCurrentness(client: PoolClient, batchId: string) {
+  const facts = await proposalCurrentnessFacts(client, batchId)
+  return new Map<string, Currentness>([...facts].map(([id, fact]) => [id, currentnessOf(fact)]))
+}
+
+function currentnessOf(fact: ProposalCurrentnessFacts): Currentness {
+  if (fact.stale) {
+    return { state: 'stale', reason: fact.stale }
+  }
+  return fact.provisionalQuestionIds.length ? { state: 'provisional' } : { state: 'current' }
+}

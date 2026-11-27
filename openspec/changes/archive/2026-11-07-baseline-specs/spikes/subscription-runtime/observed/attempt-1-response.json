@@ -1,0 +1,13 @@
+{
+  "question": "What is the counted current quantity of pieces in lot B (batch SPIKE-B)?",
+  "observations": [
+    "evidence/packet-a.png: 100 ohm, 5 percent resistor; quantity 10 pieces; batch SPIKE-A.",
+    "evidence/packet-b.png: 100 ohm, 5 percent resistor; label says '~20 left; count needed'; batch SPIKE-B.",
+    "evidence/receipt.pdf: 30 pieces originally ordered, split as A: 10 and B: 20; packet B has been opened.",
+    "Lot B's current quantity is unresolved; resistor illustrations are not unit counts.",
+    "Both physical lots share Part resistor-100r but must remain separate as lot-a and lot-b.",
+    "Manufacturer and MPN are unknown; DEMO-R100 is not established as an MPN.",
+    "No human count is recorded. Original evidence remains unchanged; no approval or inventory effects."
+  ],
+  "stock": null
+}

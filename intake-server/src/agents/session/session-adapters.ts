@@ -1,0 +1,646 @@
+import { NativeSessionError, providerError } from '#/agents/failure-model.ts'
+import { randomUUID } from 'node:crypto'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import type { AgentEffortDto, AgentSelectionDto } from '@invimport/contracts'
+import { AgentChild, DEFAULT_LIMITS, record, TOOL_SESSION_LIMITS } from '#/agents/child.ts'
+import type { NativeAgentHost } from '#/agents/environment.ts'
+import { admitClaudeSession } from './claude-session-admission.ts'
+import { CODEX_CONFIG, rejectHostCustomizations } from '#/agents/codex.ts'
+import {
+  hasAdmission,
+  rememberAdmission,
+  GUEST_SHELL_PROXY,
+  requireCodexSessionConfig,
+  requireCodexSessionVersion,
+  requireClaudeSessionVersion,
+  requireClaudeSessionConfig,
+} from './session-admission.ts'
+
+/** The MCP server name both providers see; tool names are `mcp__intake__<tool>`. */
+export const SESSION_MCP_SERVER = 'intake'
+export const SESSION_CAPABILITY_VARIABLE = 'INTAKE_TOOL_CAPABILITY'
+const DELIVERY_POLL_MS = 500
+
+export interface SessionTurn {
+  onCliVersion?: (version: string) => void
+  instructions: string
+  text: string
+  /** The provider conversation to resume; omitted for a fresh session. */
+  resume?: string
+  toolUrl: string
+  capability: string
+  tools: readonly string[]
+  /** Pending operator items to put into the running turn, as text. */
+  nextDelivery: () => Promise<{ text: string; seq: bigint } | undefined>
+  /** Called for each item the CLI accepted into the running turn. */
+  onDelivered: (seq: bigint) => void
+  onStarted: (started: { providerSessionId: string; actualModel: string }) => Promise<void>
+  /**
+   * Called once the sealed effort has reached the CLI with this turn: for Claude when the
+   * opening is written to a process started with `--effort`, for Codex when a `turn/start`
+   * carrying it is written. Never called for a turn on Default.
+   */
+  onEffortSent: (effort: AgentEffortDto) => Promise<void>
+}
+
+export class SessionResumeUnavailable extends NativeSessionError {
+  constructor() {
+    super('resume_unavailable')
+  }
+}
+
+/**
+ * The turn found no free runner connection although its route has one: it sent nothing, so the
+ * session goes back to the queue. Not a `NativeSessionError`, so it is never retained as a failure.
+ */
+export class SessionCapacityUnavailable extends Error {
+  constructor() {
+    super('session_capacity_unavailable')
+  }
+}
+
+/**
+ * Polls for operator items while a turn runs; stops when the turn ends or the signal aborts. A
+ * failure is handed to `fail` at once, which aborts the turn so the child is reaped first.
+ */
+function deliveryLoop(
+  turn: SessionTurn,
+  deliver: (text: string) => Promise<boolean>,
+  signal: AbortSignal,
+  fail: (error: unknown) => void,
+) {
+  let stopped = false
+
+  let release: () => void = () => {}
+
+  const stopping = new Promise<false>((resolve) => (release = () => resolve(false)))
+  const done = (async () => {
+    try {
+      while (!stopped && !signal.aborted) {
+        const item = await turn.nextDelivery()
+        if (item !== undefined && !stopped) {
+          // A reply that never comes (the turn ended first) counts as not delivered.
+          if (await Promise.race([deliver(item.text), stopping])) {
+            turn.onDelivered(item.seq)
+          }
+          continue
+        }
+        await new Promise((resolve) => setTimeout(resolve, DELIVERY_POLL_MS))
+      }
+    } catch (error) {
+      fail(error)
+    }
+  })()
+  return async () => {
+    stopped = true
+    release()
+    await done.catch(() => undefined)
+  }
+}
+
+/** A guest tool session's built-in Claude tools; host sessions get none. */
+const GUEST_CLAUDE_TOOLS = [
+  'Bash',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'WebSearch',
+  'WebFetch',
+]
+
+/** Claude Code: app tools only, persistence on for resume, stdin stream-JSON for in-turn input. */
+export async function runClaudeSession(
+  host: NativeAgentHost,
+  selection: AgentSelectionDto,
+  turn: SessionTurn,
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  signal: AbortSignal,
+) {
+  if (turn.resume && !(await hasAdmission(cwd, selection, turn.resume))) {
+    throw new SessionResumeUnavailable()
+  }
+  await requireClaudeSessionVersion(host.claudeExecutable, cwd, env, signal, turn.onCliVersion)
+  const builtins = host.guestTools ? GUEST_CLAUDE_TOOLS : []
+  const mcpConfig = join(cwd, 'mcp.json')
+  // The file names the variable, never the capability; the CLI expands it from the environment.
+  await writeFile(
+    mcpConfig,
+    JSON.stringify({
+      mcpServers: {
+        [SESSION_MCP_SERVER]: {
+          type: 'http',
+          url: turn.toolUrl,
+          headers: { Authorization: `Bearer \${${SESSION_CAPABILITY_VARIABLE}}` },
+        },
+      },
+    }),
+    { mode: 0o600 },
+  )
+  const sessionId = turn.resume ?? randomUUID()
+  const args = [
+    '-p',
+    '--input-format',
+    'stream-json',
+    '--output-format',
+    'stream-json',
+    '--verbose',
+    '--tools',
+    builtins.join(','),
+    '--disable-slash-commands',
+    '--disallowedTools',
+    'advisor',
+    '--strict-mcp-config',
+    '--mcp-config',
+    mcpConfig,
+    '--setting-sources',
+    '',
+    '--allowedTools',
+    [`mcp__${SESSION_MCP_SERVER}__*`, ...builtins].join(','),
+    '--model',
+    selection.model,
+    ...(selection.effort === undefined ? [] : ['--effort', selection.effort]),
+    '--system-prompt',
+    turn.instructions,
+    ...(turn.resume ? ['--resume', turn.resume] : ['--session-id', sessionId]),
+  ]
+  if (selection.authentication === 'api_key') {
+    args.push('--bare')
+  }
+  const local = new AbortController()
+  let deliveryFailure = false
+
+  const failDelivery = () => {
+    deliveryFailure = true
+    local.abort()
+  }
+
+  const turnSignal = AbortSignal.any([signal, local.signal])
+  const child = new AgentChild(
+    host.claudeExecutable,
+    args,
+    cwd,
+    { ...env, [SESSION_CAPABILITY_VARIABLE]: turn.capability },
+    turnSignal,
+    'lines',
+    host.guestTools ? TOOL_SESSION_LIMITS : DEFAULT_LIMITS,
+  )
+  const expectedTools = [
+    ...builtins,
+    ...turn.tools.map((tool) => `mcp__${SESSION_MCP_SERVER}__${tool}`),
+  ].sort()
+
+  const userMessage = (text: string) => ({
+    type: 'user',
+    message: { role: 'user', content: [{ type: 'text', text }] },
+  })
+
+  let stopDelivery: (() => Promise<void>) | undefined
+  let initialized = false
+  let assistantError: unknown
+  try {
+    await admitClaudeSession(child, turn.tools, turnSignal)
+    await child.send(userMessage(turn.text))
+    if (selection.effort !== undefined) {
+      await turn.onEffortSent(selection.effort)
+    }
+    let finished = false
+    while (true) {
+      signal.throwIfAborted()
+      const value = await child.next()
+      if (value === undefined) {
+        break
+      }
+      const message = record(value)
+      if (message.type === 'system' && message.subtype === 'init') {
+        requireClaudeSessionConfig(message)
+        const tools = Array.isArray(message.tools) ? [...message.tools].sort() : []
+        const servers = Array.isArray(message.mcp_servers) ? message.mcp_servers.map(record) : []
+        const onlyAppTools =
+          JSON.stringify(tools) === JSON.stringify(expectedTools) &&
+          servers.length === 1 &&
+          servers[0].name === SESSION_MCP_SERVER &&
+          servers[0].status === 'connected'
+        if (initialized || message.session_id !== sessionId || typeof message.model !== 'string') {
+          throw new NativeSessionError('agent_protocol_invalid')
+        }
+        if (!onlyAppTools) {
+          throw new NativeSessionError('agent_tool_refused')
+        }
+        if (typeof message.claude_code_version === 'string') {
+          turn.onCliVersion?.(message.claude_code_version)
+        }
+        initialized = true
+        await rememberAdmission(cwd, selection, sessionId)
+        await turn.onStarted({ providerSessionId: sessionId, actualModel: message.model })
+        stopDelivery = deliveryLoop(
+          turn,
+          async (text) => {
+            await child.send(userMessage(text))
+            return true
+          },
+          turnSignal,
+          failDelivery,
+        )
+      }
+      if (
+        message.type === 'assistant' &&
+        message.error === 'authentication_failed' &&
+        host.guestClaudeToken
+      ) {
+        throw new NativeSessionError('agent_login_required', {
+          providerError: providerError('claude', { kind: message.error }),
+        })
+      }
+      if (message.type === 'assistant' && message.error !== undefined) {
+        // Kept to name why the turn fails; only a listed kind is ever retained.
+        assistantError = message.error
+      }
+      if (message.type === 'assistant') {
+        const content = record(message.message).content
+        if (!Array.isArray(content)) {
+          throw new NativeSessionError('agent_protocol_invalid')
+        }
+        for (const block of content.map(record)) {
+          const appTool =
+            block.type === 'tool_use' &&
+            typeof block.name === 'string' &&
+            expectedTools.includes(block.name)
+          if (!appTool && !['text', 'thinking', 'redacted_thinking'].includes(String(block.type))) {
+            throw new NativeSessionError('agent_tool_refused')
+          }
+        }
+      }
+      if (message.type === 'result') {
+        if (!initialized || message.session_id !== sessionId) {
+          throw new NativeSessionError('agent_protocol_invalid')
+        }
+        if (message.is_error !== false || message.subtype !== 'success') {
+          throw new NativeSessionError('agent_turn_failed', {
+            providerError: providerError('claude', {
+              kind: assistantError,
+              result: message.subtype,
+              httpStatus: message.api_error_status,
+            }),
+          })
+        }
+        finished = true
+        await stopDelivery?.()
+        child.endInput()
+      }
+    }
+    if (!initialized && turn.resume) {
+      throw new SessionResumeUnavailable()
+    }
+    if (!finished) {
+      throw new NativeSessionError('agent_result_missing')
+    }
+  } catch (error) {
+    if (deliveryFailure) {
+      throw new NativeSessionError('agent_delivery_failed')
+    }
+    // A resume the CLI cannot honour exits before init, for example with a missing transcript.
+    const exitedBeforeInit = error instanceof Error && error.message === 'agent_process_failed'
+    if (!initialized && turn.resume && exitedBeforeInit) {
+      throw new SessionResumeUnavailable()
+    }
+    throw error
+  } finally {
+    await stopDelivery?.()
+    await child.close()
+  }
+}
+
+/** Qualified `/2` settings; `/1` retains its independent compatibility policy. */
+const CODEX_SESSION_CONFIG: Record<string, unknown> = {
+  ...CODEX_CONFIG,
+  'features.goals': false,
+  'features.code_mode.enabled': false,
+  'skills.include_instructions': false,
+}
+
+/** Codex app-server: one MCP server, pre-approved app tools, persisted threads and in-turn steer. */
+export async function runCodexSession(
+  host: NativeAgentHost,
+  selection: AgentSelectionDto,
+  turn: SessionTurn,
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  signal: AbortSignal,
+) {
+  if (turn.resume && !(await hasAdmission(cwd, selection, turn.resume))) {
+    throw new SessionResumeUnavailable()
+  }
+  // The same dedicated-home preflight as `/1`, before any child starts.
+  await rejectHostCustomizations(env.CODEX_HOME!)
+  const args = ['app-server', '--strict-config', '--listen', 'stdio://']
+  const config = {
+    ...CODEX_SESSION_CONFIG,
+    ...(host.guestTools
+      ? {
+          sandbox_mode: 'danger-full-access',
+          'features.shell_tool': true,
+          'features.view_image': true,
+          web_search: 'live',
+          ...Object.fromEntries(
+            Object.entries(GUEST_SHELL_PROXY).map(([name, value]) => [
+              `shell_environment_policy.set.${name}`,
+              value,
+            ]),
+          ),
+        }
+      : {}),
+    forced_login_method: selection.authentication === 'subscription' ? 'chatgpt' : 'api',
+  }
+  for (const [key, value] of Object.entries(config)) {
+    args.push('-c', `${key}=${JSON.stringify(value)}`)
+  }
+  args.push(
+    '-c',
+    `mcp_servers.${SESSION_MCP_SERVER}={url=${JSON.stringify(turn.toolUrl)},bearer_token_env_var="${SESSION_CAPABILITY_VARIABLE}",default_tools_approval_mode="approve"}`,
+  )
+  if (selection.authentication === 'api_key') {
+    args.push(
+      '-c',
+      'model_provider="bench_openai"',
+      '-c',
+      'model_providers.bench_openai={name="Bench OpenAI",base_url="https://api.openai.com/v1",env_key="OPENAI_API_KEY",wire_api="responses",requires_openai_auth=false}',
+    )
+  }
+  const local = new AbortController()
+  let deliveryFailure = false
+
+  const failDelivery = () => {
+    deliveryFailure = true
+    local.abort()
+  }
+
+  const turnSignal = AbortSignal.any([signal, local.signal])
+  const child = new AgentChild(
+    host.guestCodexSubscription ? 'flock' : host.codexExecutable,
+    host.guestCodexSubscription
+      ? ['-s', '-n', '-F', '/run/codex-state/use.lock', host.codexExecutable, ...args]
+      : args,
+    cwd,
+    { ...env, [SESSION_CAPABILITY_VARIABLE]: turn.capability },
+    turnSignal,
+  )
+  let sequence = 0
+  const pending = new Map<number, (message: Record<string, unknown>) => void>()
+  const notifications: Record<string, unknown>[] = []
+
+  /** Writes a request; `replied` settles when the reader routes its reply. */
+  const write = async (method: string, params: unknown) => {
+    const id = ++sequence
+    const replied = new Promise<Record<string, unknown>>((resolve) => pending.set(id, resolve))
+    await child.send({ id, method, params })
+    return { replied }
+  }
+
+  const send = async (method: string, params: unknown) => (await write(method, params)).replied
+
+  /** The single reader: routes responses to their requests and keeps notifications in order. */
+  const pump = async () => {
+    const value = await child.next()
+    if (value === undefined) {
+      return false
+    }
+    const message = record(value)
+    if ('method' in message && 'id' in message) {
+      throw new NativeSessionError('agent_tool_refused')
+    }
+    if (message.method === 'item/started' || message.method === 'item/completed') {
+      requireAppItem(record(record(message.params).item), turn.tools, host.guestTools)
+    }
+    if ('id' in message) {
+      const resolve = pending.get(Number(message.id))
+      if (!resolve) {
+        throw new NativeSessionError('agent_protocol_invalid')
+      }
+      pending.delete(Number(message.id))
+      resolve(message)
+    } else {
+      notifications.push(message)
+    }
+    return true
+  }
+
+  /** Reads until the reply to a written request arrives, and returns its result. */
+  const result = async (replied: Promise<Record<string, unknown>>) => {
+    let reply: Record<string, unknown> | undefined
+    void replied.then((value) => (reply = value))
+    while (!reply) {
+      signal.throwIfAborted()
+      if (!(await pump())) {
+        throw new NativeSessionError('agent_protocol_invalid')
+      }
+      await Promise.resolve()
+    }
+    if ('error' in reply) {
+      throw new NativeSessionError('agent_request_refused')
+    }
+    return record(reply.result)
+  }
+
+  const request = async (method: string, params: unknown) =>
+    result((await write(method, params)).replied)
+
+  let stopDelivery: (() => Promise<void>) | undefined
+  try {
+    const initialized = await request('initialize', {
+      clientInfo: { name: 'bench_intake', version: '1' },
+      capabilities: { experimentalApi: true },
+    })
+    const version =
+      typeof initialized.userAgent === 'string'
+        ? /^bench_intake\/(\d+\.\d+\.\d+)(?: |$)/.exec(initialized.userAgent)?.[1]
+        : undefined
+    if (version) {
+      turn.onCliVersion?.(version)
+    }
+    requireCodexSessionVersion(initialized.userAgent)
+    await child.send({ method: 'initialized' })
+    if (selection.authentication === 'subscription') {
+      const account = await request('account/read', { refreshToken: false })
+      if (!account.account || record(account.account).type !== 'chatgpt') {
+        throw new NativeSessionError('agent_login_required')
+      }
+    }
+    let thread: Record<string, unknown>
+    try {
+      thread = turn.resume
+        ? await request('thread/resume', { threadId: turn.resume, cwd, excludeTurns: true })
+        : await request('thread/start', {
+            model: selection.model,
+            cwd,
+            ephemeral: false,
+            approvalPolicy: 'never',
+            sandbox: host.guestTools ? 'danger-full-access' : 'read-only',
+            baseInstructions: turn.instructions,
+          })
+    } catch (error) {
+      if (turn.resume && String((error as Error).message).startsWith('agent_request_refused')) {
+        throw new SessionResumeUnavailable()
+      }
+      throw error
+    }
+    const threadId = record(thread.thread).id
+    if (typeof threadId !== 'string' || typeof thread.model !== 'string') {
+      throw new NativeSessionError('agent_protocol_invalid')
+    }
+    // The effective policy, as for earlier profiles: no approvals, read-only, the chosen provider.
+    if (
+      thread.approvalPolicy !== 'never' ||
+      record(thread.sandbox).type !== (host.guestTools ? 'dangerFullAccess' : 'readOnly') ||
+      thread.modelProvider !== (selection.authentication === 'api_key' ? 'bench_openai' : 'openai')
+    ) {
+      throw new NativeSessionError('agent_policy_refused')
+    }
+    const effective = record((await request('config/read', { includeLayers: false, cwd })).config)
+    requireCodexSessionConfig(effective, host.guestTools)
+    const servers = Object.keys(record(effective.mcp_servers ?? {}))
+    const status = await request('mcpServerStatus/list', {})
+    const listed = Array.isArray(status.data) ? status.data.map(record) : []
+    const intake = listed.find((server) => server.name === SESSION_MCP_SERVER)
+    const tools = Object.keys(record(intake?.tools ?? {})).sort()
+    if (
+      servers.length !== 1 ||
+      servers[0] !== SESSION_MCP_SERVER ||
+      listed.length !== 1 ||
+      JSON.stringify(tools) !== JSON.stringify([...turn.tools].sort())
+    ) {
+      throw new NativeSessionError('agent_tool_refused')
+    }
+    if (turn.resume && threadId !== turn.resume) {
+      throw new SessionResumeUnavailable()
+    }
+    await rememberAdmission(cwd, selection, threadId)
+    await turn.onStarted({ providerSessionId: threadId, actualModel: thread.model })
+    // Sent on every turn, a resumed thread's included: the CLI otherwise keeps the thread's last
+    // override or the user's configured default.
+    const turnStart = await write('turn/start', {
+      threadId,
+      input: [{ type: 'text', text: turn.text, text_elements: [] }],
+      ...(selection.effort === undefined ? {} : { effort: selection.effort }),
+    })
+    if (selection.effort !== undefined) {
+      await turn.onEffortSent(selection.effort)
+    }
+    const started = await result(turnStart.replied)
+    const turnId = record(started.turn).id
+    if (typeof turnId !== 'string') {
+      throw new NativeSessionError('agent_protocol_invalid')
+    }
+    // A steer that misses the active turn leaves the item pending for read_inbox or resume.
+    stopDelivery = deliveryLoop(
+      turn,
+      async (text) => {
+        // A refused steer leaves the item for read_inbox or a resume; a failed write aborts the turn.
+        const reply = await send('turn/steer', {
+          threadId,
+          expectedTurnId: turnId,
+          input: [{ type: 'text', text, text_elements: [] }],
+        })
+        return !('error' in reply)
+      },
+      turnSignal,
+      failDelivery,
+    )
+    while (true) {
+      turnSignal.throwIfAborted()
+      const completed = notifications.find((item) => item.method === 'turn/completed')
+      if (completed) {
+        const ended = record(record(completed.params).turn)
+        if (ended.status !== 'completed') {
+          throw new NativeSessionError('agent_turn_failed', {
+            providerError: codexTurnError(ended.error),
+          })
+        }
+        break
+      }
+      // A retried error is not the end of the turn; the turn's own completion says how it ended.
+      const failure = notifications.find(
+        (item) => item.method === 'error' && record(item.params).willRetry !== true,
+      )
+      if (failure) {
+        throw new NativeSessionError('agent_turn_failed', {
+          providerError: codexTurnError(record(failure.params).error),
+        })
+      }
+      if (!(await pump())) {
+        throw new NativeSessionError('agent_result_missing')
+      }
+    }
+  } catch (error) {
+    if (deliveryFailure) {
+      throw new NativeSessionError('agent_delivery_failed')
+    }
+    throw error
+  } finally {
+    await stopDelivery?.()
+    child.endInput()
+    await child.close()
+  }
+}
+
+/** Item types an app-tools session can produce; anything else, such as a command, is refused. */
+const SESSION_ITEM_TYPES = new Set([
+  'userMessage',
+  'agentMessage',
+  'reasoning',
+  'contextCompaction',
+])
+
+function requireAppItem(
+  item: Record<string, unknown>,
+  tools: readonly string[],
+  guestTools = false,
+) {
+  if (
+    guestTools &&
+    ['commandExecution', 'fileChange', 'imageView', 'webSearch'].includes(String(item.type))
+  ) {
+    return
+  }
+  if (SESSION_ITEM_TYPES.has(String(item.type))) {
+    return
+  }
+  const appCall =
+    item.type === 'mcpToolCall' &&
+    item.server === SESSION_MCP_SERVER &&
+    typeof item.tool === 'string' &&
+    tools.includes(item.tool)
+  if (!appCall) {
+    throw new NativeSessionError('agent_tool_refused')
+  }
+}
+
+/**
+ * A Codex `TurnError`'s kind: `codexErrorInfo` is a string, or an object with one key whose
+ * value may carry `httpStatusCode`. Its message is never read.
+ */
+function codexTurnError(error: unknown) {
+  const info =
+    error && typeof error === 'object'
+      ? (error as Record<string, unknown>).codexErrorInfo
+      : undefined
+  if (typeof info === 'string') {
+    return providerError('codex', { kind: info })
+  }
+  if (info && typeof info === 'object' && !Array.isArray(info)) {
+    const keys = Object.keys(info)
+    const detail = keys.length === 1 ? (info as Record<string, unknown>)[keys[0]!] : undefined
+    const status =
+      detail && typeof detail === 'object'
+        ? (detail as Record<string, unknown>).httpStatusCode
+        : undefined
+    return providerError('codex', {
+      kind: keys.length === 1 ? keys[0] : undefined,
+      httpStatus: status,
+    })
+  }
+  return providerError('codex', {})
+}

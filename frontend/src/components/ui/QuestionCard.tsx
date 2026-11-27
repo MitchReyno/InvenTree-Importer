@@ -1,0 +1,149 @@
+import type { ReactNode } from 'react'
+import styled from 'styled-components'
+import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
+
+export type Closeup = { label: string; image: string }
+
+type QuestionCardProps = {
+  /** A line above the question, such as a stepped question's title and "Step 2 of 3". */
+  context?: ReactNode
+  question: string
+  why: string
+  /** The assumption the agent is working with until the operator answers. */
+  assumption?: string
+  closeups?: Closeup[]
+  /** The agent's pictures, first in the card's body. */
+  pictures?: ReactNode
+  answer: ReactNode
+  secondary?: ReactNode
+}
+
+export function QuestionCard({
+  context,
+  question,
+  why,
+  assumption,
+  closeups = [],
+  pictures,
+  answer,
+  secondary,
+}: QuestionCardProps) {
+  return (
+    <Card>
+      <Question>
+        {context && <Context>{context}</Context>}
+        <Icon aria-hidden="true">?</Icon>
+        <Prompt>{question}</Prompt>
+      </Question>
+      <Why>{why}</Why>
+      <Body>
+        {pictures}
+        {closeups.length > 0 && (
+          <Closeups>
+            {closeups.map((closeup) => (
+              <figure key={closeup.label}>
+                <img src={closeup.image} alt={closeup.label} />
+                <figcaption aria-hidden="true">{closeup.label}</figcaption>
+              </figure>
+            ))}
+          </Closeups>
+        )}
+        {assumption && <Assumption>{assumption}</Assumption>}
+        {answer}
+        {secondary}
+      </Body>
+    </Card>
+  )
+}
+
+const Card = styled.fieldset`
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  /* Agent text can hold a long unbroken word, such as a URL; it wraps rather than being clipped. */
+  overflow-wrap: anywhere;
+  border: 1px solid ${color.warn};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+`
+
+const Icon = styled.span`
+  font-weight: 700;
+  color: ${color.warn};
+`
+
+const Question = styled.legend`
+  float: left;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: ${space[4]};
+  width: 100%;
+  padding: ${space[5]} ${space[7]} ${space[2]};
+  background: ${color.warnWeak};
+  ${type.h3}
+`
+
+const Prompt = styled.span`
+  flex: 1 1 0;
+  min-width: 0;
+`
+
+const Context = styled.span`
+  flex: 1 0 100%;
+  font-weight: ${typeVar.small.weight};
+  font-size: ${typeVar.small.size};
+`
+
+const Why = styled.p`
+  clear: both;
+  margin: 0;
+  padding: 0 ${space[7]} ${space[5]} calc(${space[7]} + 18px);
+  background: ${color.warnWeak};
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+`
+
+const Body = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[6]};
+  padding: ${space[6]} ${space[7]};
+`
+
+const Closeups = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: ${space[4]};
+  figure {
+    position: relative;
+    margin: 0;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border: 1px solid ${color.line};
+    border-radius: ${radius.input};
+    background: ${color.photoStage};
+  }
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  figcaption {
+    position: absolute;
+    left: ${space[2]};
+    bottom: ${space[2]};
+    padding: 1px ${space[3]};
+    border-radius: ${radius.sm};
+    background: ${color.photoScrim};
+    color: ${color.photoFg};
+    font-size: ${typeVar.label.size};
+  }
+`
+
+const Assumption = styled.p`
+  margin: 0;
+  font-size: ${typeVar.small.size};
+`

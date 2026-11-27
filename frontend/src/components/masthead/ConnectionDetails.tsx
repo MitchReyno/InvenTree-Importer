@@ -1,0 +1,202 @@
+import type { ReactNode } from 'react'
+import styled from 'styled-components'
+import type { ConnectionStatusDto } from '@invimport/contracts'
+import { color, space, typeVar } from '#/theme/generated/tokens'
+import { LIVE_UPDATE_FRESH_MS } from '#/components/operations/LiveUpdates'
+import { Button, DebugDetails, EventTime, eventTimeText, KeyValue } from '#/components/ui'
+import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
+import { IntakeConnectionLabel } from './IntakeConnectionLabel'
+import { targetStatus } from '#/header/observations'
+import { DevBadge } from './DevBadge'
+import { type UpdateHealth } from '#/context'
+
+interface Props {
+  target?: ConnectionStatusDto['target']
+  apiUnavailable: boolean
+  apiChecked: number
+  now: number
+  health: UpdateHealth
+  /** The Open InvenTree link, or the reason there is none. */
+  inventree: ReactNode
+  /** Check connection now. */
+  check: ReactNode
+}
+
+/** Where to fix a refused read token, by which token the server used. */
+function refusedToken(source: string | undefined) {
+  if (source === 'saved') {
+    return 'InvenTree refused the token saved in Settings › InvenTree. Replace it there.'
+  }
+  if (source === 'environment') {
+    return 'InvenTree refused the read token from the server’s environment.'
+  }
+  return 'InvenTree refused the read token.'
+}
+
+/** A check's instant as an ISO string, or null when it is unreadable. */
+function checkInstant(at: string | number) {
+  const time = typeof at === 'number' ? at : Date.parse(at)
+  return Number.isFinite(time) ? new Date(time).toISOString() : null
+}
+
+/** A check's time in the one event-time format, which says which day it was. */
+function checkTime(at: string | number, now: number) {
+  const instant = checkInstant(at)
+  return (instant && eventTimeText(instant, now)) ?? 'Unknown time'
+}
+
+/** The server menu: host, last check and the Dev badge, then its actions; diagnostics show in debug mode. */
+export function ConnectionDetails({
+  target,
+  apiUnavailable,
+  apiChecked,
+  now,
+  health,
+  inventree,
+  check,
+}: Props) {
+  const apiFresh = apiChecked > 0 && timestampFresh(apiChecked, now)
+  // The check instants as ISO strings, shown as event times with the full instant on hover.
+  const apiCheckedAt = apiChecked ? checkInstant(apiChecked) : null
+  const transportObservedAt = health.observedAt === null ? null : checkInstant(health.observedAt)
+  const targetFresh =
+    target && target.freshness === 'fresh' && observationFresh(target.observed_at, now)
+  const transportObserved = health.observedAt !== null && Number.isFinite(health.observedAt)
+  const transportFresh =
+    health.observedAt !== null && timestampFresh(health.observedAt, now, LIVE_UPDATE_FRESH_MS)
+  let transport = 'Connecting live updates…'
+  if (health.state === 'live') {
+    if (!transportObserved) {
+      transport = 'Live-update health unknown; no frame observation'
+    } else if (!transportFresh) {
+      transport = 'Live-update observation stale; awaiting transport confirmation'
+    } else {
+      transport = 'Live updates connected'
+    }
+  }
+  if (health.state === 'polling') {
+    transport = 'Live updates unavailable; polling saved state'
+  }
+  if (health.state === 'update_required') {
+    transport = 'Application update required; preserve unsaved work before reloading'
+  }
+  let apiStatus = 'Application API not yet observed'
+  if (apiUnavailable) {
+    apiStatus = 'Application API unavailable'
+  } else if (apiFresh) {
+    apiStatus = 'Application API read available'
+  } else if (apiChecked) {
+    apiStatus = 'Application API observation stale'
+  }
+  let transportFreshness = 'Unknown'
+  if (transportObserved) {
+    transportFreshness = transportFresh ? 'Fresh' : 'Stale'
+  }
+  let targetObservation = 'Target not yet observed'
+  if (target?.observed_at) {
+    targetObservation = targetFresh ? 'Fresh target observation' : 'Stale target observation'
+  }
+  const navigation = safeTargetNavigation(target?.navigation_url)
+  const host = navigation ? new URL(navigation).hostname : (target?.label ?? 'No configured target')
+
+  return (
+    <Body>
+      <KeyValue
+        rows={[
+          {
+            label: 'Intake server',
+            value: 'Intake status',
+            content: <IntakeConnectionLabel scopeFailed={apiUnavailable} />,
+            state: 'plain' as const,
+          },
+          {
+            label: 'InvenTree server',
+            value: apiUnavailable
+              ? 'Current status unknown'
+              : targetStatus(target, false, now).short,
+            state: 'plain' as const,
+          },
+          { label: 'Host', value: host, state: 'plain' as const },
+          ...(target?.version
+            ? [{ label: 'Version', value: `InvenTree ${target.version}`, state: 'plain' as const }]
+            : []),
+          {
+            label: 'Last check',
+            value: target?.observed_at ? checkTime(target.observed_at, now) : 'Not yet checked',
+            content: target?.observed_at ? (
+              <EventTime at={target.observed_at} now={now} />
+            ) : undefined,
+            state: 'plain' as const,
+          },
+        ]}
+      />
+      {targetFresh && !apiUnavailable && target?.failure_code === 'unauthorized' && (
+        <Line>{refusedToken(target.credential_source)}</Line>
+      )}
+      {target?.kind === 'owned_test' && (
+        <Line>Approvals write only to this test InvenTree, never to a real one.</Line>
+      )}
+      {target?.kind === 'configured' && (
+        <Line>Approvals write to this InvenTree, your live inventory.</Line>
+      )}
+      <DevBadge />
+      <Actions aria-label="Server">
+        {inventree}
+        {check}
+        <Button as="a" variant="ghost" size="sm" href="#settings/inventree">
+          Server settings
+        </Button>
+      </Actions>
+      <DebugDetails label="Connection details">
+        <p>{apiStatus}</p>
+        <p>
+          Last API read:{' '}
+          {apiCheckedAt ? <EventTime at={apiCheckedAt} now={now} /> : 'Not yet checked'}
+        </p>
+        <p>{transport}</p>
+        <p>
+          Transport observation: {transportFreshness} ·{' '}
+          {transportObserved && transportObservedAt ? (
+            <EventTime at={transportObservedAt} now={now} />
+          ) : (
+            'Not yet observed'
+          )}
+          {health.truncated ? ' · update coverage partial; polling remains enabled' : ''}
+        </p>
+        <p>{target?.label ?? 'No configured target label'}</p>
+        <p>
+          {targetObservation} · {target?.state ?? 'unknown'}
+          {target?.failure_code ? ` · ${target.failure_code.replaceAll('_', ' ')}` : ''}
+        </p>
+        <p>
+          A reachable read does not establish complete permissions, inventory-write capability or
+          provider availability.
+        </p>
+      </DebugDetails>
+    </Body>
+  )
+}
+
+const Body = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: ${space[4]};
+  padding: ${space[5]};
+`
+
+const Line = styled.p`
+  margin: 0;
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+`
+
+const Actions = styled.nav`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: ${space[2]};
+  padding-top: ${space[4]};
+  border-top: 1px solid ${color.line};
+`

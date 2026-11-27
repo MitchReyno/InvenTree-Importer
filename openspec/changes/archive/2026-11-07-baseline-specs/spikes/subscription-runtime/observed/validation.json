@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "validation_report": "  warn  line lot-a: sku: supplier 'DEMO Supplier' has no sku, so no supplier part is created and the stock will not record where it came from - use the seller's catalogue number, or the part number if they have none\n  warn  line lot-b: sku: supplier 'DEMO Supplier' has no sku, so no supplier part is created and the stock will not record where it came from - use the seller's catalogue number, or the part number if they have none",
+  "proposal_sha256": "ecb0bd329d564581179ddf22ad7e9bfe92c7f7f2556fc9fa60924ea51fe4cfd5",
+  "keys": [
+    "invimport:SPIKE-TWO-LOTS-001:lot-a",
+    "invimport:SPIKE-TWO-LOTS-001:lot-b"
+  ]
+}

@@ -5,7 +5,7 @@ usage: build.py ann.tsv rows.json logos_dir out_dir
 Writes out_dir/pages/*.png (deleting whatever is there first), index.json,
 index.csv and index_table.md. From the repo root, rebuilding in place:
   D=.claude/skills/chip-logo-identification
-  uv run -q --with pillow python -I $D/scripts/build.py \
+  uv run --project backend -q --with pillow python -I $D/scripts/build.py \
       $D/data/annotations.tsv $D/data/rows.json $D/data/logos $D/data
 Index "file" paths are written as logos/<gif>, relative to out_dir, so out_dir
 should be the data/ folder that holds logos/. Fonts are macOS Arial."""

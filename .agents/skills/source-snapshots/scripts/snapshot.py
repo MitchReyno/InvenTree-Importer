@@ -18,7 +18,7 @@ attached to the part like any other file.
 
 From the command line (repo root; `requests` comes from the project env):
 
-    uv run python .claude/skills/source-snapshots/scripts/snapshot.py URL [-o OUT]
+    uv run --project backend python .claude/skills/source-snapshots/scripts/snapshot.py URL [-o OUT]
         [--dir DIR] [--render] [--from-html FILE] [--pdf] [--timeout SECS]
 
 The three ways of getting the page differ in what they can see. A plain fetch

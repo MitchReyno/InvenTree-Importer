@@ -1,0 +1,46 @@
+[
+  {
+    "protocol_version": "bench-intake-spike/1",
+    "type": "job.result",
+    "batch_id": "batch-two-lots",
+    "job_id": "research-resistor",
+    "attempt_id": "attempt-1",
+    "input_revision": "d74cc96d3869139e4c1293f2bc721e24ec09902882542be4997ae37572bddf34",
+    "sequence": 1,
+    "status": "waiting_for_login",
+    "reason_code": "subscription_login_required"
+  },
+  {
+    "protocol_version": "bench-intake-spike/1",
+    "type": "job.result",
+    "batch_id": "batch-two-lots",
+    "job_id": "research-resistor",
+    "attempt_id": "attempt-1",
+    "input_revision": "d74cc96d3869139e4c1293f2bc721e24ec09902882542be4997ae37572bddf34",
+    "sequence": 1,
+    "status": "waiting_for_capacity",
+    "reason_code": "subscription_limit_reached"
+  },
+  {
+    "protocol_version": "bench-intake-spike/1",
+    "type": "job.result",
+    "batch_id": "batch-two-lots",
+    "job_id": "research-resistor",
+    "attempt_id": "attempt-1",
+    "input_revision": "d74cc96d3869139e4c1293f2bc721e24ec09902882542be4997ae37572bddf34",
+    "sequence": 1,
+    "status": "interrupted",
+    "reason_code": "runner_stopped"
+  },
+  {
+    "protocol_version": "bench-intake-spike/1",
+    "type": "job.result",
+    "batch_id": "batch-two-lots",
+    "job_id": "research-resistor",
+    "attempt_id": "attempt-1",
+    "input_revision": "d74cc96d3869139e4c1293f2bc721e24ec09902882542be4997ae37572bddf34",
+    "sequence": 1,
+    "status": "failed",
+    "reason_code": "evidence_unreadable"
+  }
+]

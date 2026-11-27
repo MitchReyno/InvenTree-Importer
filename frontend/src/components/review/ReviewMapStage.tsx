@@ -1,0 +1,323 @@
+import { useState } from 'react'
+import { Banner, Button } from '#/components/ui'
+import { useQueryClient } from '@tanstack/react-query'
+import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
+import { freshReads } from '#/queries/fresh-reads'
+import { RestructureDialog } from '#/components/operator/RestructureDialog'
+import type { CaptureEdit } from '#/capture/types'
+
+import { ReviewMap } from './ReviewMap'
+import { TellExamine } from './TellExamine'
+import { useDirtySources } from '#/operator/useDirtySources'
+import { useApiClients, useServerScope, useBatchCommands, useReportRefreshing } from '#/context'
+
+type Props = {
+  batch: CaptureSnapshotDto
+  retiredLotIds: ReadonlySet<string>
+  predecessors?: ReadonlyMap<string, readonly string[]>
+  approvedLotIds?: ReadonlySet<string>
+  /** True while the latest operator review is unread, so added lots may not be known yet. */
+  restructureUnavailable?: boolean
+  onDirtyChange: (dirty: boolean) => void
+  /** Counts discards of the batch's local edits; an unsaved region draft is dropped on each. */
+  discarded?: number
+}
+
+/** A lot made from a file (then linked to it) or a region (then moved into it). */
+type LotSource = { kind: 'file'; evidenceId: string } | { kind: 'region'; observationId: string }
+type Unfinished = { from: LotSource; label: string; lotId: string; lotLabel: string }
+
+/** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
+export function ReviewMapStage({
+  batch,
+  retiredLotIds,
+  predecessors,
+  approvedLotIds = NO_LOTS,
+  restructureUnavailable = false,
+  onDirtyChange,
+  discarded,
+}: Props) {
+  const { edit, reload } = useBatchCommands()
+  const { media, operator } = useApiClients()
+  const drafts = useDirtySources(onDirtyChange)
+  const scope = useServerScope()
+  const queryClient = useQueryClient()
+  const key = serverQueryKey(scope, 'media', batch.id)
+  // The Map's edits need a read of its own: cached data, and the receipt an edit writes, never do.
+  const fresh = useFreshRead({
+    queryKey: key,
+    queryFn: () => media!.snapshot(batch.id),
+    enabled: Boolean(media),
+  })
+  const query = fresh.query
+  useReportRefreshing(fresh.phase === 'refreshing')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [unfinished, setUnfinished] = useState<Unfinished | null>(null)
+  const [restructure, setRestructure] = useState<{
+    kind: 'split' | 'merge' | 'move'
+    lotIds: string[]
+  } | null>(null)
+
+  /**
+   * Links or unlinks a file at the media revision in the cache now. The operator's own press needs
+   * the read the Map showed; the link that finishes a new lot was already checked when it started,
+   * and a read landing meanwhile must not leave the lot half made, so it needs only a current read.
+   */
+  async function link(evidenceId: string, lotId: string, linked: boolean, continuation = false) {
+    // Read at send time: a handler may run after its closure's media read was replaced.
+    const snapshot = queryClient.getQueryData<MediaSnapshotDto>(key) ?? query.data
+    const ready = continuation ? mediaReadCurrent() : fresh.commandsReadyNow()
+    if (!media || !snapshot || !ready) {
+      return false
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const next = await media.edit(
+        batch.id,
+        {
+          expected_revision: snapshot.revision,
+          change: { kind: 'link', evidence_id: evidenceId, subject_id: lotId, linked },
+        },
+        crypto.randomUUID(),
+      )
+      queryClient.setQueryData(key, next)
+      // The receipt is shown at once; reading it again verifies the Map's next edit.
+      void queryClient.invalidateQueries({ queryKey: key })
+      return true
+    } catch {
+      setError('The link could not be saved. Refresh and try again.')
+      void query.refetch()
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * The cache holds an HTTP read of the media, neither failed nor paused; a receipt written since
+   * does not count. It may be newer than the read the Map showed.
+   */
+  function mediaReadCurrent() {
+    const state = queryClient.getQueryState(key)
+    const adopted = freshReads(queryClient).adoptedOrder(key) !== undefined
+    return state?.status === 'success' && state.fetchStatus !== 'paused' && adopted
+  }
+
+  /** Makes a lot, then links its file or moves its region into it once the save is confirmed. */
+  async function newLot(from: LotSource, label: string, note: string) {
+    if (!fresh.commandsReadyNow()) {
+      return
+    }
+    const knownLotIds = batch.lots.map((lot) => lot.id)
+    setBusy(true)
+    setError('')
+    try {
+      // The batch edit reports failure as false rather than throwing.
+      const saved = await edit({ kind: 'add_lot', label, note, part_subject_id: null })
+      if (saved === false) {
+        return
+      }
+      // The server assigns the new lot's id, so it is found in the accepted snapshot.
+      const accepted = typeof saved === 'object' ? saved : undefined
+      const created = accepted?.lots.find(
+        (lot) => !knownLotIds.includes(lot.id) && lot.label === label,
+      )
+      if (!accepted || !created) {
+        setError(
+          from.kind === 'file'
+            ? 'The lot was made, but its file was not linked. Link it from the Map.'
+            : 'The lot was made, but its region was not moved. Move it from the Map.',
+        )
+        return
+      }
+      // This closure's batch predates the new lot, so the move names the accepted revision.
+      await finish(
+        { from, label, lotId: created.id, lotLabel: created.label },
+        accepted.revision,
+        true,
+      )
+    } catch {
+      setError('The lot could not be made. Refresh and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function newLotFrom(evidenceId: string, label: string) {
+    return newLot({ kind: 'file', evidenceId }, label, `Made from evidence “${label}”.`)
+  }
+
+  function newLotFromRegion(observationId: string, label: string) {
+    return newLot({ kind: 'region', observationId }, label, `Made from region “${label}”.`)
+  }
+
+  async function markSameItem(observationId: string, sameAs: string | null) {
+    if (!mediaReadCurrent()) {
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const saved = await edit({
+        kind: 'observation_same_item',
+        observation_id: observationId,
+        same_as: sameAs,
+      })
+      if (saved === false) {
+        setError('The region could not be marked. Refresh and try again.')
+      }
+    } catch {
+      setError('The region could not be marked. Refresh and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function moveRegion(
+    observationId: string,
+    lotId: string | null,
+    revision?: string,
+    continuation = false,
+  ) {
+    // The move that finishes a new lot was checked when the lot was started.
+    if (!continuation && !mediaReadCurrent()) {
+      return false
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const change = {
+        kind: 'observation_move' as const,
+        observation_id: observationId,
+        lot_id: lotId,
+      }
+      const saved = await edit(change, revision)
+      if (saved === false) {
+        setError('The region could not be moved. Refresh and try again.')
+        return false
+      }
+      return true
+    } catch {
+      setError('The region could not be moved. Refresh and try again.')
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * Region edits are capture edits with the batch's revision; they name the media read's regions,
+   * so they need an HTTP read of the media in the cache, not a receipt or a failed read. The editor
+   * keeps its draft when refused.
+   */
+  const editRegion: CaptureEdit = async (...args) => {
+    if (!mediaReadCurrent()) {
+      return false
+    }
+    return edit(...args)
+  }
+
+  // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
+  async function finish(step: Unfinished, revision?: string, continuation = false) {
+    setUnfinished(step)
+    const done =
+      step.from.kind === 'file'
+        ? await link(step.from.evidenceId, step.lotId, true, continuation)
+        : await moveRegion(step.from.observationId, step.lotId, revision, continuation)
+    if (done) {
+      setUnfinished(null)
+    }
+  }
+
+  const disabled = busy || batch.archived || !media || !query.data || !fresh.commandsReady
+
+  const tellExamine = !batch.archived && (
+    <TellExamine batchId={batch.id} onDirtyChange={drafts.forSource('tell-examine')} />
+  )
+
+  return (
+    <>
+      {error && (
+        <div role="alert">
+          <Banner tone="bad">{error}</Banner>
+        </div>
+      )}
+      {unfinished && !busy && (
+        <Banner
+          tone="warn"
+          action={
+            <Button size="sm" onClick={() => void finish(unfinished)}>
+              {unfinished.from.kind === 'file'
+                ? `Link the file to lot ${unfinished.lotLabel}`
+                : `Move ${unfinished.label} into lot ${unfinished.lotLabel}`}
+            </Button>
+          }
+        >
+          Lot {unfinished.lotLabel} was made, but{' '}
+          {unfinished.from.kind === 'file' ? 'its file is not linked' : 'its region was not moved'}{' '}
+          yet.
+        </Banner>
+      )}
+      {fresh.phase === 'failed' && query.data && (
+        <div role="alert">
+          <Banner tone="bad">
+            Evidence status is unavailable. The map shows the last read, and its edits wait for a
+            fresh one.
+          </Banner>
+        </div>
+      )}
+      {!media ? (
+        <div role="status">
+          <Banner tone="bad">Evidence is not available in this setup.</Banner>
+        </div>
+      ) : (
+        <ReviewMap
+          batch={batch}
+          evidence={query.data?.evidence}
+          removed={query.data?.removed}
+          loading={fresh.phase === 'empty'}
+          approvedLotIds={approvedLotIds}
+          restructureUnavailable={restructureUnavailable}
+          retiredLotIds={retiredLotIds}
+          predecessors={predecessors}
+          disabled={disabled}
+          link={link}
+          newLotFrom={newLotFrom}
+          moveRegion={(observationId, lotId) => moveRegion(observationId, lotId)}
+          newLotFromRegion={newLotFromRegion}
+          markSameItem={markSameItem}
+          editRegion={editRegion}
+          onRegionDirtyChange={drafts.forSource('region')}
+          selectionLocked={drafts.isDirty('region')}
+          discarded={discarded}
+          openRestructure={
+            operator ? (kind, lotIds) => setRestructure({ kind, lotIds }) : undefined
+          }
+          aside={tellExamine}
+        />
+      )}
+      {!media && tellExamine}
+      {restructure && operator && (
+        <RestructureDialog
+          kind={restructure.kind}
+          batch={batch}
+          lotIds={restructure.lotIds}
+          excludedLotIds={batch.lots
+            .filter((lot) => !retiredLotIds.has(lot.id) && !restructure.lotIds.includes(lot.id))
+            .map((lot) => lot.id)}
+          client={operator}
+          disabled={batch.archived}
+          reload={reload}
+          onClose={() => setRestructure(null)}
+          onDirtyChange={drafts.forSource('restructure')}
+        />
+      )}
+    </>
+  )
+}
+
+const NO_LOTS: ReadonlySet<string> = new Set()

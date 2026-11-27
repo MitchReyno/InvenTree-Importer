@@ -1,6 +1,6 @@
 """Fetch the logos a company's own site used, from the Wayback Machine.
 
-    uv run --with pillow python wayback_logo.py microsemi.com OUT_DIR
+    uv run --project backend --with pillow python wayback_logo.py microsemi.com OUT_DIR
         [--from 2010] [--to 2018] [--limit 40]
 
 For a company whose site is gone or rebranded. Asks the Wayback CDX index for

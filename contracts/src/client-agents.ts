@@ -1,0 +1,55 @@
+import type { AgentSessionQueryDto, AgentSettingsUpdateDto } from './agents.ts'
+import type { AgentModelCatalogRefreshDto } from './agent-model-catalog.ts'
+import { successfulData } from './client-policy.ts'
+import { typedClient } from './client-runtime.ts'
+
+export function agentsClient(baseUrl: string, csrfToken: string, transport: typeof fetch = fetch) {
+  const client = typedClient(baseUrl, transport, csrfToken)
+  return {
+    failure: (attemptId: string, failureId: string) =>
+      successfulData(
+        client.GET('/api/v1/agent-sessions/{attemptId}/failures/{failureId}', {
+          params: { path: { attemptId, failureId } },
+        }),
+      ),
+    settings: () => successfulData(client.GET('/api/v1/agent-settings')),
+    saveSettings: (input: AgentSettingsUpdateDto) =>
+      successfulData(client.PUT('/api/v1/agent-settings', { body: input })),
+    /** One page of sessions: the newest without `before`, filtered and scoped as asked. */
+    sessions: (query: AgentSessionQueryDto = {}) =>
+      successfulData(client.GET('/api/v1/agent-sessions', { params: { query } })),
+    /** Pauses or resumes one batch's agent sessions; pausing cancels nothing. */
+    pause: (batchId: string, paused: boolean) =>
+      successfulData(
+        client.PUT('/api/v1/batches/{id}/agents/pause', {
+          params: { path: { id: batchId } },
+          body: { paused },
+        }),
+      ),
+    /** Sends the batch's saved instructions to its sessions; finished ones are woken to apply them. */
+    deliverInstructions: (batchId: string) =>
+      successfulData(
+        client.POST('/api/v1/batches/{id}/agents/instructions', {
+          params: { path: { id: batchId } },
+        }),
+      ),
+    /**
+     * Each VM provider's sign-in status, read without the management key. `refresh` (Check again)
+     * also starts a fresh Codex check; this answer still comes from the last one.
+     */
+    providerStatus: (options: { refresh?: boolean } = {}) =>
+      successfulData(
+        client.GET('/api/v1/agents/provider-status', {
+          params: { query: options.refresh ? { refresh: 'true' } : {} },
+        }),
+      ),
+    /** Each provider's model list for its current authentication, or the built-in list. */
+    modelCatalog: () => successfulData(client.GET('/api/v1/agents/models')),
+    /** Asks for a read; `invalidate` also marks the list as from an earlier sign-in. */
+    refreshModelCatalog: (input: AgentModelCatalogRefreshDto) =>
+      successfulData(client.POST('/api/v1/agents/models/refresh', { body: input })),
+    /** Pauses or resumes every batch's agent sessions at once. */
+    pauseAll: (paused: boolean) =>
+      successfulData(client.PUT('/api/v1/agents/pause', { body: { paused } })),
+  }
+}

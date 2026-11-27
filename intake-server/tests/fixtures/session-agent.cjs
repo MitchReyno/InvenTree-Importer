@@ -1,0 +1,381 @@
+// Deterministic session executable for Claude stream-JSON and Codex app-server. It calls the real
+// intake tool server over loopback HTTP and never contacts a provider.
+const fs = require('node:fs')
+const path = require('node:path')
+const readline = require('node:readline')
+
+const args = process.argv.slice(2)
+// The built-in tools Claude Code 2.1.319 accepts in `--tools`, as reported by the real CLI.
+const CLAUDE_BUILTINS = new Set([
+  'Bash', 'Edit', 'Glob', 'Grep', 'Monitor', 'NotebookEdit', 'Read', 'Task', 'TaskCreate', 'TaskGet',
+  'TaskList', 'TaskStop', 'TaskUpdate', 'ToolSearch', 'WebFetch', 'WebSearch', 'Write',
+])
+// The adapter passes only an allowlisted environment, so the test leaves its settings in the
+// private session directory the child runs in.
+const settingsFile = path.join(process.cwd(), 'fake-session.json')
+const settings = fs.existsSync(settingsFile)
+  ? JSON.parse(fs.readFileSync(settingsFile, 'utf8'))
+  : {}
+// A test that cannot reach the session directory first may bake a mode into the executable.
+// eslint-disable-next-line no-undef
+const mode = settings.mode ?? (typeof FORCED_MODE === 'string' ? FORCED_MODE : 'normal')
+if (args.includes('--version')) {
+  process.stdout.write(mode === 'unknown-version' ? '2.1.320 (Claude Code)\n' : '2.1.319 (Claude Code)\n')
+  process.exit(0)
+}
+const log = (entry) => {
+  if (settings.log) {
+    fs.appendFileSync(settings.log, JSON.stringify(entry) + '\n')
+  }
+}
+const send = (value) => process.stdout.write(JSON.stringify(value) + '\n')
+const sessionsDir = path.join(process.cwd(), 'fake-sessions')
+const TOOLS = settings.tools ?? ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
+
+if (mode === 'ignore-sigterm') {
+  process.on('SIGTERM', () => log({ event: 'sigterm-ignored' }))
+}
+
+function toolTarget() {
+  if (args[0] === 'app-server') {
+    const override = args.find((arg) => arg.startsWith('mcp_servers.intake='))
+    const url = /url="([^"]+)"/.exec(override)[1]
+    const variable = /bearer_token_env_var="([^"]+)"/.exec(override)[1]
+    return { url, token: process.env[variable] }
+  }
+  const file = args[args.indexOf('--mcp-config') + 1]
+  const raw = fs.readFileSync(file, 'utf8')
+  log({
+    event: 'mcp-config',
+    contains_capability: raw.includes(process.env.INTAKE_TOOL_CAPABILITY),
+  })
+  const server = JSON.parse(raw).mcpServers.intake
+  const header = server.headers.Authorization.replace(
+    /\$\{([A-Z_]+)\}/g,
+    (_, name) => process.env[name] ?? '',
+  )
+  return { url: server.url, token: header.replace(/^Bearer /, '') }
+}
+
+let rpc = 0
+async function callTool(name, toolArgs) {
+  const { url, token } = toolTarget()
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: ++rpc,
+      method: 'tools/call',
+      params: { name, arguments: toolArgs },
+    }),
+  })
+  const body = await response.json()
+  const result = body.result?.structuredContent
+  log({ event: 'tool', name, status: response.status, ok: result?.ok, error: result?.error })
+  return result
+}
+
+/** Calls status, then (in delivery mode) waits for an in-turn message naming an inbox item. */
+// A three-step question about the session's lot: a choice, a number and a choice.
+function steppedQuestion(subjectId) {
+  return {
+    schema_version: 'bench-intake-question/2',
+    subject_id: subjectId,
+    reason: 'Two packets look alike and the count is unclear.',
+    fields: ['identity', 'quantity'],
+    title: 'Same Part, how many left and where it goes',
+    steps: [
+      { id: 'same_part', prompt: 'Are both packets the same Part?', assumption: 'The same Part.',
+        answer: { kind: 'choice', other: true, options: [
+          { id: 'same', label: 'Yes, same Part' }, { id: 'different', label: 'No, different Parts' }] } },
+      { id: 'left', prompt: 'How many are left?', assumption: 'About 380.', answer: { kind: 'number' } },
+      { id: 'place', prompt: 'Where does it go?', assumption: 'Drawer R4.',
+        answer: { kind: 'choice', other: false, options: [
+          { id: 'drawer_r4', label: 'Drawer R4' }, { id: 'reel_rack', label: 'Reel rack' }] } },
+    ],
+  }
+}
+
+async function work(waitForDelivery, opening) {
+  log({ event: 'capability', value: toolTarget().token })
+  await callTool('status', { text: 'Reading the evidence' })
+  if (mode === 'crash') {
+    process.exit(3)
+  }
+  if (mode === 'ignore-sigterm') {
+    await new Promise(() => {})
+  }
+  if (mode === 'hold') {
+    log({ event: 'holding', cwd: process.cwd() })
+    while (!fs.existsSync(path.join(process.cwd(), 'release'))) {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+  }
+  if (mode === 'deliver-no-ack') {
+    await waitForDelivery()
+  }
+  if (mode === 'deliver') {
+    const delivered = await waitForDelivery()
+    const seq = /sequence (\d+)/.exec(delivered)?.[1]
+    if (seq) {
+      await callTool('read_inbox', { after_seq: seq })
+    }
+  }
+  // Asks once; the turn after the operator answers reads the answer and acknowledges it.
+  if (mode === 'ask-steps') {
+    const read = await callTool('read_inbox', { after_seq: '0' })
+    const answer = (read.items ?? []).find((item) => item.kind === 'answer')
+    if (answer) {
+      log({ event: 'answer', payload: answer.payload })
+      await callTool('read_inbox', { after_seq: read.items.at(-1).seq })
+    } else {
+      const asked = await callTool('ask', steppedQuestion(JSON.parse(opening).subject_id))
+      log({ event: 'asked', ok: asked?.ok, id: asked?.id, error: asked?.error })
+    }
+  }
+  // Fetches the first photo of its manifest from the opening, previews a question with that
+  // page as a figure, then asks it.
+  if (mode === 'ask-figure') {
+    const parsed = JSON.parse(opening)
+    const fetched = await callTool('fetch_evidence', settings.figureSource)
+    const page = fetched?.pages?.[0]
+    const figures = (settings.figureCount ?? 1) > 0 && page
+      ? Array.from({ length: settings.figureCount ?? 1 }, (_, index) => ({
+          source: { kind: 'evidence_page', ...settings.figureSource, page: page.page },
+          view: { region: { x: 0, y: 0, width: page.width, height: page.height }, quarter_turns: index % 4,
+            straighten_millidegrees: 0 },
+          marks: [{ kind: 'box', geometry: { x: 1000, y: 1000, width: 4000, height: 4000 }, label: `Mark ${index + 1}` }],
+          caption: `Figure ${index + 1}`,
+          why: 'Shows the packet.',
+        }))
+      : undefined
+    const question = { ...steppedQuestion(parsed.subject_id), figures }
+    const preview = await callTool('ask', { ...question, preview: true })
+    log({ event: 'previewed', ok: preview?.ok, error: preview?.error, preview: preview?.preview })
+    const asked = await callTool('ask', question)
+    log({ event: 'asked', ok: asked?.ok, id: asked?.id, error: asked?.error })
+  }
+  if (mode === 'reply') {
+    const read = await callTool('read_inbox', { after_seq: '0' })
+    for (const item of read.items ?? []) {
+      if (item.kind === 'chat') {
+        await callTool('reply', { inbox_item_id: item.id, text: 'Noted, thanks.' })
+      }
+    }
+    const last = read.items?.at(-1)
+    if (last) {
+      await callTool('read_inbox', { after_seq: last.seq })
+    }
+  }
+}
+
+function persisted(id) {
+  return fs.existsSync(path.join(sessionsDir, id))
+}
+function persist(id) {
+  fs.mkdirSync(sessionsDir, { recursive: true })
+  fs.writeFileSync(path.join(sessionsDir, id), 'transcript')
+}
+
+function inbox() {
+  const queue = []
+  let waiter
+  return {
+    push(text) {
+      log({ event: 'delivered', text })
+      queue.push(text)
+      waiter?.()
+    },
+    next() {
+      return new Promise((resolve) => {
+        const take = () => (queue.length ? resolve(queue.shift()) : (waiter = take))
+        take()
+      })
+    },
+  }
+}
+
+/** The effective policy a real app-server reports; `loose-policy` widens the sandbox. */
+function threadReply(id) {
+  const apiKey = args.some((arg) => arg.includes('model_provider="bench_openai"'))
+  return {
+    thread: { id },
+    // `invalid-model` names a model the session record refuses, so recording the start fails.
+    model: mode === 'invalid-model' ? 'not a model' : 'fake-codex-model',
+    approvalPolicy: 'never',
+    sandbox: { type: mode === 'loose-policy' ? 'workspaceWrite' : 'readOnly' },
+    modelProvider: apiKey ? 'bench_openai' : 'openai',
+  }
+}
+
+if (args[0] === 'app-server') {
+  const deliveries = inbox()
+  let threadId
+  let turnId
+  const lines = readline.createInterface({ input: process.stdin })
+  lines.on('line', async (line) => {
+    const frame = JSON.parse(line)
+    const reply = (result) => send({ id: frame.id, result })
+    if (frame.method === 'initialize') reply({ userAgent: mode === 'unknown-version' ? 'bench_intake/0.166.1' : 'bench_intake/0.166.0 (test)' })
+    if (frame.method === 'thread/start') {
+      log({ event: 'thread-start', keys: Object.keys(frame.params).sort() })
+      threadId = `fake-thread-${Date.now()}`
+      persist(threadId)
+      reply(threadReply(threadId))
+    }
+    if (frame.method === 'thread/resume') {
+      log({ event: 'resume', id: frame.params.threadId })
+      if (mode === 'resume-missing' || !persisted(frame.params.threadId)) {
+        send({ id: frame.id, error: { code: -32600, message: 'no rollout found' } })
+        return
+      }
+      threadId = frame.params.threadId
+      reply(threadReply(threadId))
+    }
+    if (frame.method === 'config/read') {
+      reply({ config: {
+        mcp_servers: { intake: {} }, approval_policy: 'never', sandbox_mode: 'read-only', web_search: 'disabled',
+        features: { code_mode: { enabled: mode === 'code-mode' }, goals: false, shell_tool: false, view_image: false,
+          apps: false, plugins: false, remote_plugin: false, memories: false, multi_agent: false, request_permissions_tool: false },
+        skills: { bundled: { enabled: false }, include_instructions: mode === 'skills-enabled' },
+      } })
+    }
+    if (frame.method === 'mcpServerStatus/list') {
+      const tools = Object.fromEntries(
+        [...TOOLS, ...(mode === 'extra-tool' ? ['shell'] : [])].map((name) => [name, {}]),
+      )
+      reply({ data: [{ name: 'intake', tools }] })
+    }
+    if (frame.method === 'turn/start') {
+      if (mode === 'server-request') send({ id: 9000, method: 'item/tool/requestUserInput', params: {} })
+      turnId = `fake-turn-${Date.now()}`
+      log({ event: 'turn-start', keys: Object.keys(frame.params).sort(), effort: frame.params.effort })
+      // A model that doesn't accept the effort it was sent refuses the turn.
+      if (mode === 'refuse-effort' && frame.params.effort !== undefined) {
+        send({ id: frame.id, error: { code: -32602, message: 'unsupported reasoning effort' } })
+        return
+      }
+      log({ event: 'opening', text: frame.params.input[0].text })
+      reply({ turn: { id: turnId } })
+      if (mode === 'command-item' || mode === 'wrapped-call') {
+        send({
+          method: 'item/started',
+          params: { threadId, turnId, item: { type: mode === 'wrapped-call' ? 'codeExecution' : 'commandExecution', id: 'c1', command: 'ls' } },
+        })
+      }
+      // The provider's own error kind, and text that must never be retained.
+      if (mode === 'codex-context-error') {
+        send({ method: 'turn/completed', params: { turn: { id: turnId, status: 'failed',
+          error: { message: 'secret provider text', codexErrorInfo: 'contextWindowExceeded' } } } })
+        return
+      }
+      if (mode === 'codex-http-error') {
+        send({ method: 'error', params: { threadId, turnId, willRetry: false,
+          error: { message: 'secret provider text', codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 503 } } } } })
+        return
+      }
+      // A retried error does not end the turn.
+      if (mode === 'codex-retry-error') {
+        send({ method: 'error', params: { threadId, turnId, willRetry: true,
+          error: { message: 'retrying', codexErrorInfo: { responseStreamDisconnected: { httpStatusCode: 502 } } } } })
+      }
+      await work(() => deliveries.next(), frame.params.input[0].text)
+      send({ method: 'turn/completed', params: { turn: { id: turnId, status: 'completed' } } })
+    }
+    if (frame.method === 'turn/steer') {
+      if (frame.params.expectedTurnId !== turnId) {
+        send({ id: frame.id, error: { code: -32600, message: 'turn mismatch' } })
+        return
+      }
+      reply({ turnId })
+      log({ event: 'steer', keys: Object.keys(frame.params).sort() })
+      deliveries.push(frame.params.input[0].text)
+    }
+  })
+} else {
+  const deliveries = inbox()
+  const resume = args.includes('--resume') ? args[args.indexOf('--resume') + 1] : undefined
+  const sessionId = resume ?? args[args.indexOf('--session-id') + 1]
+  let started = false
+  const lines = readline.createInterface({ input: process.stdin })
+  lines.on('line', async (line) => {
+    const frame = JSON.parse(line)
+    if (frame.type === 'control_request') {
+      let response
+      if (frame.request.subtype === 'initialize') response = {
+        claude_code_version: '2.1.319', current_permission_mode: 'default', output_style: 'default', session_state: 'idle',
+        commands: mode === 'skills-enabled' ? ['planted'] : [],
+        agents: ['claude','Explore','general-purpose','Plan','statusline-setup',...(mode === 'web-fetch-agent' ? ['web-fetch'] : []),...(mode === 'extra-agent' ? ['backend-architect'] : [])].map((name) => ({ name })),
+      }
+      if (frame.request.subtype === 'mcp_status') response = { mcpServers: [{name:'intake',status:'connected',tools:[...TOOLS,...(mode === 'extra-tool' ? ['shell'] : [])].map((name) => ({name}))}] }
+      send({type:'control_response',response:{subtype:'success',request_id:frame.request_id,response}})
+      return
+    }
+    const text = frame.message.content[0].text
+    if (started) {
+      deliveries.push(text)
+      return
+    }
+    started = true
+    if (resume) {
+      log({ event: 'resume', id: resume })
+      if (mode === 'resume-missing' || !persisted(resume)) {
+        process.stderr.write('No conversation found with session ID\n')
+        process.exit(1)
+      }
+    }
+    persist(sessionId)
+    // A guest tool session reports the built-in tools it was started with, as the real CLI does,
+    // which silently drops names it doesn't have.
+    const toolsFlag = args.indexOf('--tools')
+    const builtins =
+      mode === 'guest-tools' || mode === 'guest-extra-tool' || mode === 'guest-image-echo'
+        ? (args[toolsFlag + 1] || '').split(',').filter((name) => CLAUDE_BUILTINS.has(name))
+        : []
+    log({ event: 'builtins', tools: builtins })
+    const tools = [
+      ...TOOLS.map((name) => `mcp__intake__${name}`),
+      ...builtins,
+      ...(mode === 'extra-tool' ? ['Bash'] : []),
+      ...(mode === 'guest-extra-tool' ? ['NotebookEdit'] : []),
+    ]
+    send({
+      type: 'system',
+      subtype: 'init',
+      claude_code_version: '2.1.319', permissionMode: 'default', output_style: 'default',
+      slash_commands: [], skills: mode === 'skills-enabled' ? ['planted'] : [], additional_directories: [],
+      plugins: ['cc-plugin-agents-md', 'cc-plugin-privacy', 'cc-plugin-plugin-authoring'].map((name) => ({name,path:'builtin',source:`${name}@builtin`})),
+      session_id: sessionId,
+      model: 'fake-claude-model',
+      tools,
+      mcp_servers: [{ name: 'intake', status: 'connected' }],
+    })
+    if (mode === 'deferred-call') send({type:'assistant',message:{content:[{type:'tool_use',name:'advisor',input:{}}]}})
+    log({ event: 'opening', text })
+    const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined)
+    log({ event: 'claude-args', model: flag('--model'), effort: flag('--effort'), resume })
+    // Claude echoes each tool result, an image included, as one stream-json line.
+    if (mode === 'image-echo' || mode === 'guest-image-echo') {
+      for (let n = 0; n < 2; n++) {
+        send({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result',
+          content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'A'.repeat(1800000) } }] }] } })
+      }
+    }
+    if (mode === 'claude-api-error' || mode === 'claude-unlisted-error') {
+      const unlisted = mode === 'claude-unlisted-error'
+      send({ type: 'assistant', error: unlisted ? 'brand_new_kind' : 'invalid_request',
+        message: { content: [{ type: 'text', text: 'API Error: 400 secret provider text' }] } })
+      send({ type: 'result', subtype: unlisted ? 'error_unheard_of' : 'error_during_execution',
+        is_error: true, session_id: sessionId, api_error_status: unlisted ? 42 : 529 })
+      return
+    }
+    await work(() => deliveries.next(), text)
+    send({ type: 'result', subtype: 'success', is_error: false, session_id: sessionId })
+  })
+  lines.on('close', () => process.exit(0))
+}

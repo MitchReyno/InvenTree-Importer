@@ -1,7 +1,7 @@
 """Rank reference logos by visual similarity to a cropped photo of an IC marking.
 
 usage (from the repo root; numpy and Pillow come in with --with):
-  uv run -q --with numpy --with pillow python -I \
+  uv run --project backend -q --with numpy --with pillow python -I \
       .claude/skills/chip-logo-identification/scripts/match.py CROP.png \
       [--top N] [--sheet .temp/<task>/candidates.png]
 

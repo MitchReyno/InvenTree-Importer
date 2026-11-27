@@ -1,0 +1,6 @@
+{
+  "encoding": "bench-intake-canonical/1",
+  "input": { "z": "é", "a": ["2", "1"] },
+  "utf8_hex": "7b2261223a5b2232222c2231225d2c227a223a22c3a9227d",
+  "sha256": "0316d6de4262fd75732649cb13be82d4cdaee385dba2e1c1e59c781608e7f7d4"
+}

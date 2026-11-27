@@ -1,0 +1,212 @@
+import styled from 'styled-components'
+import type {
+  CaptureSnapshotDto,
+  MediaSnapshotDto,
+  OperatorLotDto,
+  ProcessingSnapshotDto,
+} from '@invimport/contracts'
+import {
+  HelpButton,
+  Paragraph,
+  ReadState,
+  Skeleton,
+  Small,
+  Subheading,
+  Pill,
+  localTime,
+} from '#/components/ui'
+import { Field } from '#/forms'
+import { color, space, type } from '#/theme/generated/tokens'
+import { mediaDisplayLabels } from '#/media/identity-labels'
+import { EvidenceViewer } from './EvidenceViewer'
+import { ProcessingSources } from '#/components/processing/ProcessingSources'
+import { ProcessingSuggestions } from './ProcessingSuggestions'
+import { LotObservations } from './LotObservations'
+import { useBatchCommands } from '#/context'
+
+type Lot = CaptureSnapshotDto['lots'][number]
+type Part = CaptureSnapshotDto['parts'][number]
+type Note = CaptureSnapshotDto['notes'][number]
+
+interface Props {
+  batch: CaptureSnapshotDto
+  lot: Lot
+  part: Part | undefined
+  operatorLot?: OperatorLotDto
+  media?: MediaSnapshotDto
+  processing?: ProcessingSnapshotDto
+  processingCurrent?: boolean
+  /** `processingCurrent` checked again on the cache when a candidate is accepted. */
+  processingCurrentNow?: () => boolean
+  mediaUnavailable?: boolean
+  mediaLoading?: boolean
+  editDisabled?: boolean
+}
+
+interface SourcedNote {
+  note: Note
+  source: string
+}
+
+function evidenceNotes(
+  batch: CaptureSnapshotDto,
+  lot: Lot,
+  part: Part | undefined,
+  predecessorIds: string[],
+): SourcedNote[] {
+  const predecessors = new Map(
+    predecessorIds.map((id) => [id, batch.lots.find((value) => value.id === id)?.label ?? 'lot']),
+  )
+  const notes: SourcedNote[] = []
+  for (const note of batch.notes) {
+    if (note.subject_id === null) {
+      notes.push({ note, source: 'Batch note' })
+    } else if (note.subject_id === lot.id) {
+      notes.push({ note, source: 'Physical lot note' })
+    } else if (note.subject_id === part?.id) {
+      notes.push({ note, source: 'Shared Part note' })
+    } else if (predecessors.has(note.subject_id)) {
+      notes.push({ note, source: `From predecessor ${predecessors.get(note.subject_id)}` })
+    }
+  }
+  return notes
+}
+
+function linkedEvidence(media: MediaSnapshotDto | undefined, subjectIds: Set<string>) {
+  return (
+    media?.evidence.filter((evidence) =>
+      evidence.linked_subject_ids.some((id) => subjectIds.has(id)),
+    ) ?? []
+  )
+}
+
+/** Retained human evidence beside the decision panel; nothing here is inferred. */
+export function LotEvidence({
+  batch,
+  lot,
+  part,
+  operatorLot,
+  media,
+  processing,
+  processingCurrent = false,
+  processingCurrentNow,
+  mediaUnavailable,
+  mediaLoading,
+  editDisabled = true,
+}: Props) {
+  const { edit } = useBatchCommands()
+  const predecessorIds = operatorLot?.predecessor_lot_ids ?? []
+  const notes = evidenceNotes(batch, lot, part, predecessorIds)
+  const subjects = new Set([lot.id, ...predecessorIds, ...(part ? [part.id] : [])])
+  const evidence = linkedEvidence(media, subjects)
+  const proposals =
+    processing?.jobs.flatMap((job) =>
+      job.proposals
+        // The Examine lead job has no subject; its proposals name their lot.
+        .filter((proposal) => subjects.has(job.subject_id ?? proposal.value.subject_id))
+        .map((proposal) => ({ job, proposal })),
+    ) ?? []
+  const members = new Set(lot.evidence_observation_ids ?? [])
+  const observations = (batch.evidence_observations ?? []).filter(
+    (observation) => members.has(observation.id) && observation.status === 'active',
+  ).length
+  const files = media ? `${evidence.length} file${evidence.length === 1 ? '' : 's'}` : null
+  return (
+    <>
+      <PaneTitle>
+        {observations > 0
+          ? `This lot's observations · ${observations}${files ? ` from ${files}` : ''}`
+          : `This lot's evidence${files ? ` · ${files}` : ''}`}
+      </PaneTitle>
+      {!media && mediaUnavailable && (
+        <Small role="status">
+          Retained media is unavailable. File presence and previews could not be confirmed.
+        </Small>
+      )}
+      {!media && !mediaUnavailable && mediaLoading && (
+        <ReadState phase="empty" skeleton={<Skeleton width="100%" height={space[20]} />}>
+          {null}
+        </ReadState>
+      )}
+      {media && (
+        <EvidenceViewer
+          key={lot.id}
+          batchId={batch.id}
+          lotId={lot.id}
+          evidence={evidence}
+          groups={media.groups}
+          labels={mediaDisplayLabels(media.evidence, media.removed)}
+          unavailable={mediaUnavailable}
+        />
+      )}
+      <LotObservations batch={batch} lot={lot} edit={edit} disabled={editDisabled} />
+      {notes.map(({ note, source }) => (
+        <Field key={note.id}>
+          <strong>{source}</strong>
+          <OriginalNote>{note.text || 'Empty original note'}</OriginalNote>
+          <Small>
+            Human
+            {localTime(note.created_at) && ` · ${localTime(note.created_at)}`}
+          </Small>
+        </Field>
+      ))}
+      {proposals.length > 0 && (
+        <section aria-label="Processing candidates">
+          <TitleRow>
+            <Subheading>Processing candidates</Subheading>
+            <HelpButton
+              label="About candidates"
+              explanation="A candidate is what processing found, not a value you chose. Choose the facts yourself below."
+            />
+          </TitleRow>
+          {proposals.map(({ job, proposal }) => (
+            <Field key={proposal.id}>
+              <span>
+                <Pill tone="neutral">Fixture-only</Pill> {job.stage} · attempt {job.attempt_number}{' '}
+                {proposal.currentness?.state === 'stale' && <Pill tone="warn">Stale</Pill>}
+              </span>
+              <Paragraph>{proposal.value.summary}</Paragraph>
+              <ProcessingSources proposal={proposal.value} />
+              <ProcessingSuggestions
+                lot={lot}
+                part={part}
+                proposal={proposal.value}
+                defaultQuantity={batch.defaults.quantity}
+                // A stale candidate rests on facts that changed, so it can't be taken.
+                current={
+                  processingCurrent &&
+                  job.state === 'ready' &&
+                  proposal.currentness?.state !== 'stale'
+                }
+                currentNow={processingCurrentNow}
+                disabled={editDisabled}
+                edit={edit}
+              />
+            </Field>
+          ))}
+        </section>
+      )}
+    </>
+  )
+}
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  margin-bottom: ${space[5]};
+  ${Subheading} {
+    margin: 0;
+  }
+`
+
+const OriginalNote = styled(Paragraph)`
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+`
+
+const PaneTitle = styled.h2`
+  margin: 0;
+  ${type.label}
+  color: ${color.muted};
+`

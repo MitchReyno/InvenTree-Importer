@@ -1,0 +1,78 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+/Title (Synthetic two\055lot spike receipt)
+/Author (InvenTree Importer test fixture)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 1
+/Kids [ 4 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 5 0 R
+>>
+>>
+/MediaBox [ 0.0 0.0 612 792 ]
+/Parent 2 0 R
+/Contents 6 0 R
+>>
+endobj
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+6 0 obj
+<<
+/Length 848
+>>
+stream
+BT /F1 20 Tf 48 730 Td (SYNTHETIC RECEIPT - SPIKE ONLY) Tj ET
+BT /F1 13 Tf 48 685 Td (DEMO Supplier / reference SPIKE-INVOICE-001) Tj ET
+BT /F1 13 Tf 48 650 Td (DEMO-R100: resistor 100 ohm, tolerance 5 percent) Tj ET
+BT /F1 13 Tf 48 620 Td (Ordered: 30 pieces, split into two packets.) Tj ET
+BT /F1 13 Tf 48 575 Td (Packet A: 10 pieces. Batch SPIKE-A.) Tj ET
+BT /F1 13 Tf 48 545 Td (Packet B: originally 20 pieces. Batch SPIKE-B.) Tj ET
+BT /F1 13 Tf 48 500 Td (BENCH NOTE: packet B has been opened.) Tj ET
+BT /F1 13 Tf 48 470 Td (Its label says ~20 left. Confirm the current count.) Tj ET
+BT /F1 13 Tf 48 425 Td (The packets share one Part but remain separate lots.) Tj ET
+BT /F1 13 Tf 48 380 Td (No manufacturer or manufacturer part number is known.) Tj ET
+BT /F1 13 Tf 48 335 Td (This document describes fictional evidence, not a purchase.) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000140 00000 n 
+0000000199 00000 n 
+0000000248 00000 n 
+0000000380 00000 n 
+0000000450 00000 n 
+trailer
+<<
+/Size 7
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+1349
+%%EOF

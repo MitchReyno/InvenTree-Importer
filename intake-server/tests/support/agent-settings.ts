@@ -1,0 +1,57 @@
+import { randomUUID } from 'node:crypto'
+import {
+  DEFAULT_MODEL_BEFORE_SAVE,
+  type AgentSelectionDto,
+  type AgentSettingsUpdateDto,
+} from '@invimport/contracts'
+
+/**
+ * A whole settings update with one provider on as the default and every step on Default, for
+ * tests that only care which provider and model sessions use.
+ */
+export function singleProvider({
+  expected_revision,
+  selection,
+  session_concurrency = 3,
+  ...rest
+}: {
+  expected_revision: string
+  selection: AgentSelectionDto
+  session_concurrency?: number
+} & Partial<
+  Pick<
+    AgentSettingsUpdateDto,
+    | 'part_description_style'
+    | 'new_batch_instructions'
+    | 'auto_tags_default'
+    | 'stage_selections'
+    | 'web'
+  >
+>): AgentSettingsUpdateDto {
+  const other = selection.provider === 'claude' ? 'codex' : 'claude'
+  return {
+    expected_revision,
+    save_id: randomUUID(),
+    providers: {
+      [selection.provider]: {
+        enabled: true,
+        authentication: selection.authentication,
+        default_model: selection.model,
+      },
+      [other]: {
+        enabled: false,
+        authentication: 'subscription',
+        default_model: DEFAULT_MODEL_BEFORE_SAVE[other],
+      },
+    } as AgentSettingsUpdateDto['providers'],
+    default_provider: selection.provider,
+    stage_selections: {},
+    stage_instructions: {},
+    session_concurrency,
+    new_batch_instructions: '',
+    part_description_style: '',
+    auto_tags_default: false,
+    web: { public_pages: true, prefer_datasheets: true },
+    ...rest,
+  }
+}

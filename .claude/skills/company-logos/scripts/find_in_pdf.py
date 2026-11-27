@@ -1,6 +1,6 @@
 """Find the pages of a PDF that mention a company - an ad, a cover, a logo.
 
-    uv run --with pillow python find_in_pdf.py URL_OR_PDF "Stewart.?Warner" OUT_DIR
+    uv run --project backend --with pillow python find_in_pdf.py URL_OR_PDF "Stewart.?Warner" OUT_DIR
         [--fuzzy] [--render 60] [--max 24] [--retries 8]
 
 For scanned magazines and data books (worldradiohistory.com issues of

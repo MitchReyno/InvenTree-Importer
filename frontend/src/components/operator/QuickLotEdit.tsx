@@ -1,0 +1,228 @@
+import { useEffect, useRef, useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { Small, Button } from '#/components/ui'
+import { ChoicePicker, Fieldset, Form, Input, Label, Select } from '#/forms'
+import { useReportDirty } from '#/navigation/useReportDirty'
+import { reportDirty, type DirtyReport, type UnsavedChange } from '#/navigation/unsaved-changes'
+import type { CaptureEdit } from '#/capture/types'
+
+type Lot = CaptureSnapshotDto['lots'][number]
+type Mode = 'inherit' | 'set' | 'unknown' | 'clear' | 'unset'
+
+export const QUICK_QUANTITY_INPUT_ID = 'review-quick-quantity'
+
+/** Exact decimal string with up to six fractional digits; matches the shared Quantity scalar. */
+const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/
+
+interface Values {
+  quantityMode: Mode
+  quantity: string
+  /** `mode:<inherit|clear|unknown|unset>` or `observation:<id>`. */
+  location: string
+}
+
+interface Props {
+  batch: CaptureSnapshotDto
+  lot: Lot
+  disabled: boolean
+  edit: CaptureEdit
+  onDirtyChange?: DirtyReport
+}
+
+function initialValues(lot: Lot): Values {
+  const location =
+    lot.location.mode === 'set'
+      ? `observation:${lot.location.value.observation_id}`
+      : `mode:${lot.location.mode}`
+  return {
+    quantityMode: lot.quantity.mode,
+    quantity: lot.quantity.mode === 'set' ? lot.quantity.value : '',
+    location,
+  }
+}
+
+/** Which of the lot's fields the form changes from the values the editor opened with. */
+function changedFields(defaults: Values, values: Values) {
+  const fields: ('quantity' | 'location')[] = []
+  if (values.quantityMode !== defaults.quantityMode || values.quantity !== defaults.quantity) {
+    fields.push('quantity')
+  }
+  if (values.location !== defaults.location) {
+    fields.push('location')
+  }
+  return fields
+}
+
+function quantityChange(values: Values): Lot['quantity'] {
+  if (values.quantityMode === 'set') {
+    return { mode: 'set', value: values.quantity.trim() }
+  }
+  return { mode: values.quantityMode }
+}
+
+function locationChange(batch: CaptureSnapshotDto, value: string): Lot['location'] {
+  const [kind, id] = value.split(':')
+  if (kind === 'mode') {
+    return { mode: id as Exclude<Mode, 'set'> }
+  }
+  const observation = batch.observations.find((item) => item.id === id)
+  if (!observation) {
+    throw new Error('location_observation_missing')
+  }
+  return {
+    mode: 'set',
+    value: {
+      observation_id: observation.id,
+      target_context_id: observation.target_context_id,
+      model: 'location',
+      pk: observation.pk,
+    },
+  }
+}
+
+/** Lot-only edits: no other lot's review depends on these fields. */
+export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Props) {
+  // The editor's baseline: the lot as it was when the editor opened, then each confirmed save.
+  const [defaults, setDefaults] = useState(() => initialValues(lot))
+  const {
+    register,
+    control,
+    handleSubmit,
+    watch,
+    reset,
+    getValues,
+    formState: { errors, isDirty, dirtyFields, isSubmitting },
+  } = useForm<Values>({ defaultValues: defaults })
+  const quantityMode = watch('quantityMode')
+  const locations = batch.observations.filter((item) => item.model === 'location')
+
+  // A save in flight keeps its values: until it is answered nothing is offered to drop.
+  const saving = useRef(false)
+
+  function discard() {
+    reset(defaults)
+    onDirtyChange?.(false)
+  }
+
+  // The batch notice holds the latest discard, against the baseline as it is when pressed.
+  const latestDiscard = useRef(discard)
+  useEffect(() => {
+    latestDiscard.current = discard
+  })
+  const [discardNamed] = useState(() => () => {
+    if (!saving.current) {
+      latestDiscard.current()
+    }
+  })
+
+  /** The changed fields, named by lot, each dropped with the whole editor's discard. */
+  function unsaved(values: Values): UnsavedChange[] {
+    if (saving.current) {
+      return []
+    }
+    return changedFields(defaults, values).map((field) => ({
+      label: `${lot.label} · ${field}`,
+      discard: discardNamed,
+    }))
+  }
+
+  function reportValues() {
+    const changes = unsaved(getValues())
+    reportDirty(onDirtyChange, changes.length > 0 || saving.current, changes)
+  }
+
+  useReportDirty(isDirty, onDirtyChange, isDirty ? unsaved(getValues()) : undefined)
+
+  async function save(values: Values) {
+    const quantityTouched = Boolean(dirtyFields.quantityMode || dirtyFields.quantity)
+    saving.current = true
+    onDirtyChange?.(true)
+    let saved: Awaited<ReturnType<CaptureEdit>>
+    try {
+      saved = await edit({
+        kind: 'lot',
+        id: lot.id,
+        ...(quantityTouched ? { quantity: quantityChange(values) } : {}),
+        ...(dirtyFields.location ? { location: locationChange(batch, values.location) } : {}),
+      })
+    } finally {
+      saving.current = false
+    }
+    if (saved !== false) {
+      setDefaults(values)
+      reset(values)
+      onDirtyChange?.(false)
+    } else {
+      // Refused or unconfirmed: the edits are kept and can be named again.
+      reportValues()
+    }
+  }
+
+  return (
+    <Form onChange={reportValues} onSubmit={handleSubmit(save)} aria-label={`Edit ${lot.label}`}>
+      <Fieldset disabled={disabled}>
+        <Label>
+          Quantity
+          <Select {...register('quantityMode')}>
+            <option value="set">Exact quantity</option>
+            <option value="inherit">Use batch default</option>
+            <option value="unknown">Explicitly unknown</option>
+            <option value="clear">Explicitly cleared</option>
+            <option value="unset">Not selected</option>
+          </Select>
+        </Label>
+        {quantityMode === 'set' && (
+          <Label>
+            Exact pieces
+            <Input
+              id={QUICK_QUANTITY_INPUT_ID}
+              inputMode="decimal"
+              autoComplete="off"
+              aria-invalid={errors.quantity ? true : undefined}
+              {...register('quantity', {
+                validate: (value) =>
+                  QUANTITY_PATTERN.test(value.trim()) || 'Enter an exact positive quantity.',
+              })}
+            />
+          </Label>
+        )}
+        {errors.quantity && <Small role="alert">{errors.quantity.message}</Small>}
+        <Controller
+          name="location"
+          control={control}
+          render={({ field }) => (
+            <ChoicePicker
+              label="Location"
+              noun="locations"
+              placeholder="Choose a location…"
+              choices={[
+                { value: 'mode:inherit', label: 'Use batch default' },
+                { value: 'mode:clear', label: 'No location (explicit)' },
+                { value: 'mode:unknown', label: 'Explicitly unknown' },
+                { value: 'mode:unset', label: 'Not selected' },
+                ...locations.map((item) => ({
+                  value: `observation:${item.id}`,
+                  label: `${item.label} (#${item.pk})`,
+                })),
+              ]}
+              value={field.value}
+              disabled={disabled}
+              onChange={(value) => {
+                field.onChange(value)
+                reportValues()
+              }}
+            />
+          )}
+        />
+        <Small>Affects only this lot. Read another location in Capture to add it here.</Small>
+        <Button type="submit" disabled={!isDirty}>
+          Save lot values
+        </Button>
+      </Fieldset>
+      <Button type="button" disabled={!isDirty || isSubmitting} onClick={discard}>
+        Discard lot edits
+      </Button>
+    </Form>
+  )
+}

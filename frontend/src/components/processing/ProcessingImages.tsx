@@ -1,0 +1,184 @@
+import styled from 'styled-components'
+import { color, size, space } from '#/theme/generated/tokens'
+import type { MediaClient } from '#/media/types'
+import { mediaResource } from '#/media/types'
+import { mediaDisplayLabels } from '#/media/identity-labels'
+import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
+import { EvidenceViewer } from '#/components/operator/EvidenceViewer'
+import {
+  Heading,
+  Link,
+  Panel,
+  Paragraph,
+  Small,
+  Banner,
+  HelpButton,
+  ReadState,
+  groundBehindOnField,
+} from '#/components/ui'
+import type { DirtyReport } from '#/navigation/unsaved-changes'
+import { ProcessingImagesSkeleton } from './ProcessingImagesSkeleton'
+import { ImagesReview, type ImagesReviewClient } from './ImagesReview'
+import { batchHref } from '#/navigation/batch-route'
+import { useServerScope, useRetainedPollInterval } from '#/context'
+
+type Props = {
+  batchId: string
+  client?: MediaClient
+  /** The Images review read and session chat; absent where this setup has none. */
+  processing?: Partial<ImagesReviewClient>
+  lotLabel?: (lotId: string) => string | undefined
+  /** Why the review sends nothing, such as an archived batch. */
+  closedReason?: string
+  onDirtyChange?: DirtyReport
+}
+
+export function ProcessingImages({
+  batchId,
+  client,
+  processing,
+  lotLabel,
+  closedReason,
+  onDirtyChange,
+}: Props) {
+  const scope = useServerScope()
+  const interval = useRetainedPollInterval()
+  const mediaKey = serverQueryKey(scope, 'media', batchId)
+  const fresh = useFreshRead({
+    queryKey: mediaKey,
+    queryFn: () => client!.snapshot(batchId),
+    enabled: client !== undefined,
+    refetchInterval: interval,
+  })
+  const query = fresh.query
+  const unavailable = query.isError || query.fetchStatus === 'paused'
+  const labels = query.data
+    ? mediaDisplayLabels(query.data.evidence, query.data.removed)
+    : undefined
+  const readImages = processing?.images
+  const review = readImages && (
+    <ImagesReview
+      batchId={batchId}
+      processing={{ images: readImages, chat: processing.chat }}
+      media={client ? { client } : undefined}
+      lotLabel={lotLabel}
+      closedReason={closedReason}
+      onDirtyChange={onDirtyChange}
+    />
+  )
+  if (!client) {
+    return (
+      <>
+        {review}
+        <Banner tone="plain">Retained media is not configured for this application.</Banner>
+      </>
+    )
+  }
+  return (
+    <Outputs aria-label="Retained image outputs">
+      {review}
+      <TitleRow>
+        <Heading>Originals and documentary crops</Heading>
+        <HelpButton
+          label="About image outputs"
+          explanation="Check these saved images before choosing attachments. Preparing a crop does not approve it for inventory."
+        />
+      </TitleRow>
+      <Link href={batchHref(batchId, { tab: 'capture' })}>
+        Add evidence or prepare another crop in Capture
+      </Link>
+      <ReadState
+        phase={fresh.phase}
+        hasData={query.data !== undefined}
+        skeleton={<ProcessingImagesSkeleton />}
+        failure={
+          <div role="alert">
+            <Banner tone="bad">
+              Current media status is unavailable. Any displayed outputs are the last retained
+              snapshot.
+            </Banner>
+          </div>
+        }
+      >
+        {query.data?.evidence.length === 0 && !unavailable && (
+          <Paragraph>No retained images or documents yet.</Paragraph>
+        )}
+        <Gallery>
+          {query.data?.evidence.map((source) => (
+            <Panel key={source.id}>
+              <Heading>{labels?.evidence.get(source.id) ?? source.label}</Heading>
+              <Small>
+                {source.versions.length} retained versions · {source.linked_subject_ids.length}{' '}
+                linked subjects
+              </Small>
+              <EvidenceViewer
+                batchId={batchId}
+                evidence={[source]}
+                labels={labels}
+                unavailable={unavailable}
+              />
+              <Versions
+                aria-label={`Versions of ${labels?.evidence.get(source.id) ?? source.label}`}
+              >
+                {source.versions.map((version) => (
+                  <div key={version.id}>
+                    <strong>{version.kind === 'original' ? 'Original' : 'Documentary crop'}</strong>
+                    <Small>
+                      {version.state} · {version.pages.length} pages
+                    </Small>
+                    {version.state === 'ready' && version.pages[0] && (
+                      <Link
+                        href={mediaResource(batchId, 'previews', version.pages[0].preview_id)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open exact {version.kind === 'original' ? 'original' : 'crop'} preview
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </Versions>
+            </Panel>
+          ))}
+        </Gallery>
+      </ReadState>
+    </Outputs>
+  )
+}
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  margin-bottom: ${space[6]};
+  ${Heading} {
+    margin: 0;
+  }
+`
+
+const Gallery = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: ${space[8]};
+  margin-top: ${space[7]};
+  overflow-wrap: anywhere;
+`
+const Versions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[6]};
+  padding-top: ${space[6]};
+  border-top: 1px solid ${color.line};
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: ${size.touch};
+    color: ${color.accent};
+  }
+`
+
+/** These outputs sit directly on the step page, so their text takes one ground backing. */
+const Outputs = styled.section`
+  ${groundBehindOnField}
+`

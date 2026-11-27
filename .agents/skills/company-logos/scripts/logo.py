@@ -1,8 +1,8 @@
 """Inspect, sample and flatten company logos for InvenTree.
 
-    uv run --with pillow python logo.py inspect LOGO [LOGO ...]
-    uv run --with pillow python logo.py sample SCREENSHOT --box X0,Y0,X1,Y1
-    uv run --with pillow python logo.py flatten LOGO OUT.png --background '#0b2a4a'
+    uv run --project backend --with pillow python logo.py inspect LOGO [LOGO ...]
+    uv run --project backend --with pillow python logo.py sample SCREENSHOT --box X0,Y0,X1,Y1
+    uv run --project backend --with pillow python logo.py flatten LOGO OUT.png --background '#0b2a4a'
         [--pad 0.1] [--size 512] [--aspect square|keep] [--no-trim]
 
 inspect  says whether a logo has transparency (and how much of it), its size,
