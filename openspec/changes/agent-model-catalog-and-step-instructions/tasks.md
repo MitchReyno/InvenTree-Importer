@@ -162,11 +162,14 @@
 
 - **PR delivery:** PR-E.
 - **Target outcome:** evidence that the real guest reads each signed-in provider's models with no turn (for Claude under a setup token, narrowed by PR-G to the reply and its classification), and that a real session turn per provider sent the chosen effort and completed; the effort the provider applied stays unverified. Result: Codex's read and both effort turns passed. Claude's read, under a setup token, gets no list by design; PR-G replaced its criterion (task 6.2).
-- **Scope and approach:** with Mitch's go-ahead and his `pnpm dev` with the refreshed guest image: Check again for each provider, the stored row and the Settings page compared with the provider's own list (Codex; Claude's narrowed check is task 8.4); then one short session per provider at a non-default effort, checking that its turn completed and that its recorded `sent_effort` is the chosen level. Neither pinned CLI reports the effort it applied, so the effective effort is recorded as unverified. For Claude under a setup token, PR-G narrowed the list check to the guest's reply and the worker's reader classing it as not listed (task 8.4); the stored row and Settings for it are left to the merged stack.
+- **Scope and approach:** with Mitch's go-ahead and his `pnpm dev` with the refreshed guest image:
+  - **Codex's list:** Check again, then the stored row and the Settings page compared with the provider's own list.
+  - **Claude's list:** under a setup token, narrowed by PR-G to a free guest read and the merged worker's reader classing the reply as not listed (task 8.4). The stored row and Settings for it are left to the merged stack.
+  - **Effort:** one short session per provider at a non-default effort, checking that its turn completed and that its recorded `sent_effort` is the chosen level. Neither pinned CLI reports the effort it applied, so the effective effort is recorded as unverified.
 - **Prerequisites:** PR-A, PR-B and PR-C merged; Mitch's go-ahead for each live step.
 - **Acceptance:** shared-vm-execution "Model lists read without a provider turn"; processing-agent-sessions "Sessions run at the sealed effort".
 - **TDD approach:** none: a live verification of merged behaviour. Its contract is the checklist below and the evidence on the PR.
-- **Verification:** captures and trimmed outputs on PR-E; `notes.md` records the result and anything unexpected.
+- **Verification:** captures and trimmed outputs on PR-E (#297), and Claude's narrowed check on #301; `notes.md` records the result and anything unexpected.
 - **Risks and decisions:** the sessions are real provider turns with their cost; the read itself makes no paid call.
 
 - [x] 6.1 Ask Mitch for the go-ahead, naming the reads and the two short sessions. Given on 2026-11-26.
