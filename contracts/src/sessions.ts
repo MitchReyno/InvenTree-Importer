@@ -23,6 +23,7 @@ import {
   STATUS_LINE_MAX_CHARACTERS,
   SessionProposal,
   StagePublishedProposal,
+  ImagesV1,
   RetainedSessionProposal,
   ProposalStaleReason,
   WebPageSource,
@@ -30,6 +31,16 @@ import {
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
+import {
+  DECODER_LABEL_MAX_CHARACTERS,
+  GRID_MAX_BOXES,
+  GRID_MAX_PREVIEW_WIDTH,
+  GRID_MIN_PREVIEW_WIDTH,
+  LOGO_MATCH_MAX_CANDIDATES,
+  MediaLitViewRecipe,
+  MediaViewGeometry,
+  PREVIEW_MAX_CROPS,
+} from './media.ts'
 import {
   BriefAnswerEntry,
   BriefPageToken,
@@ -131,6 +142,68 @@ export const SessionFetchEvidenceArgs = object({
 export const SessionProposeArgs = object({ proposal: SessionProposal })
 /** `propose` in a `/7` session: the stage's typed output. */
 export const SessionStageProposeArgs = object({ proposal: StagePublishedProposal })
+
+const pageRegion = object({ x: pixel, y: pixel, width: dimension, height: dimension })
+const decoderLabel = Type.String({
+  minLength: 1,
+  maxLength: DECODER_LABEL_MAX_CHARACTERS,
+  pattern: '[^\\s\\p{C}\\p{Z}\\p{M}]',
+})
+/** One page of a delivered evidence version, as `fetch_evidence` names it. */
+const evidencePage = {
+  evidence_id: Id,
+  version_id: Type.Optional(Id),
+  page: Type.Optional(Type.Integer({ minimum: 1, maximum: 30 })),
+}
+/**
+ * `inspect_region`: a grid labelled in page-preview pixels over a page or a region of it, with
+ * proposed boxes measured against the object's bounds. A missing step lets the app pick one.
+ */
+export const SessionInspectRegionArgs = object({
+  ...evidencePage,
+  region: Type.Optional(pageRegion),
+  preview_width: Type.Optional(
+    Type.Integer({ minimum: GRID_MIN_PREVIEW_WIDTH, maximum: GRID_MAX_PREVIEW_WIDTH }),
+  ),
+  step: Type.Optional(Type.Integer({ minimum: 1, maximum: 100_000 })),
+  object: Type.Optional(pageRegion),
+  boxes: Type.Optional(
+    Type.Array(object({ name: decoderLabel, box: pageRegion }), {
+      minItems: 1,
+      maxItems: GRID_MAX_BOXES,
+    }),
+  ),
+})
+/** `match_logo`: the bundled chip logo set ranked against a view of one delivered page. */
+export const SessionMatchLogoArgs = object({
+  ...evidencePage,
+  view: MediaViewGeometry,
+  top: Type.Optional(Type.Integer({ minimum: 1, maximum: LOGO_MATCH_MAX_CANDIDATES })),
+})
+/** `preview_images`: recipe `/2` crops rendered as their derivations would be, on one montage. */
+export const SessionPreviewImagesArgs = object({
+  crops: Type.Array(object({ label: decoderLabel, recipe: MediaLitViewRecipe }), {
+    minItems: 1,
+    maxItems: PREVIEW_MAX_CROPS,
+  }),
+})
+/** `propose_images`: Images' typed output, its crops as recipes the app renders. */
+export const SessionProposeImagesArgs = object({ proposal: ImagesV1 })
+/** An image an image tool returned, in the order the images follow the result. */
+export const SessionToolImage = object({
+  width: Type.Integer({ minimum: 1 }),
+  height: Type.Integer({ minimum: 1 }),
+  media_type: Type.Union([Type.Literal('image/png'), Type.Literal('image/jpeg')]),
+  sha256: Digest,
+  /** Delivered pixels per pixel the decoder drew, below 1 when the image was shrunk to fit. */
+  scale: Type.Number({ exclusiveMinimum: 0, maximum: 1 }),
+})
+const outputRegion = object({
+  x: Type.Integer({ minimum: 0 }),
+  y: Type.Integer({ minimum: 0 }),
+  width: Type.Integer({ minimum: 1 }),
+  height: Type.Integer({ minimum: 1 }),
+})
 
 export const SessionToolError = Type.Union(
   (
@@ -531,6 +604,88 @@ export const SessionToolResult = Type.Union([
         text: Type.String({ minLength: 1, maxLength: 8192 }),
       }),
     ),
+    /**
+     * inspect_region, preview_images and match_logo: the images that follow the result, in order.
+     * They are for the agent to look at and grant no citation.
+     */
+    images: Type.Optional(Type.Array(SessionToolImage, { minItems: 1, maxItems: 1 })),
+    /** inspect_region: the grid drawn, all in page-preview pixels. */
+    grid: Type.Optional(
+      object({
+        region: outputRegion,
+        /** Grid pixels per page-preview pixel, before any shrinking to fit. */
+        scale: Type.Number({ exclusiveMinimum: 0 }),
+        step: Type.Integer({ minimum: 1 }),
+        x_labels: Type.Array(Type.Integer({ minimum: 0 }), { maxItems: 400 }),
+        y_labels: Type.Array(Type.Integer({ minimum: 0 }), { maxItems: 400 }),
+        boxes: Type.Array(
+          object({
+            name: Type.String({ minLength: 1, maxLength: DECODER_LABEL_MAX_CHARACTERS }),
+            drawn_label: Type.Union([
+              Type.String({ minLength: 1, maxLength: DECODER_LABEL_MAX_CHARACTERS }),
+              Type.Null(),
+            ]),
+            box: outputRegion,
+            aspect: Type.Number({ exclusiveMinimum: 0 }),
+            margins: Type.Union([
+              object({
+                left: Type.Integer(),
+                right: Type.Integer(),
+                top: Type.Integer(),
+                bottom: Type.Integer(),
+              }),
+              Type.Null(),
+            ]),
+            clips: Type.Boolean(),
+            off_centre: Type.Array(Type.Union([Type.Literal('x'), Type.Literal('y')]), {
+              maxItems: 2,
+              uniqueItems: true,
+            }),
+          }),
+          { maxItems: GRID_MAX_BOXES },
+        ),
+      }),
+    ),
+    /** preview_images: each crop as it would be derived, in the order asked, or why it was refused. */
+    crops: Type.Optional(
+      Type.Array(
+        Type.Union([
+          object({
+            state: Type.Literal('rendered'),
+            label: Type.String({ minLength: 1, maxLength: DECODER_LABEL_MAX_CHARACTERS }),
+            width: Type.Integer({ minimum: 1 }),
+            height: Type.Integer({ minimum: 1 }),
+            flags: Type.Array(
+              Type.Union([Type.Literal('corner_guard'), Type.Literal('white_balance_held_back')]),
+              { maxItems: 2, uniqueItems: true },
+            ),
+            white_balance_gains: Type.Union([
+              object({ red: Type.Number(), green: Type.Number(), blue: Type.Number() }),
+              Type.Null(),
+            ]),
+          }),
+          object({
+            state: Type.Literal('refused'),
+            label: Type.String({ minLength: 1, maxLength: DECODER_LABEL_MAX_CHARACTERS }),
+            reason: Type.Literal('white_balance_hue_guard'),
+          }),
+        ]),
+        { minItems: 1, maxItems: PREVIEW_MAX_CROPS },
+      ),
+    ),
+    /** match_logo: the logo set's best matches, best first; none when the view has no mark. */
+    candidates: Type.Optional(
+      Type.Array(
+        object({
+          id: Type.String({ minLength: 1, maxLength: 64 }),
+          manufacturer: Type.String({ minLength: 1, maxLength: 200 }),
+          family: Type.String({ minLength: 1, maxLength: 32 }),
+          page: Type.String({ minLength: 1, maxLength: 64 }),
+          score: Type.Number({ minimum: -1, maximum: 1 }),
+        }),
+        { maxItems: LOGO_MATCH_MAX_CANDIDATES },
+      ),
+    ),
     /** read_vocabulary: one page of the batch's catalogue vocabulary. */
     vocabulary: Type.Optional(
       object({
@@ -922,6 +1077,11 @@ export const sessionSchemas = {
   SessionFetchEvidenceArgs,
   SessionProposeArgs,
   SessionStageProposeArgs,
+  SessionInspectRegionArgs,
+  SessionMatchLogoArgs,
+  SessionPreviewImagesArgs,
+  SessionProposeImagesArgs,
+  SessionToolImage,
   SessionStageAskArgs,
   SessionRevisionV2,
   RevisionChange,
@@ -958,6 +1118,11 @@ export type SessionFetchEvidenceArgsDto = Static<typeof SessionFetchEvidenceArgs
 export type SessionProposeArgsDto = Static<typeof SessionProposeArgs>
 export type SessionStageProposeArgsDto = Static<typeof SessionStageProposeArgs>
 export type SessionStageAskArgsDto = Static<typeof SessionStageAskArgs>
+export type SessionInspectRegionArgsDto = Static<typeof SessionInspectRegionArgs>
+export type SessionMatchLogoArgsDto = Static<typeof SessionMatchLogoArgs>
+export type SessionPreviewImagesArgsDto = Static<typeof SessionPreviewImagesArgs>
+export type SessionProposeImagesArgsDto = Static<typeof SessionProposeImagesArgs>
+export type SessionToolImageDto = Static<typeof SessionToolImage>
 export type SessionRevisionV2Dto = Static<typeof SessionRevisionV2>
 export type RevisionChangeDto = Static<typeof RevisionChange>
 export type RevisionSourceDto = Static<typeof RevisionSource>

@@ -264,6 +264,11 @@ export const MediaLitViewRecipe = object({
 })
 export type MediaViewLightDto = Static<typeof MediaViewLight>
 export type MediaLitViewRecipeDto = Static<typeof MediaLitViewRecipe>
+/** Every recipe a derived version may have: Capture's crops, and the lit crops Images proposes. */
+export const MediaDerivedRecipe = Type.Union([LegacyMediaRecipe, RotatedMediaRecipe, MediaLitViewRecipe])
+export type MediaDerivedRecipeDto = Static<typeof MediaDerivedRecipe>
+/** A lot keeps at most this many confirmed stock images, beside its one Part image. */
+export const MEDIA_STOCK_IMAGES_MAX = 8
 
 export function assertMediaLitViewRecipe(value: unknown): asserts value is MediaLitViewRecipeDto {
   if (!Value.Check(MediaLitViewRecipe, value)) {
@@ -290,7 +295,7 @@ export const MediaVersion = object({
   ]),
   state: MediaDecodeState,
   decoder_build: Type.Union([Type.String({ minLength: 1, maxLength: 256 }), Type.Null()]),
-  recipe: Type.Union([MediaRecipe, Type.Null()]),
+  recipe: Type.Union([MediaDerivedRecipe, Type.Null()]),
   pages: Type.Array(
     object({
       page: Type.Integer({ minimum: 1, maximum: 30 }),
@@ -386,7 +391,7 @@ export const MediaSnapshot = object({
     object({
       id: Id,
       evidence_id: Id,
-      recipe: MediaRecipe,
+      recipe: MediaDerivedRecipe,
       state: MediaDecodeState,
       version_id: nullableId,
     }),
@@ -435,6 +440,17 @@ export const MediaEdit = object({
       mode: Type.Union([Type.Literal('selected'), Type.Literal('declined'), Type.Literal('unset')]),
       version_id: nullableId,
       destination: Type.Union([Type.Literal('lot_attachment'), Type.Literal('part_attachment')]),
+    }),
+    /**
+     * Confirms a lot's images: each recipe `/2` becomes a derived crop of its original (an
+     * identical earlier derivation is reused), and the set replaces the lot's confirmed images.
+     * An empty set with no Part image clears them.
+     */
+    object({
+      kind: Type.Literal('select_images'),
+      subject_id: Id,
+      part_image: Type.Union([MediaLitViewRecipe, Type.Null()]),
+      stock_images: Type.Array(MediaLitViewRecipe, { maxItems: MEDIA_STOCK_IMAGES_MAX }),
     }),
   ]),
 })
@@ -713,7 +729,7 @@ const MediaInputVersion = object({
   digest: Digest,
   byteSize: Type.String({ pattern: '^[1-9][0-9]{0,7}$' }),
   mediaType: MediaVersion.properties.media_type,
-  recipe: Type.Union([MediaRecipe, Type.Null()]),
+  recipe: Type.Union([MediaDerivedRecipe, Type.Null()]),
 })
 const mediaInputFields = {
   batchId: Id,
