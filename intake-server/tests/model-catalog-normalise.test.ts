@@ -85,6 +85,27 @@ test('an invalid alias folded behind a valid one still makes the reply malformed
   )
 })
 
+test('an alias list with an entry left out is malformed on the guest route', async () => {
+  const models = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
+    entry.value === 'opus' ? { ...entry, resolvedModel: 'opus[1m]' } : entry,
+  )
+  await assert.rejects(
+    guestClaude(models).read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+})
+
+test('on the host an alias-only reply stays unavailable, however its aliases read', () => {
+  const invalid = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
+    entry.value === 'default' ? { ...entry, displayName: 'x'.repeat(81) } : entry,
+  )
+  const leftOut = (claudeOffline.models as Record<string, unknown>[]).map((entry) =>
+    entry.value === 'opus' ? { ...entry, resolvedModel: 'opus[1m]' } : entry,
+  )
+  refusedAs(() => claudeCliModels(invalid), 'unavailable')
+  refusedAs(() => claudeCliModels(leftOut), 'unavailable')
+})
+
 test('only the worker finds a list not listed: a guest failure saying so is refused', async () => {
   assert.throws(() => guestCatalogAnswer({ model_catalog_failure: 'not_listed' }), {
     message: 'invalid_model_catalog',

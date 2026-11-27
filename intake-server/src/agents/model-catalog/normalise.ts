@@ -139,7 +139,8 @@ function representative(entries: ClaudeCliEntry[]) {
  * A reply naming no model by its exact ID is the CLI's built-in alias list, which it answers when
  * it couldn't reach Anthropic or doesn't know the account, as with a setup token. It isn't the
  * account's list, so it is refused as `aliasesOnly`: `unavailable` unless the caller knows why.
- * A reply with no usable entry at all isn't that list either, so it stays `unavailable`.
+ * A caller that does gets it only for an alias list whose every entry is valid; one with an entry
+ * left out or invalid is `malformed`, and one with no usable entry at all stays `unavailable`.
  */
 export function claudeCliModels(
   models: unknown,
@@ -149,9 +150,11 @@ export function claudeCliModels(
   const groups = new Map<string, ClaudeCliEntry[]>()
   let defaultId: string | undefined
   let exactEntries = 0
+  let leftOut = 0
   for (const raw of list(models)) {
     const entry = claudeCliEntry(raw)
     if (!entry) {
+      leftOut++
       continue
     }
     if (entry.value === entry.id) {
@@ -164,6 +167,18 @@ export function claudeCliModels(
     const group = groups.get(entry.id) ?? []
     group.push(entry)
     groups.set(entry.id, group)
+  }
+  if (exactEntries === 0) {
+    if (aliasesOnly === 'unavailable' || entries.length === 0) {
+      throw new CatalogReadError('unavailable')
+    }
+    // Every alias is checked, not only the one each fold keeps, so an invalid alias list stays
+    // malformed rather than reading as the CLI's own.
+    if (leftOut > 0) {
+      return malformed()
+    }
+    checkedCatalog(entries.map(asModel))
+    throw new CatalogReadError(aliasesOnly)
   }
   const folded = [...groups.entries()].map(([id, entries]) => {
     const chosen = representative(entries)
@@ -178,14 +193,7 @@ export function claudeCliModels(
       usable: null,
     }
   })
-  const checked = checkedCatalog(markOlderClaude(folded))
-  if (exactEntries === 0) {
-    // Every alias is checked, not only the one each fold keeps, so an invalid alias list stays
-    // malformed rather than reading as the CLI's own.
-    checkedCatalog(entries.map(asModel))
-    throw new CatalogReadError(checked.length > 0 ? aliasesOnly : 'unavailable')
-  }
-  return checked
+  return checkedCatalog(markOlderClaude(folded))
 }
 
 function claudeApiEfforts(capabilities: unknown) {
