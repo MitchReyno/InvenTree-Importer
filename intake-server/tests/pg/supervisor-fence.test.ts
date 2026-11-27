@@ -17,6 +17,7 @@ import {
   type SessionRunnerDeps,
 } from '#/agents/session/session-runner.ts'
 import { recordTurnChild } from '#/agents/session/slots.ts'
+import { SessionCapacityUnavailable } from '#/agents/session/session-adapters.ts'
 import { requireSupervisorFence } from '#/agents/supervisor-fence.ts'
 import {
   acquireAgentSupervisor,
@@ -429,6 +430,37 @@ test('a worker that lost its lock settles nothing while another worker holds it'
   proceed()
 
   await assert.rejects(turn, { message: 'agent_supervisor_lock_lost' })
+  assert.deepEqual(await slotOf(fixture, session.attempt), { turn: '1', turn_child: 'none' })
+  assert.equal(await sessionState(fixture, session.attempt), 'running')
+})
+
+test('a requeue refused by the fence leaves the slot and turn for the replacement', async (t) => {
+  const { fixture, defer } = await fenceFixture(t)
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+  const old = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  let reached!: () => void
+  const running = new Promise<void>((resolve) => (reached = resolve))
+  let proceed!: () => void
+  const ended = new Promise<void>((resolve) => (proceed = resolve))
+  const deps = {
+    ...(await sessionDeps(fixture, old, async () => {
+      reached()
+      await ended
+      throw new SessionCapacityUnavailable()
+    })),
+    settlementFenceRetryMs: 1000,
+  }
+  defer(() => rm(deps.host.stateRoot, { recursive: true, force: true }))
+  const turn = runSessionTurn(deps, session.attempt, new AbortController().signal)
+  await running
+  await loseLock(fixture, old)
+  const replacement = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  defer(() => replacement.owner.release(true))
+  proceed()
+
+  await assert.rejects(turn, { message: 'agent_supervisor_lock_lost' })
+  // Nothing was sent, so the replacement's check can release this `none` slot itself.
   assert.deepEqual(await slotOf(fixture, session.attempt), { turn: '1', turn_child: 'none' })
   assert.equal(await sessionState(fixture, session.attempt), 'running')
 })

@@ -51,6 +51,16 @@ export class SessionResumeUnavailable extends NativeSessionError {
 }
 
 /**
+ * The turn found no free runner connection although its route has one: it sent nothing, so the
+ * session goes back to the queue. Not a `NativeSessionError`, so it is never retained as a failure.
+ */
+export class SessionCapacityUnavailable extends Error {
+  constructor() {
+    super('session_capacity_unavailable')
+  }
+}
+
+/**
  * Polls for operator items while a turn runs; stops when the turn ends or the signal aborts. A
  * failure is handed to `fail` at once, which aborts the turn so the child is reaped first.
  */

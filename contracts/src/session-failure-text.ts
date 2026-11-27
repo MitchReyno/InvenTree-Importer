@@ -55,6 +55,7 @@ const codes: Record<SessionFailureCode, Sentence> = {
   agent_login_required: (p) => `${p} needs you to sign in again`,
   agent_credentials_unavailable: (p) => `${p}'s credentials weren't available`,
   agent_process_unavailable: (p) => `The ${p} CLI couldn't be started`,
+  agent_vm_unavailable: (p) => `${p}'s agent VM connection wasn't available`,
   agent_version_unqualified: (p) => `The ${p} CLI version isn't supported`,
   agent_version_unavailable: (p) => `The ${p} CLI's version couldn't be read`,
   agent_admission_unavailable: (p) => `The ${p} CLI refused this session's setup`,
