@@ -54,8 +54,10 @@ qemu-system-aarch64 --version
 limactl --version
 free -h
 vm=bench-pi
-limactl start --tty=false --vm-type=qemu --name="$vm" tooling/deployment/lima/agent.yaml
+limactl start --tty=false --vm-type=qemu --cpus=3 --memory=4 --name="$vm" tooling/deployment/lima/agent.yaml
 ```
+
+The Pi's VM gets 3 CPUs and 4 GiB rather than the template's 4 and 4, so InvenTree, PostgreSQL, the intake server and the media decoder keep a core and about 4 GB of the Pi's 8 GB; see [sizing the agent VM](#sizing-the-agent-vm).
 
 For a per-user QEMU installation, include the Debian ipxe-qemu ROMs in QEMU's data directory. Pass that directory via QEMU's `-L` option and point Lima's `firmware.images` entry at the extracted AArch64 UEFI code file. Use the same Compose and smoke commands as on the Mac, substituting the Pi VM name. Transfer private images with `docker save` and `docker load`. Load the app into host Docker and the personal tools into guest Docker. Starting the host fixture requires separate synthetic secrets, a fresh Compose project name and its own volumes.
 
@@ -78,7 +80,7 @@ tooling/deployment/tests/dispatch/smoke.sh "$vm" bench-intake-runner:controlled
 
 The smoke script starts disposable PostgreSQL and issues disposable pairing certificates. It calls the application's Processing HTTP route, lets DBOS deliver each command, and checks retained provider session IDs and MCP status events for Claude and Codex. A separate scripted session submits a proposal, asks a question and resumes after the answer. When testing from the checkout, it requires the pinned Node runtime and installed pnpm workspace dependencies.
 
-For the relay, run `node tooling/deployment/bridge/relay.mjs VM PORT GUEST_DIRECTORY IMAGE` where the coordinator's loopback listener is reachable. The operator-side relay requires Lima management access. Each relay carries up to `INTAKE_VM_RELAY_TURNS` turns at once (1–8, default 8), each in a bounded, network-disabled container in the shared VM reusing its guest session storage. It keeps one connection ready and opens the next when that one's guest reports its claim; a runner image older than this relay never reports one, so its relay carries one turn at a time. The guest directory contains `guest/` for the pairing files and `sessions/` writable by UID 1000. Keep it private inside the VM. The ordinary relay supports offline controlled execution. The personal subscription and tool-worker sections below configure the selected account and guest egress services.
+For the relay, run `node tooling/deployment/bridge/relay.mjs VM PORT GUEST_DIRECTORY IMAGE` where the coordinator's loopback listener is reachable. The operator-side relay requires Lima management access. Each relay carries up to `INTAKE_VM_RELAY_TURNS` turns at once (1–8, default 8), each in a bounded, network-disabled container in the shared VM reusing its guest session storage. It starts no guest until a turn needs one: each lane connects to the coordinator and offers itself with a line naming its route (`bench-lane/1 claude tools`), and the coordinator answers `go` when a turn or a removal check of that route needs a connection. The relay then starts the guest on that connection and offers its next lane, so an idle relay holds no containers. A guest the coordinator asked for that no turn takes within 30 s is closed, and one that closes before it greets holds back every route's next start for 30 s while its containers are removed (a time bound: the relay doesn't report when they are gone). A relay none of whose guests greets within a turn's wait (a missing runner image, say) reads as unavailable, not busy. A relay and coordinator from this build must be deployed together: an older coordinator refuses the offer line, and the relay retries it every 500 ms. An older relay, which starts its guest at once, still works with this coordinator. The guest directory contains `guest/` for the pairing files and `sessions/` writable by UID 1000. Keep it private inside the VM. The ordinary relay supports offline controlled execution. The personal subscription and tool-worker sections below configure the selected account and guest egress services.
 
 To exercise the trusted app in its host Docker image as well, pass the app image as a third argument to the smoke script. It shares only the disposable database's isolated network namespace. For that topology the relay accepts a fifth argument, the coordinator container name, and uses a fixed loopback byte pump inside that container. Host Docker management remains outside both the coordinator and the guest.
 
@@ -89,7 +91,7 @@ For local development, `pnpm vm:setup` does the pairing, provisioning and browse
 tooling/deployment/bridge/pair.sh "$vm" "$INTAKE_VM_PAIR" "$guest_directory"
 ```
 
-Start the coordinator with the VM profile and its pairing directory, then start the relay using the same port and guest directory. The standard dev launcher reads the two bridge variables for the session worker. For the packaged topology supply the coordinator container name to the relay. Each additional relay permits another simultaneous turn, within the application's configured slot limit.
+Start the coordinator with the VM profile and its pairing directory, then start the relay using the same port and guest directory. The standard dev launcher reads the two bridge variables for the session worker. For the packaged topology supply the coordinator container name to the relay. One relay per provider route carries that route's simultaneous turns, within the application's configured slot limit and the [agent VM's capacity](#sizing-the-agent-vm).
 
 For an already provisioned installation, layer `host-runner.compose.yaml` over `host.compose.yaml` with Docker Compose's two `-f` arguments. Supply the existing API's private runtime settings in `INTAKE_API_RUNTIME_ENV` and the session coordinator's separately provisioned runtime settings in `INTAKE_COORDINATOR_ENV`. Both need the same actor, target, target context and processing channel secret. The coordinator requires its restricted `INTAKE_AGENT_DATABASE_URL` and its DBOS `INTAKE_AGENT_SCHEDULER_DATABASE_URL`. Set `INTAKE_AGENT_WRITER_DATABASE_URL` to the dedicated Examine writer role for lot formation. The base fixture provisioner creates the API login. Supply pre-provisioned coordinator and scheduler roles and authenticated UI ingress for a personal installation. These are prerequisites for the overlay.
 
@@ -161,6 +163,8 @@ An attempt sealed with an effort (the agent settings save one per step and per p
 
 Likewise, an attempt sealed with a step's instructions (saved in Settings › Agents for Examine, Research or Images) needs a runner image from a build with migration `0045`: an older guest refuses its manifest, and the turn fails before the CLI starts. Apply the migration and refresh the API role's grants before starting the new build's API and session worker, and refresh the runner image. Attempts of a step without instructions run on either image.
 
+Migration `0049` adds `agent_session.startup_timeouts`, which the coordinator's runner role updates in every turn's settlement. Apply it, then refresh the coordinator role's grants the way they were provisioned, before starting the new build's session worker: without the grant, every settlement is refused and its slot stays held. Deploy the relays, the coordinator and the runner image from the same build, since the relays' lane offers need this coordinator.
+
 ### Model lists from the guest
 
 The session worker reads each signed-in provider's model list in the guest, without a turn, and serves it at `GET /api/v1/agents/models`. The read is served on a private catalogue socket, and the subscription relay carries two connections for it beside the status one, so a read of several seconds holds neither a status read nor the worker's sign-in check.
@@ -186,7 +190,7 @@ INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CLAUDE_SUBSCRIPTION=1 \
   node tooling/deployment/bridge/relay.mjs "$vm" "$port" "$guest_directory" "$runner_image"
 ```
 
-For ChatGPT-backed sessions, start a second relay with `INTAKE_VM_CODEX_SUBSCRIPTION=1` in place of the Claude flag. Add the coordinator container name as the final argument for a containerized coordinator. Each relay carries several turns at once, as above. Each running tool worker has a 640 MiB memory ceiling and its paired supervisor has a 256 MiB ceiling. The provider tunnel has a 64 MiB ceiling. Size the VM for the number of simultaneous turns.
+For ChatGPT-backed sessions, start a second relay with `INTAKE_VM_CODEX_SUBSCRIPTION=1` in place of the Claude flag. Add the coordinator container name as the final argument for a containerized coordinator. Each relay carries several turns at once, as above. Each running tool worker has a 640 MiB memory ceiling and its paired supervisor has a 256 MiB ceiling. The provider tunnel has a 64 MiB ceiling. The coordinator runs no more turns than the VM holds at those ceilings; see [sizing the agent VM](#sizing-the-agent-vm).
 
 Agents use their native shell, file and image tools and provider web search; Claude sessions also have `WebFetch`. `curl` and `WebFetch` reach the web through the turn's egress proxy (`HTTPS_PROXY`). It always allows the provider's hosts. It allows public HTTPS hosts only when the turn's sealed policy turns public pages on, and only on port 443 to names whose every DNS answer is public and none protected. A refusal is `403` with the reason in `X-Bench-Refusal`. Public websites receive any data the operator or agent puts in a permitted URL.
 
@@ -278,6 +282,21 @@ For concurrent cancellation qualification, build the runner Dockerfile's `contro
 - **Credential management unavailable.** Restore the management tunnel and check configuration status. Explicitly repeat a credential change only after checking its acknowledged revision. For ChatGPT, enable device-code sign-in in the operator's security settings and start a fresh challenge after an expired or denied one.
 
 The qualification exercises two simultaneous controlled turns on each installation. The configured worker ceilings are 640 MiB for the tool worker, 256 MiB for its paired supervisor and 64 MiB for its provider tunnel. Chromium shares the worker's 128-task limit. VM memory and deployment load determine available headroom for real sessions. The physical qualification measurements and tested image identities are recorded on the deployment PR.
+
+### Sizing the agent VM
+
+The coordinator runs at most as many VM turns at once as the VM holds at their ceilings, whatever **Sessions at once** says. Each turn's guest reports the VM's total memory (`MemTotal`) in its greeting. The coordinator keeps 768 MiB for what always runs (Docker, each provider's egress and management containers, Claude's catalogue container and the kernel) and divides the rest by a tool turn's 960 MiB (`intake-server/src/agents/shared-vm/turn-capacity.ts`). Sessions past that stay queued; they don't fail. Until a guest has reported, and with a runner image older than this build, the VM is taken to hold one turn. The coordinator logs `vm_turn_capacity` with the memory and turns whenever they change.
+
+One turn at a time starts on the VM: its containers and provider CLI start, and the next turn's start waits until the provider has accepted the session (at most 120 s per start). Turns that have started run side by side. A Claude CLI that takes over 45 s to accept the session's setup (Codex's start has no such deadline) is tried again as a new turn, twice, and then the session fails with "The provider CLI didn't start in time."
+
+| Machine | VM CPUs | VM memory | Turns at once | Notes |
+| --- | --- | --- | --- | --- |
+| Mac (development, `pnpm vm:setup`) | 4 | 4 GiB | 3 | The Lima template's size |
+| Raspberry Pi 5, 8 GB | 3 | 4 GiB | 3 | Leaves about 4 GB and one core for InvenTree, PostgreSQL, the intake server and its workers, and the media decoder's one 1 GiB slot |
+| Raspberry Pi 5, 4 GB | — | — | — | Don't run parallel VM agents: a 2 GiB VM holds one turn, and the rest of the stack needs the remaining 2 GB |
+| Any VM of 2 GiB | 2 | 2 GiB | 1 | The previous template's size |
+
+`pnpm vm:setup` gives an existing development VM the template's size. Lima changes CPUs and memory only while a VM is stopped, so setup resizes a stopped VM before it starts it, and leaves a running one at its size with a line saying how to apply the template's: stop `pnpm dev`, run `limactl stop <vm>`, then run `pnpm vm:setup` again. For another VM, stop it and run `limactl edit --tty=false --cpus=N --memory=M <vm>`.
 
 ### Evidence delivery mode
 

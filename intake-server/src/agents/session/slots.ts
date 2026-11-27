@@ -44,12 +44,14 @@ async function sessionLimit(client: PoolClient, config: ProcessingConfig) {
  * are serialized, the limit is read on each claim, a `/1` lane holder counts as one slot, and
  * queued sessions start oldest first, Examine lead sessions before per-lot ones. No session
  * waits behind a queued Inventory, which may be held at its gate. Lowering the limit only stops
- * new claims.
+ * new claims. `vmCapacity` reads the turns the agent VM holds, which lower the limit for VM
+ * sessions; it is read once the claims are serialized, so a claim never uses an older value.
  */
 export async function claimSessionSlot(
   client: PoolClient,
   config: ProcessingConfig,
   attemptId: string,
+  vmCapacity?: () => number,
 ) {
   const db = queryDatabase(client)
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 7319))', [
@@ -89,7 +91,9 @@ export async function claimSessionSlot(
         and(eq(processingLanes.actorId, config.actorId), isNotNull(processingLanes.attemptId)),
       ),
   )
-  const free = (await sessionLimit(client, config)) - occupied[0].count - lane.length
+  const settingLimit = await sessionLimit(client, config)
+  const limit = vmCapacity === undefined ? settingLimit : Math.min(settingLimit, vmCapacity())
+  const free = limit - occupied[0].count - lane.length
   if (free <= 0) {
     return false
   }

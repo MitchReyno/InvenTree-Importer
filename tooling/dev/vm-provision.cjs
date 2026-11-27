@@ -313,6 +313,64 @@ function messages(write, prefix) {
   return write ? (line) => write.err(`[${prefix}] ${line}\n`) : undefined
 }
 
+const GIB = 1024 ** 3
+
+/** The CPUs and memory the repository's Lima template gives the VM. */
+async function templateSize(repository, { read = readFile } = {}) {
+  const template = await read(join(repository, 'tooling/deployment/lima/agent.yaml'), 'utf8')
+  const cpus = /^cpus: (\d+)$/m.exec(template)
+  const memory = /^memory: (\d+)GiB$/m.exec(template)
+  if (!cpus || !memory) {
+    throw new VmSetupError('vm_template_size_unreadable', 'tooling/deployment/lima/agent.yaml')
+  }
+  return { cpus: Number(cpus[1]), memoryGib: Number(memory[1]) }
+}
+
+/** The existing instance's CPUs and memory in GiB, as Lima lists them. */
+async function vmSize(context) {
+  const { exec = runCommand, env, plan } = context
+  const output = await exec('limactl', ['list', '--format', '{{.Name}} {{.CPUs}} {{.Memory}}'], {
+    timeout: GUEST_COMMAND_TIMEOUT_MS,
+    env,
+    stderr: messages(context.write, 'limactl'),
+  })
+  const entry = output
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .find(([name]) => name === plan.name)
+  if (!entry || !/^\d+$/.test(entry[1] ?? '') || !/^\d+$/.test(entry[2] ?? '')) {
+    throw new VmSetupError('vm_size_unreadable', plan.name)
+  }
+  return { cpus: Number(entry[1]), memoryGib: Number(entry[2]) / GIB }
+}
+
+/**
+ * Gives an existing VM the template's CPUs and memory. Lima changes them only while the VM is
+ * stopped, so a running VM is left as it is (`deferred`), never stopped from here.
+ */
+async function ensureVmSize(context, status) {
+  const { exec = runCommand, env, plan, repository } = context
+  const wanted = await templateSize(repository)
+  const current = await vmSize(context)
+  if (current.cpus === wanted.cpus && current.memoryGib === wanted.memoryGib) {
+    return 'done'
+  }
+  const sizes = `${current.cpus} CPUs and ${current.memoryGib} GiB to ${wanted.cpus} CPUs and ${wanted.memoryGib} GiB`
+  if (status === 'Running') {
+    context.write?.out(
+      `VM ${plan.name} runs with ${sizes.replace(' to ', ' instead of ')}. To resize it, stop pnpm dev, run limactl stop ${plan.name}, then run pnpm vm:setup again.\n`,
+    )
+    return 'deferred'
+  }
+  context.write?.out(`Resizing VM ${plan.name} from ${sizes}.\n`)
+  await exec(
+    'limactl',
+    ['edit', '--tty=false', `--cpus=${wanted.cpus}`, `--memory=${wanted.memoryGib}`, plan.name],
+    { timeout: GUEST_COMMAND_TIMEOUT_MS, env, stderr: messages(context.write, 'limactl') },
+  )
+  return 'changed'
+}
+
 /** Creates the VM from the repository's template, or starts it. Resolves true when it booted it. */
 async function ensureVm(context) {
   const { exec = runCommand, env, plan, repository } = context
@@ -802,6 +860,7 @@ module.exports = {
   ensureOperatorKey,
   ensurePairing,
   ensureVm,
+  ensureVmSize,
   guestCertificateValid,
   guestImageDigest,
   hostPairingValid,

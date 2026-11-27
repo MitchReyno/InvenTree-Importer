@@ -7,8 +7,11 @@ import { processingAttempts, processingLanes } from '#/processing/schema.ts'
 import { agentSessions, agentSlots, type TurnChildKind } from './schema.ts'
 import { interruptSession } from './session/session-runner.ts'
 
-/** How long a starting worker waits for the guest's removal proof for one held VM turn. */
-export const STARTUP_REAP_CHECK_MS = 20_000
+/**
+ * How long a starting worker waits for the guest's removal proof for one held VM turn. Relays
+ * start guests on demand, so this covers a tool guest's cold start, as a turn's own wait does.
+ */
+export const STARTUP_REAP_CHECK_MS = 45_000
 
 /** A slot or the Processing lane still held by an attempt when a worker starts. */
 export type HeldCapacity =
@@ -221,8 +224,12 @@ export async function recoverHeldCapacity(
   checks: HeldCapacityChecks = {},
 ): Promise<HeldCapacityOutcome[]> {
   const held = await readHeldCapacity(owner, config)
-  // Each VM turn is asked about at once, each within its own bound.
-  const proofs = await Promise.all(held.map((item) => vmReapProof(item, checks)))
+  // One VM turn at a time, each within its own bound: each proof starts a guest on demand, and
+  // starting them all at once would load the small VM the cap protects.
+  const proofs: VmReapProof[] = []
+  for (const item of held) {
+    proofs.push(await vmReapProof(item, checks))
+  }
   const outcomes: HeldCapacityOutcome[] = []
   for (const [index, item] of held.entries()) {
     const verdict = heldCapacityVerdict(item, proofs[index])

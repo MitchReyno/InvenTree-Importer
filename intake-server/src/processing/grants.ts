@@ -35,7 +35,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
   } else {
     await pool.query(
       `GRANT UPDATE(started_at,finished_at,native_session_id,actual_model,sent_effort,progress,
-        session_state,session_lineage_id,capability_sha256,turn_count,queued_since) ON agent_session TO ${role};
+        session_state,session_lineage_id,capability_sha256,turn_count,queued_since,startup_timeouts) ON agent_session TO ${role};
       GRANT INSERT ON agent_session_failure,agent_session_outbox,processing_proposal_stale TO ${role};
       -- Without actor_id the runner can write system notices only, never operator chat or answers.
       GRANT INSERT(id,session_lineage_id,seq,kind,payload,idempotency_key) ON agent_session_inbox TO ${role};

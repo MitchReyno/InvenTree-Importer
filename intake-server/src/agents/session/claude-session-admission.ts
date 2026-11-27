@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 import { AgentChild, record } from '#/agents/child.ts'
 
-const ADMISSION_TIMEOUT_MS = 15_000
+/**
+ * The CLI's start and MCP connect. Starts are serialized per agent VM, so one slow start delays no
+ * other's admission, and a loaded small machine needs more than a few seconds.
+ */
+const ADMISSION_TIMEOUT_MS = 45_000
 const MCP_READY_POLL_MS = 100
 
 async function control(child: AgentChild, subtype: string) {

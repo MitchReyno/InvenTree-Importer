@@ -10,6 +10,7 @@ const { setTimeout: delay } = require('node:timers/promises')
 
 const RELAY = resolve(__dirname, '../deployment/bridge/relay.mjs')
 const MARKER = 'bench-turn-claimed'
+const OFFER = 'bench-lane/1 claude tools\n'
 
 // Stands in for Lima. A tool turn runs FAKE_LANE; removing a container succeeds; the status and
 // catalogue pumps fail, which the relay retries apart from its turns.
@@ -46,11 +47,22 @@ process.stdin.on('data', (bytes) => {
 process.stdin.on('end', () => process.exit(0))
 `
 
-/** A coordinator stand-in that records every connection the relay opens. */
-async function coordinator(t) {
+/**
+ * A coordinator stand-in that records every connection the relay opens; with `autoStart` it asks
+ * for each offer's guest at once.
+ */
+async function coordinator(t, { autoStart = false } = {}) {
   const sockets = []
+  const received = new Map()
   const server = createServer((socket) => {
     socket.on('error', () => socket.destroy())
+    received.set(socket, '')
+    socket.on('data', (bytes) => {
+      received.set(socket, received.get(socket) + bytes)
+      if (autoStart && received.get(socket) === OFFER) {
+        socket.write('go\n')
+      }
+    })
     sockets.push(socket)
   })
   server.listen(0, '127.0.0.1')
@@ -62,7 +74,18 @@ async function coordinator(t) {
     server.close()
   })
   const open = () => sockets.filter((socket) => !socket.destroyed)
-  return { port: server.address().port, sockets, open }
+  /** Waits for the socket's offer, then asks for its guest and sends it `text`. */
+  const start = async (socket, text) => {
+    await until(() => received.get(socket) === OFFER, 'lane offer')
+    socket.write('go\n' + (text ?? ''))
+  }
+  return {
+    port: server.address().port,
+    sockets,
+    open,
+    received: (socket) => received.get(socket),
+    start,
+  }
 }
 
 async function relay(t, port, env = {}) {
@@ -110,25 +133,27 @@ async function until(condition, label, boundMs = 10_000) {
   }
 }
 
-test('an idle relay holds one ready connection', async (t) => {
+test('an idle relay offers one lane and starts no guest', async (t) => {
   const server = await coordinator(t)
-  await relay(t, server.port)
+  const relayed = await relay(t, server.port)
   await until(() => server.open().length === 1, 'first connection')
+  await until(() => server.received(server.open()[0]) === OFFER, 'lane offer')
   await delay(1500)
   assert.equal(server.open().length, 1)
+  assert.ok(!relayed.stderr().includes('guest says hello'), relayed.stderr())
 })
 
-test('a claimed connection makes the relay open the next, up to its capacity', async (t) => {
+test('a started lane makes the relay offer the next, up to its capacity', async (t) => {
   const server = await coordinator(t)
   await relay(t, server.port, { INTAKE_VM_RELAY_TURNS: '3' })
   for (let lanes = 1; lanes <= 3; lanes++) {
     await until(() => server.open().length === lanes, `connection ${lanes}`)
-    server.open().at(-1).write('claim\n')
+    await server.start(server.open().at(-1), 'claim\n')
   }
   // Three busy turns: no fourth connection.
   await delay(1500)
   assert.equal(server.open().length, 3)
-  // A busy turn that ends frees room for a ready one.
+  // A busy turn that ends frees room for an offer.
   server.open()[0].write('exit\n')
   await until(
     () => server.sockets.length === 4 && server.open().length === 3,
@@ -136,15 +161,22 @@ test('a claimed connection makes the relay open the next, up to its capacity', a
   )
 })
 
-test('a guest that reports no claim leaves the relay carrying one turn at a time', async (t) => {
+test('a guest that reports no claim still lets the next lane be offered', async (t) => {
   const server = await coordinator(t)
   await relay(t, server.port, { FAKE_NO_MARKER: '1' })
   await until(() => server.open().length === 1, 'first connection')
-  server.open()[0].write('claim\n')
-  await delay(1500)
-  assert.equal(server.sockets.length, 1)
-  server.open()[0].write('exit\n')
-  await until(() => server.sockets.length === 2, 'next connection after the turn ends')
+  await server.start(server.open()[0], 'claim\n')
+  await until(() => server.open().length === 2, 'next offer')
+})
+
+test('an offer answered with anything but go is dropped and replaced', async (t) => {
+  const server = await coordinator(t)
+  const relayed = await relay(t, server.port)
+  await until(() => server.open().length === 1, 'first connection')
+  await until(() => server.received(server.open()[0]) === OFFER, 'lane offer')
+  server.open()[0].write('nope\n')
+  await until(() => server.sockets.length === 2 && server.open().length === 1, 'replacement')
+  assert.ok(!relayed.stderr().includes('guest says hello'), relayed.stderr())
 })
 
 test('a ready connection the coordinator drops is replaced', async (t) => {
@@ -156,9 +188,9 @@ test('a ready connection the coordinator drops is replaced', async (t) => {
 })
 
 test('a guest launcher that cannot start is retried at a bounded pace', async (t) => {
-  const server = await coordinator(t)
-  // No limactl on the path, so every guest fails to spawn.
-  await relay(t, server.port, { PATH: '/nonexistent' })
+  const server = await coordinator(t, { autoStart: true })
+  // No limactl on the path, so every guest fails to spawn; one lane, asked at once each time.
+  await relay(t, server.port, { PATH: '/nonexistent', INTAKE_VM_RELAY_TURNS: '1' })
   await delay(2000)
   // One connection per lane attempt, each followed by the 500 ms wait.
   assert.ok(server.sockets.length >= 1 && server.sockets.length <= 5, String(server.sockets.length))
@@ -168,7 +200,7 @@ test('the relay forwards guest messages and keeps claim reports to itself', asyn
   const server = await coordinator(t)
   const relayed = await relay(t, server.port)
   await until(() => server.open().length === 1, 'first connection')
-  server.open()[0].write('claim\n')
+  await server.start(server.open()[0], 'claim\n')
   await until(() => server.open().length === 2, 'second connection')
   await until(() => relayed.stderr().includes('guest says hello'), 'forwarded line')
   assert.ok(!relayed.stderr().includes(MARKER), relayed.stderr())
@@ -178,17 +210,18 @@ test('the marker text ending an overlong line is forwarded, not taken as a claim
   const server = await coordinator(t)
   const relayed = await relay(t, server.port)
   await until(() => server.open().length === 1, 'first connection')
-  server.open()[0].write('long\n')
+  await server.start(server.open()[0], 'long\n')
   await until(() => relayed.stderr().includes(MARKER), 'forwarded marker text')
+  // The marker is not taken out of the forwarded text.
   await delay(500)
-  assert.equal(server.sockets.length, 1)
+  assert.ok(relayed.stderr().includes('x'.repeat(100) + MARKER), 'one forwarded line')
 })
 
 test('SIGTERM closes every connection and the relay exits', async (t) => {
   const server = await coordinator(t)
   const relayed = await relay(t, server.port, { INTAKE_VM_RELAY_TURNS: '2' })
   await until(() => server.open().length === 1, 'first connection')
-  server.open()[0].write('claim\n')
+  await server.start(server.open()[0], 'claim\n')
   await until(() => server.open().length === 2, 'second connection')
   relayed.child.kill('SIGTERM')
   const [code] = await relayed.exited
@@ -205,4 +238,19 @@ test('the default capacity is the most slots a session limit can set', async () 
   const relaySource = await readFile(RELAY, 'utf8')
   const max = slots.match(/export const MAX_SESSION_SLOTS = (\d+)/)[1]
   assert.match(relaySource, new RegExp(`const DEFAULT_RELAY_TURNS = ${max}\\b`))
+})
+
+test("pnpm dev waits for the worker's startup check of every held VM turn", async () => {
+  const read = (path) => readFile(resolve(__dirname, '../..', path), 'utf8')
+  const slots = await read('intake-server/src/agents/session/slots.ts')
+  const held = await read('intake-server/src/agents/held-capacity.ts')
+  const dev = await read('tooling/dev.cjs')
+  const max = Number(slots.match(/export const MAX_SESSION_SLOTS = (\d+)/)[1])
+  const check = Number(
+    held.match(/export const STARTUP_REAP_CHECK_MS = ([\d_]+)/)[1].replace(/_/g, ''),
+  )
+  const [, base, count, each] = dev.match(/const AGENTS_READY_MS = ([\d_]+) \+ (\d+) \* ([\d_]+)/)
+  assert.equal(Number(count), max)
+  assert.equal(Number(each.replace(/_/g, '')), check)
+  assert.ok(Number(base.replace(/_/g, '')) > 0)
 })

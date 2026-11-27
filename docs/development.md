@@ -115,7 +115,7 @@ When anything is out of date it first checks the operator key as `pnpm vm:setup`
 Then it starts:
 
 - `vm-tunnel`: forwards loopback ports 14315 and 14317 to the guest, for **Settings › Agents**;
-- `vm-relay-claude` and `vm-relay-codex`: one relay each, using `INTAKE_VM_PORT`, with the tool worker unless `INTAKE_VM_AGENT_TOOLS=false`. Each carries as many turns at once as **Sessions at once** allows (the relay's default capacity of 8 covers any setting), keeping one guest turn ready while idle. The launcher doesn't pass `INTAKE_VM_RELAY_TURNS`; lower **Sessions at once** to run fewer turns. A turn that finds them all busy goes back to the queue. Concurrent turns need VM memory: each tool turn may use up to about 1 GiB.
+- `vm-relay-claude` and `vm-relay-codex`: one relay each, using `INTAKE_VM_PORT`, with the tool worker unless `INTAKE_VM_AGENT_TOOLS=false`. Each carries as many turns at once as **Sessions at once** and the VM's memory allow (the relay's default capacity of 8 covers any setting). An idle relay starts no guest: it offers a lane to the coordinator and starts the guest's containers when a turn needs them. The launcher doesn't pass `INTAKE_VM_RELAY_TURNS`; lower **Sessions at once** to run fewer turns. A turn that finds them all busy goes back to the queue. Each tool turn may use up to about 1 GiB, so the coordinator runs no more turns than the VM holds (three in the 4 GiB development VM), and starts them one at a time; see [sizing the agent VM](../tooling/deployment/README.md#sizing-the-agent-vm).
 
 They keep running through source reloads. If one of them exits, for example because the VM was stopped elsewhere, the app stops with `<name> stopped; stopping the app.` Lima's own messages appear with a `[limactl]` prefix, so a slow or failed boot shows its progress and cause.
 
@@ -184,7 +184,7 @@ A turn still running when the app stops normally settles once its removal is con
 
 | Reason | Meaning |
 | --- | --- |
-| `vm_reap_unconfirmed` | The VM guest gave no removal proof for the turn's command within 20 s. Check the VM and its relays are up, then try again. |
+| `vm_reap_unconfirmed` | The VM guest gave no removal proof for the turn's command within 45 s. Check the VM and its relays are up, then try again. |
 | `vm_bridge_unavailable` | The worker has no VM bridge, so it cannot ask. |
 | `host_child_unverifiable` | A native host turn: its process group isn't recorded. |
 | `turn_child_unrecorded` | The slot was claimed by a build that recorded no turn. |

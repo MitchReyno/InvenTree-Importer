@@ -540,3 +540,32 @@ test('the start sweep leaves a session that still holds a slot', async (t) => {
   assert.deepEqual(await interruptRunningSessions(fixture.runner.pool, fixture.config), [])
   assert.equal(await sessionState(fixture, session.attempt), 'running')
 })
+
+test('a starting worker asks about one held VM turn at a time', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const a = await lotSession(fixture, capture, capture.packetA)
+  const b = await lotSession(fixture, capture, capture.packetB)
+  await heldSlot(fixture, 0, a.attempt, 'vm', '{"command":"a"}')
+  await heldSlot(fixture, 1, b.attempt, 'vm', '{"command":"b"}')
+  let asking = 0
+  let most = 0
+  const outcomes = await asSupervisor(fixture, (owner) =>
+    recoverHeldCapacity(owner, fixture.config, {
+      // Each proof starts a guest on demand, so two at once would start two guests.
+      confirmVmReaped: async () => {
+        asking++
+        most = Math.max(most, asking)
+        await delay(100)
+        asking--
+        return true
+      },
+    }),
+  )
+  assert.equal(most, 1)
+  assert.deepEqual(
+    outcomes.map((outcome) => outcome.released),
+    [true, true],
+  )
+})

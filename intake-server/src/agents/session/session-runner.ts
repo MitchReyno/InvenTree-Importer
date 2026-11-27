@@ -1,4 +1,4 @@
-import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
+import { failureCauseCode, NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
 import { retainSessionFailure } from '#/agents/failures.ts'
 import type { AgentSelectionDto, SessionFailureDto } from '@invimport/contracts'
 import { claimPinnedIdentity, lotRetired, successorsCurrent } from '#/processing/stable-identity.ts'
@@ -66,6 +66,12 @@ import {
 import { ResearchReapPendingError } from '#/research/errors.ts'
 
 /** Tools every session gets; the lot-forming tools are added for the Examine lead session. */
+/**
+ * Admission timeouts in a row that put a session back in the queue; the next one fails it. A
+ * loaded VM gets two more chances to start the CLI, and a VM that never can stops retrying.
+ */
+export const MAX_STARTUP_RETRIES = 2
+
 const SLOT_WAIT_MS = 500
 const SLOT_WAIT_LIMIT_MS = 30_000
 const CANCEL_POLL_MS = 500
@@ -183,6 +189,8 @@ export interface SessionRunnerDeps {
   settlementFenceRetryMs?: number
   /** Told the CLI version a turn's admission reported, so a new version's models are read. */
   onCliVersion?: (selection: AgentSelectionDto, version: string) => void
+  /** How many turns the agent VM holds, read at each claim; absent without a VM bridge. */
+  turnCapacity?: () => number
 }
 
 /** A turn longer than this is stopped and reaped; the session fails rather than resuming a stall. */
@@ -384,6 +392,13 @@ export async function interruptSession(client: PoolClient, session: InterruptedS
   if (!changed) {
     return false
   }
+  // A turn that started and was interrupted ends a run of startup timeouts.
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(agentSessions)
+      .set({ startupTimeouts: 0 })
+      .where(eq(agentSessions.attemptId, session.attemptId)),
+  )
   await retainSessionFailure(
     client,
     sessionFailure(new NativeSessionError('agent_worker_interrupted'), {
@@ -792,6 +807,7 @@ export async function runSessionTurn(
             state: agentSessions.sessionState,
             attemptState: processingAttempts.state,
             turnCount: agentSessions.turnCount,
+            startupTimeouts: agentSessions.startupTimeouts,
             lineageId: agentSessions.sessionLineageId,
             providerSessionId: agentSessions.nativeSessionId,
             jobId: processingAttempts.jobId,
@@ -949,9 +965,19 @@ export async function runSessionTurn(
       }
       // A resume whose only pending items were withdrawn since it was queued has nothing to do:
       // the session goes back to the state its last turn left it in, without a turn.
-      if (row.turnCount > 0n && (await withdrawnOnly(client, row.jobId))) {
+      // A first turn requeued after a startup timeout never reached the provider, so it still
+      // owes the session its opening and isn't such a resume.
+      const openingOwed = row.startupTimeouts > 0 && row.providerSessionId === null
+      if (row.turnCount > 0n && !openingOwed && (await withdrawnOnly(client, row.jobId))) {
         const idle = await stateBeforeWake(client, attemptId, row.jobId)
         const settled = await setSessionState(client, attemptId, row.jobId, idle, ['queued'])
+        // The retry it was queued for is abandoned, and with it any run of startup timeouts.
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .update(agentSessions)
+            .set({ startupTimeouts: 0 })
+            .where(eq(agentSessions.attemptId, attemptId)),
+        )
         await publish(client, row.batchId)
         if (settled === 'cancelled') {
           return 'cancelled' as const
@@ -959,7 +985,7 @@ export async function runSessionTurn(
         return ['idle', idle] as const
       }
       // Without a free slot the session stays queued; the caller waits and tries again.
-      if (!(await claimSessionSlot(client, config, attemptId))) {
+      if (!(await claimSessionSlot(client, config, attemptId, deps.turnCapacity))) {
         return undefined
       }
       const state = await setSessionState(client, attemptId, row.jobId, 'running', ['queued'], {
@@ -1149,6 +1175,8 @@ export async function runSessionTurn(
   let next: SessionStateDto
   // The driver found no free runner connection and sent nothing.
   let unstarted = false
+  // The provider CLI didn't accept the session's setup in time; nothing was sent to it.
+  let startupTimeout = false
   try {
     const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
     const turnNumber = current.turnCount + 1n
@@ -1201,7 +1229,12 @@ export async function runSessionTurn(
     }
     // Nothing was sent, so there is no failure to record: the session goes back to the queue.
     unstarted = error instanceof SessionCapacityUnavailable && !turnControl.signal.aborted
-    if (!unstarted) {
+    startupTimeout =
+      !turnControl.signal.aborted && failureCauseCode(error) === 'agent_admission_timeout'
+    if (startupTimeout) {
+      // Retained only if the retries are spent: then this is the failure, by its own code.
+      diagnostic = captureFailure(new NativeSessionError('agent_admission_timeout'))
+    } else if (!unstarted) {
       diagnostic = captureFailure(
         expired && !signal.aborted
           ? new NativeSessionError('agent_timeout')
@@ -1253,7 +1286,11 @@ export async function runSessionTurn(
       // the next one; that turn's state, capability and slot are not this settlement's to change.
       const sessionNow = await executeDatabaseQuery(
         queryDatabase(client)
-          .select({ turnCount: agentSessions.turnCount, state: agentSessions.sessionState })
+          .select({
+            turnCount: agentSessions.turnCount,
+            state: agentSessions.sessionState,
+            startupTimeouts: agentSessions.startupTimeouts,
+          })
           .from(agentSessions)
           .where(eq(agentSessions.attemptId, attemptId))
           .for('update'),
@@ -1276,6 +1313,12 @@ export async function runSessionTurn(
       if (unstarted && live) {
         return requeueUnstartedTurn(client, current, attemptId)
       }
+      const startupTimeouts = sessionNow[0].startupTimeouts
+      if (startupTimeout && live && startupTimeouts < MAX_STARTUP_RETRIES) {
+        return requeueStartupTimeout(client, current, attemptId, startupTimeouts + 1)
+      }
+      // Cancelled since the CLI timed out: the cancellation is the outcome, not the timeout.
+      const retainedFailure = startupTimeout && !live ? undefined : diagnostic
       // A wake's earlier state no longer applies once a turn has run.
       await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
       if (next === 'finished' && accepted > 0n && live) {
@@ -1290,15 +1333,16 @@ export async function runSessionTurn(
       }
       // Job and attempt first, then the session row, as the tool handlers lock them.
       const settled = (await setSessionState(client, attemptId, current.jobId, next)) || next
-      if (diagnostic) {
-        await retainSessionFailure(client, diagnostic)
+      if (retainedFailure) {
+        await retainSessionFailure(client, retainedFailure)
       }
       await revokeSessionCapability(client, attemptId)
       await releaseSessionSlot(client, attemptId)
       await executeDatabaseQuery(
         queryDatabase(client)
           .update(agentSessions)
-          .set({ progress: 'settled', finishedAt: new Date() })
+          // A turn that settled any other way ends a run of startup timeouts.
+          .set({ progress: 'settled', finishedAt: new Date(), startupTimeouts: 0 })
           .where(eq(agentSessions.attemptId, attemptId)),
       )
       await publish(client, current.batchId)
@@ -1328,6 +1372,31 @@ async function requeueUnstartedTurn(
     queryDatabase(client)
       .update(agentSessions)
       .set({ turnCount: current.turnCount })
+      .where(eq(agentSessions.attemptId, attemptId)),
+  )
+  await revokeSessionCapability(client, attemptId)
+  await releaseSessionSlot(client, attemptId)
+  await publish(client, current.batchId)
+  return settled
+}
+
+/**
+ * Puts back a turn whose provider CLI didn't start in time: queued at the back of the queue, its
+ * capability revoked and its slot released, with the startup timeouts in a row counted. The turn
+ * stays counted, since the guest journalled it, so the next turn is a new one. No diagnostic is
+ * kept, and the wake's earlier state and acknowledgements are left as they were.
+ */
+async function requeueStartupTimeout(
+  client: PoolClient,
+  current: { jobId: string; batchId: string },
+  attemptId: string,
+  startupTimeouts: number,
+) {
+  const settled = (await setSessionState(client, attemptId, current.jobId, 'queued')) || 'queued'
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(agentSessions)
+      .set({ startupTimeouts })
       .where(eq(agentSessions.attemptId, attemptId)),
   )
   await revokeSessionCapability(client, attemptId)

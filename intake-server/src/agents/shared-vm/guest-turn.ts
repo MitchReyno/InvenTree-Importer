@@ -35,6 +35,8 @@ export interface GuestTurnOptions {
   runNative?: typeof nativeTurn
   /** Told once the coordinator has claimed this connection with its first packet. */
   onClaimed?: () => void
+  /** The VM's total memory, which the coordinator sizes concurrent turns by; absent if unread. */
+  memoryBytes?: number
 }
 
 /** Serves exactly one turn or terminal probe on `socket`, then ends it. */
@@ -77,6 +79,7 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     providerStatus: true,
     // And they read each provider's model list on a catalogue connection.
     modelCatalog: true,
+    memoryBytes: options.memoryBytes,
   })
   const packet = await frames.read()
   options.onClaimed?.()
