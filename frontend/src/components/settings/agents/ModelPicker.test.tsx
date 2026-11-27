@@ -231,6 +231,26 @@ test('a failed read keeps the last list with its time, and Try again asks for a 
   expect(screen.getByRole('listbox')).toBeVisible()
 })
 
+test('a setup token’s built-in list says why and points to typing an exact ID', async () => {
+  const user = userEvent.setup()
+  const notListed = modelCatalog({
+    claude: builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude], {
+      state: 'not_listed',
+      failure: 'not_listed',
+      attempted_at: TODAY_0912,
+    }),
+  })
+  const { input, onChange } = picker(claudeOnly, notListed)
+  await user.click(input)
+  expect(optionNames()[0]).toBe(
+    'Claude doesn’t list models for a setup token. Type an exact ID to use another model.',
+  )
+  expect(optionNames()).not.toContain('Try again')
+  await user.type(input, 'claude-opus-4-1')
+  await user.click(screen.getByRole('option', { name: /claude-opus-4-1/ }))
+  expect(onChange).toHaveBeenCalledWith({ provider: 'claude', model: 'claude-opus-4-1' })
+})
+
 test('the built-in list is marked, and a list from an earlier sign-in says so with no warning', async () => {
   const user = userEvent.setup()
   const builtin = modelCatalog({ claude: builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude]) })

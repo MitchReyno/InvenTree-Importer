@@ -64,7 +64,7 @@ Each model picker SHALL list the exact models the provider offers for its curren
 
 ### Requirement: Model list states
 
-Before a provider's first read lands, its picker SHALL show "Reading <provider>'s models…" and keep the saved choice by its ID. A failed read SHALL keep the last list with its time, an amber note in the list and "Try again". After a sign-in change, until a list read under it lands, the earlier list SHALL be marked as from an earlier sign-in and raise no warnings. With no read stored, the built-in list SHALL show, marked "Built-in list, may be out of date", with Effort only Default.
+Before a provider's first read lands, its picker SHALL show "Reading <provider>'s models…" and keep the saved choice by its ID. A failed read SHALL keep the last list with its time, an amber note in the list and "Try again". After a sign-in change, until a list read under it lands, the earlier list SHALL be marked as from an earlier sign-in and raise no warnings. With no read stored, the built-in list SHALL show, marked "Built-in list, may be out of date", with Effort only Default. When the provider lists no models for its sign-in, as Claude doesn't for a setup token, the built-in list SHALL show with that reason and a pointer to typing an exact ID, with Effort only Default, and SHALL be read again only on the normal schedule or on request.
 
 #### Scenario: First read
 
@@ -107,6 +107,18 @@ Before a provider's first read lands, its picker SHALL show "Reading <provider>'
 - **GIVEN** no list ever stored for Claude and the read failing
 - **WHEN** a Claude picker opens
 - **THEN** it lists the built-in models marked "Built-in list, may be out of date", and Effort offers only Default.
+
+#### Scenario: Claude signed in with a setup token
+
+- **GIVEN** Claude's subscription signed in in the agent VM with a setup token, and its last read answering only the CLI's aliases
+- **WHEN** a Claude picker opens or the Claude card shows
+- **THEN** the picker lists the built-in models with "Claude doesn’t list models for a setup token. Type an exact ID to use another model.", the card says "Built-in list · Claude doesn’t list models for a setup token", Effort offers only Default, a typed exact ID is accepted, and no read is retried before the 12-hour schedule unless Check again or a sign-in change asks for one.
+
+#### Scenario: A full list after a setup-token read
+
+- **GIVEN** Claude's last read recorded as listing no models for a setup token
+- **WHEN** a later read returns models by their exact IDs
+- **THEN** that list is stored and shown as current.
 
 ### Requirement: A saved model no longer offered
 

@@ -14,7 +14,7 @@ For a shared-VM profile, the session worker SHALL read each signed-in subscripti
 
 - **GIVEN** a Claude subscription token saved in the guest
 - **WHEN** the worker reads Claude's models
-- **THEN** the guest starts the pinned Claude CLI, sends only `initialize`, reads `models[]` with each model's accepted effort levels, and stops it; no user message is sent.
+- **THEN** the guest starts the pinned Claude CLI, sends only `initialize`, reads `models[]` with each model's accepted effort levels, and stops it; no user message is sent. A reply that names no model by its exact ID, which the pinned CLI gives for a setup token, is recorded as listing no models for this sign-in, and the built-in list is shown.
 
 #### Scenario: Claude with an API key
 

@@ -89,7 +89,7 @@ Task 3.1 confirms, before code, that the pinned 2.1.319 and 0.166.0 return these
 
 **Storage.** `agent_model_catalog`, one row per scope (actor, target, target context), provider and authentication:
 
-- `models` jsonb, `cli_version`, `source` (`cli` or `api`), `read_at` (the last successful read), and `attempted_at`, `failure` (a fixed code: `timeout`, `guest_outdated`, `vm_unreachable`, `signed_out`, `malformed`, `unavailable`) for the last attempt;
+- `models` jsonb, `cli_version`, `source` (`cli` or `api`), `read_at` (the last successful read), and `attempted_at`, `failure` (a fixed code: `timeout`, `guest_outdated`, `vm_unreachable`, `signed_out`, `malformed`, `unavailable`, or `not_listed` from PR-G) for the last attempt;
 - `refresh_requested_at`, which the API sets and the worker clears, and `sign_in_generation` (of the stored list), `latest_generation` and `stale_sign_in` (see "Sign-in changes").
 
 A failed read updates only the attempt fields, so the last good list and its `read_at` stay.
@@ -114,17 +114,25 @@ A failed read updates only the attempt fields, so the last good list and its `re
 - **Codex:** `hidden` models are left out; `name` is `displayName`; `default` is `isDefault`; `efforts` from `supportedReasoningEfforts`; `default_effort` from `defaultReasoningEffort`. With an API key, `usable` is whether `/v1/models` lists the ID; otherwise null.
 - **Older:** a Claude model whose major version (parsed from its ID) is 4 or lower, as approved, or below the newest major version in the list. Codex has none.
 
+**A setup token's list (PR-G).** The pinned CLI answers `initialize` with the account's list only when it knows the account. A setup token, which is how the guest signs Claude in, has only the `user:inference` scope, so the CLI never reads the profile. Without the account, the flag that serves Anthropic's model list is off, and the CLI answers its compiled aliases. The cause, with the evidence, is in `notes.md`. No documented route lists models for that token: the account ID can only be passed through an undocumented variable, and Anthropic's terms keep subscription credentials out of our own API calls. So, as Mitch decided:
+
+- A guest Claude read whose reply names no model by its exact ID is recorded as `not_listed`, not `unavailable`. It is the guest route's answer for a setup token, judged from the reply rather than the sign-in method. A host read keeps `unavailable`, since the host CLI uses its own login. Other providers and modes are unchanged.
+- `not_listed` is a failed attempt like the others, so it updates only the attempt fields. While it is the last attempt, the API answers the state `not_listed` with the built-in list (`builtin: true`), even if an earlier list is stored, unless a read is running.
+- It is retried on the normal schedule, 12 hours after the attempt (`CATALOG_MAX_AGE_MS`), not after 5 minutes. A refresh request (Check again, a sign-in dialog, a CLI version change, a generation change) still reads at once. A later read that returns a full list is published as usual.
+- Settings says why in the picker and on the card. Typed exact IDs work as for any built-in list.
+- The CLI's offline reply looks the same, so a guest read through a broken egress also reads as `not_listed`. That is a stated limit: the pinned CLI gives no sign of which one it was.
+
 **When it reads.** The worker reads a provider's row:
 
 - on start, for each enabled provider's current authentication;
 - when `refresh_requested_at` is set: by Check again on a provider card, by a sign-in dialog once it confirms a sign-in or a token's save or removal, and by a switch of a provider's authentication;
 - when its generation poll finds a different sign-in;
 - when a turn's admission reports a CLI version different from the row's `cli_version`;
-- 12 hours after `read_at` (`CATALOG_MAX_AGE_MS`), and 5 minutes after a failed attempt (`CATALOG_RETRY_MS`).
+- 12 hours after `read_at` (`CATALOG_MAX_AGE_MS`), and 5 minutes after a failed attempt (`CATALOG_RETRY_MS`), except `not_listed`, which waits 12 hours after the attempt.
 
 The API writes `refresh_requested_at` and sends `NOTIFY bench_model_catalog` with no payload; the worker listens and also checks each supervisor pass, so a lost notification only delays the read. Reads are one at a time per provider.
 
-**API.** `GET /api/v1/agents/models` returns, for each provider's current authentication, `{state, source, cli_version, read_at, attempted_at, failure, models}`, where `state` is `current`, `reading` (a refresh is requested or running), `failed` (with the last good list), `stale_sign_in` (the list is from an earlier sign-in; see above) or `never_read`; with `never_read` or no list, `models` is the built-in list, marked `builtin: true`. `POST /api/v1/agents/models/refresh {provider, invalidate?}` requests a read; `invalidate: true`, sent by the sign-in dialogs, also marks the list stale (see "Sign-in changes"). The read carries no key, token or account.
+**API.** `GET /api/v1/agents/models` returns, for each provider's current authentication, `{state, source, cli_version, read_at, attempted_at, failure, models}`, where `state` is `current`, `reading` (a refresh is requested or running), `failed` (with the last good list), `stale_sign_in` (the list is from an earlier sign-in; see above), `not_listed` (the provider lists no models for this sign-in, with the built-in list; see "A setup token's list") or `never_read`; with `never_read` or no list, `models` is the built-in list, marked `builtin: true`. `POST /api/v1/agents/models/refresh {provider, invalidate?}` requests a read; `invalidate: true`, sent by the sign-in dialogs, also marks the list stale (see "Sign-in changes"). The read carries no key, token or account.
 
 **Built-in list.** `BUILT_IN_MODEL_CATALOG` is added to the contracts in PR-B. PR-C retires `AGENT_MODEL_SUGGESTIONS`: `ModelPicker` reads the catalogue instead, and the two other readers, the server's defaults for unsaved settings and its first-save fallback (`agents/settings.ts`) and the frontend test helper (`frontend/src/test/agent-settings.ts`), take a `DEFAULT_MODEL_BEFORE_SAVE` constant holding today's first suggestion per provider, so their behaviour is unchanged. The list holds the exact IDs and names the pinned CLIs offered when task 3 is implemented, and no effort levels (Effort offers only Default for it). It is updated when the guest pins move.
 
@@ -144,6 +152,7 @@ The API writes `refresh_requested_at` and sends `NOTIFY bench_model_catalog` wit
 | Read failed after a good read | Last good list with its time, amber notice and Try again; no page banner |
 | Sign-in changed, new read not in or failed | `stale_sign_in`: the earlier list, marked, with no not-offered warnings; an earlier read can't publish |
 | Guest image older than this change | `guest_outdated`; last stored or built-in list |
+| Guest Claude read answers only aliases (a setup token) | `not_listed`: the built-in list, marked with the reason; read again on the 12-hour schedule or on request |
 | Saved model not in the read list | Stays selected; "Saved, not offered" group and warning; sessions still try it; Processing pill |
 | Saved effort the model doesn't accept | Stays saved with a warning; sessions send it as saved |
 | Effort Default | Nothing sent; the CLI's default applies |

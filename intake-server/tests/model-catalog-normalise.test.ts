@@ -9,6 +9,7 @@ import {
   codexModels,
   openAiModelIds,
 } from '#/agents/model-catalog/normalise.ts'
+import { guestReader } from '#/agents/model-catalog/readers.ts'
 
 function fixture(name: string) {
   return JSON.parse(
@@ -62,6 +63,23 @@ test('Claude Code 2.1.319: aliases fold into the exact models, 4.x sit in Older'
 test("the CLI's offline alias list is refused, so the last good list stays", () => {
   // With the network refused, 2.1.319 answers only its built-in aliases, none by exact ID.
   refusedAs(() => claudeCliModels(claudeOffline.models), 'unavailable')
+})
+
+test("a guest Claude read answering only aliases lists no models for its setup token", async () => {
+  // The guest signs Claude in with a setup token, which 2.1.319 answers with its aliases only.
+  const reader = guestReader(async (_provider, kind) => {
+    if (kind === 'generation') {
+      return { kind: 'generation', generation: 'rev-a' }
+    }
+    return {
+      kind: 'read',
+      read: { generation: 'rev-a', cliVersion: '2.1.319', raw: claudeOffline.models },
+    }
+  }, 'claude')
+  await assert.rejects(
+    reader.read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'not_listed',
+  )
 })
 
 test('IDs the model ID check refuses fold into their resolved model or are left out', () => {

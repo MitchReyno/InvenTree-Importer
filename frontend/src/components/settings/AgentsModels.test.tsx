@@ -289,6 +289,26 @@ test('the built-in list is marked on the card and Effort offers only Default', a
   expect(optionTexts(screen.getByRole('combobox', { name: 'Images effort' }))).toEqual(['Default'])
 })
 
+test('a setup token’s built-in list says why on the card and Effort offers only Default', async () => {
+  const notListed = modelCatalog({
+    claude: builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude], {
+      state: 'not_listed',
+      failure: 'not_listed',
+      attempted_at: READ_0912,
+    }),
+  })
+  await renderAgents(
+    client(
+      settings({ stage_selections: { images: { provider: 'claude', model: 'claude-opus-5-5' } } }),
+      notListed,
+    ),
+  )
+  const card = within(screen.getByRole('group', { name: 'Claude' }))
+  expect(card.getByText('Built-in list · Claude doesn’t list models for a setup token')).toBeVisible()
+  expect(card.queryByText('Built-in list, may be out of date')).toBeNull()
+  expect(optionTexts(screen.getByRole('combobox', { name: 'Images effort' }))).toEqual(['Default'])
+})
+
 test('Check again on a card asks for that provider’s list to be read again', async () => {
   const api = client()
   await renderAgents(api)
