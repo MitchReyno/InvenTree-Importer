@@ -11,6 +11,8 @@ import {
 
 type CropRole = ProcessingImageCropDto['role']
 
+type SelectImagesChange = Extract<MediaEditDto['change'], { kind: 'select_images' }>
+
 /** Which crops the operator means to confirm: at most one Part image, and stock images. */
 export type ImageChoices = {
   partIndex: number | null
@@ -130,7 +132,7 @@ export function unchoosableReason(state: ProcessingImageCropDto['state']) {
 export function selectImagesChange(
   proposal: ProcessingImagesProposalDto,
   choices: ImageChoices,
-): MediaEditDto['change'] {
+): SelectImagesChange {
   const part = proposal.crops.find(
     (crop) => crop.role === 'part_image' && crop.index === choices.partIndex,
   )
@@ -168,8 +170,13 @@ export function confirmedPlacement(
   if (!selection) {
     return null
   }
-  if (selection.part_image && sameLitRecipe(selection.part_image.recipe, crop.recipe)) {
-    return { kind: 'part', state: derivationState(selection.part_image.state) }
+  // A recipe confirmed in one role is that role's image only; the same cut as an extra isn't it.
+  const part = selection.part_image
+  if (crop.role === 'part_image' && part && sameLitRecipe(part.recipe, crop.recipe)) {
+    return { kind: 'part', state: derivationState(part.state) }
+  }
+  if (crop.role !== 'stock_image') {
+    return null
   }
   const position = selection.stock_images.findIndex((item) =>
     sameLitRecipe(item.recipe, crop.recipe),
@@ -184,21 +191,38 @@ export function confirmedPlacement(
   }
 }
 
-/** Confirmed images that none of this proposal's crops describe; confirming replaces them. */
-export function confirmedElsewhere(
-  proposal: ProcessingImagesProposalDto,
+/** The confirmed images a `select_images` change would drop: "the Part image", "stock image 2". */
+export function confirmRemovals(
   selection: ProcessingImageSelectionDto | undefined,
+  change: SelectImagesChange,
 ) {
   if (!selection) {
-    return 0
+    return []
   }
-  const items = selection.part_image
-    ? [selection.part_image, ...selection.stock_images]
-    : selection.stock_images
-  const unmatched = items.filter(
-    (item) => !proposal.crops.some((crop) => sameLitRecipe(crop.recipe, item.recipe)),
-  )
-  return unmatched.length
+  const removed: string[] = []
+  const nextPart = change.part_image
+  const part = selection.part_image
+  if (part && !(nextPart && sameLitRecipe(part.recipe, nextPart))) {
+    removed.push('Part image')
+  }
+  selection.stock_images.forEach((item, position) => {
+    const kept = change.stock_images.some((recipe) => sameLitRecipe(item.recipe, recipe))
+    if (!kept) {
+      removed.push(`stock image ${position + 1}`)
+    }
+  })
+  return removed
+}
+
+/** "Confirming removes the confirmed Part image and stock image 1." */
+export function removalLine(removed: readonly string[]) {
+  if (removed.length === 0) {
+    return undefined
+  }
+  const last = removed[removed.length - 1]
+  const listed = removed.length === 1 ? last : `${removed.slice(0, -1).join(', ')} and ${last}`
+
+  return `Confirming removes the confirmed ${listed}.`
 }
 
 function signedDegrees(millidegrees: number) {

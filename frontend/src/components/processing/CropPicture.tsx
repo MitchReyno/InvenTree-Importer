@@ -9,11 +9,13 @@ type Props = {
   /** The crop route's rendering; asked for only once the crop is ready. */
   src: string
   alt: string
+  /** The picture has loaded, so the operator has seen what it would attach. */
+  onLoaded?: () => void
 }
 
 /** A proposed crop as the app rendered it, in a square stage; one not ready says why instead. */
-export function CropPicture({ crop, src, alt }: Props) {
-  const { imageSrc, failed, handleError, handleLoad } = useRetriedImage(src)
+export function CropPicture({ crop, src, alt, onLoaded }: Props) {
+  const { imageSrc, failed, handleError, handleLoad } = useRetriedImage(src, onLoaded)
   const unavailable =
     cropStateText(crop.state) ?? (failed ? 'Picture couldn’t be loaded' : undefined)
 

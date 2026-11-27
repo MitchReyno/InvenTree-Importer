@@ -227,6 +227,8 @@ The guide table's rows can't be changed or deleted, but a row could still be add
 - **Extras aren't attached.** The board shows an "Attach to the Part" checkbox on an extra, but the plan's selection keeps only a Part image and stock images, and PR-F has no effect for a Part attachment from Images. An extra is shown with its flags and the line "Extras aren't attached; crop it yourself in Capture to keep one." Open item below.
 - **Confirming names the review's revision.** The review read carries the media revision it was read at, and a confirmation sends the revision the operator's choices were based on, so a change in another tab is a conflict, never a silent replacement. A lot confirmed or cleared to no images reads as that, not as never confirmed. Crops that aren't rendered can't be chosen.
 - **Image tools recheck after rendering.** The session and the photos are checked again once the decoder returns, so an image of a photo removed meanwhile is withheld; the run's spent budget and the pages' total size are refused before any page is read. `propose_images` takes only photos in the lot's scope now (linked to it, or holding one of its active observations), and refuses a recipe given twice.
+- **The final check comes after encoding.** An image tool's last check, under the batch's share lock and then the session's, runs once its image is encoded, so nothing removed meanwhile reaches the agent. Grid and logo tools read originals only. A crop's photo must be one of the proposal's cited sources, so removing it stales the proposal. Labels are refused when the decoder would count them too long (it counts UTF-16 units).
+- **The review waits for what the operator saw.** Confirm waits until every chosen crop's picture has loaded; matching confirmed images to crops compares role as well as recipe, and a confirmation that would drop confirmed images says which; a redo request is written for the proposal it was started on until the operator retargets it; an uncertain confirmation can always be retried exactly.
 - **Crops have no title.** `images/1` gives a crop no name, so each card is titled "Crop N" where the board names it.
 - **The tool profile.** The image tools join `native-session-stage-tools/1` without a new tool profile, as `read_guide` and `read_vocabulary` did in PR-G1: no configuration seals `/7` before PR-G2.
 - **Negative angles in media recipes.** `canonicalMedia` refused negative integers, so a recipe `/2` straightened anticlockwise couldn't be retained; it now accepts any safe integer. Bytes it accepted before are unchanged.
@@ -244,6 +246,8 @@ The guide table's rows can't be changed or deleted, but a row could still be add
 - An extra crop has no way to be attached; attaching one to the Part would need a selection role and a PR-F effect.
 - The coordinator doesn't yet refuse image tools without a dispatcher socket; that comes with mounting the socket (task 11).
 - The relay accepts any image type listed in a reply's `images`; the host sends only PNG or JPEG.
+- A `propose_images` whose commit acknowledgement is lost reports a tool failure, as `propose` does, rather than `outcome_uncertain`; a retried call could publish a second proposal.
+- `header-work.test.ts`'s "rotated target context fences cached connection observations" fails on the trunk too, unrelated to this change.
 
 ## Task 5 (PR-E1) status
 

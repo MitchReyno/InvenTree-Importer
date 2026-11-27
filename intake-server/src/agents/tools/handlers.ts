@@ -108,6 +108,7 @@ import {
   lotEvidenceIds,
   namedToolPage,
   recipePages,
+  requireDecoderLabel,
   requireRegionInPage,
   type DeliverableVersion,
   type SessionImageOperations,
@@ -1010,6 +1011,7 @@ function imagesProposal(principal: SessionPrincipal, args: unknown): ImagesPropo
   const { proposal } = validated<SessionProposeImagesArgsDto>('SessionProposeImagesArgs', args)
   refuseUnstorableText(proposal, '/proposal')
   refuseRepeatedRecipes(proposal)
+  refuseUncitedRecipeSources(proposal)
   const refusal = stageOutputRefusal(principal.manifest as ProcessingInputV7Dto, proposal)
   if (refusal) {
     throw refusal
@@ -1041,6 +1043,33 @@ async function requireLotScope(
             path: `/proposal/images/${index}/recipe/source_version_id`,
             rule: 'lot_scope',
             reason: 'The photo is not in this lot now.',
+          },
+        ],
+      )
+    }
+  }
+}
+
+/**
+ * Each recipe's photo must be one of the proposal's cited sources, so removing that photo stales
+ * the proposal as removing any cited source does.
+ */
+function refuseUncitedRecipeSources(proposal: ImagesProposalDto) {
+  const cited = new Set(
+    proposal.sources.flatMap((source) =>
+      source.kind === 'media_version' ? [source.version_id] : [],
+    ),
+  )
+  for (const [index, image] of proposal.images.entries()) {
+    if (!cited.has(image.recipe.source_version_id)) {
+      throw new ToolRefusal(
+        'validation_failed',
+        'Cite each crop’s photo in the proposal’s sources.',
+        [
+          {
+            path: `/proposal/images/${index}/recipe/source_version_id`,
+            rule: 'cited',
+            reason: 'Add this photo’s fetch_evidence source to sources.',
           },
         ],
       )
@@ -2164,6 +2193,35 @@ interface ImageToolPlan {
 }
 
 /**
+ * An image tool's final decision, once its image is ready to send: under the batch's share lock,
+ * then the session's, as `finishEvidenceFetch` takes them, the session must still be running and
+ * none of its photos removed, so a removal either commits first and withholds the image or waits.
+ */
+async function finishImageTool(
+  context: SessionToolContext,
+  token: string,
+  versionIds: readonly string[],
+): Promise<{ kind: 'sent'; pending: number } | { kind: 'refused'; output: SessionToolOutput }> {
+  try {
+    const pending = await transaction(context.pool, async (client) => {
+      const found =
+        (await resolveSessionCapability(client, token)) ??
+        refuse('capability_refused', 'This session capability is not valid.')
+      await shareBatchStream(client, found.batchId)
+      await requireRunningSession(client, token, found)
+      await refuseRemovedVersions(client, found.batchId, versionIds)
+      return pendingSessionInbox(client, found.lineageId!)
+    })
+    return { kind: 'sent', pending }
+  } catch (error) {
+    if (error instanceof ToolRefusal) {
+      return { kind: 'refused', output: await refusalOutput(context, token, error) }
+    }
+    throw error
+  }
+}
+
+/**
  * Runs an image tool: the session's authority and the request are checked in a transaction, the
  * page previews are read and the decoder runs outside it, and the image comes back within the
  * run's image budget. Nothing is recorded: these images grant no citation.
@@ -2231,21 +2289,19 @@ async function runImageTool(
   if (outcome.kind !== 'ready') {
     return refused('validation_failed', checked.refused[outcome.kind])
   }
-  // The session may have ended, or the operator removed the photo, while the decoder ran.
-  const versionIds = checked.pages.map((page) => page.versionId)
-  const still = await withSession(context, token, { capture: false }, async (client, principal) => {
-    await refuseRemovedVersions(client, principal.batchId, versionIds)
-    return ok(client, principal)
-  })
-  if (!still.result.ok) {
-    return still
-  }
   const image = await boundedImage(outcome.image.bytes, outcome.image, AGENT_IMAGE_LONG_EDGE, true)
   if (!image || !reserveImageBudget(context, run, image.bytes.length)) {
     return refused(
       'capacity_reached',
       'This run’s image budget is used up, so the image was not sent. Continue without it.',
     )
+  }
+  // The session may have ended, or the operator removed a photo, while the image was made.
+  const versionIds = checked.pages.map((page) => page.versionId)
+  const still = await finishImageTool(context, token, versionIds)
+  if (still.kind === 'refused') {
+    releaseImageBudget(context, run, image.bytes.length)
+    return still.output
   }
   const described: SessionToolImageDto = {
     width: image.width,
@@ -2257,7 +2313,7 @@ async function runImageTool(
   return {
     result: {
       ok: true,
-      pending_inbox: still.result.pending_inbox,
+      pending_inbox: still.pending,
       ...outcome.fields,
       images: [described],
     },
@@ -2282,6 +2338,7 @@ function inspectRegionPlan(args: unknown) {
       requireRegionInPage(input.object, page, '/object')
     }
     for (const [index, box] of (input.boxes ?? []).entries()) {
+      requireDecoderLabel(box.name, `/boxes/${index}/name`)
       requireRegionInPage(box.box, page, `/boxes/${index}/box`)
     }
     return {
@@ -2358,6 +2415,9 @@ function previewImagesPlan(args: unknown) {
   ): Promise<ImageToolPlan> => {
     requireImageToolStage(principal, 'preview_images')
     const input = validated<SessionPreviewImagesArgsDto>('SessionPreviewImagesArgs', args)
+    for (const [index, crop] of input.crops.entries()) {
+      requireDecoderLabel(crop.label, `/crops/${index}/label`)
+    }
     const { pages, pageOf } = await recipePages(
       client,
       principal.batchId,

@@ -7,12 +7,16 @@ import type { CommandFailure } from '#/operator/command-failure'
 import { cropSourceLine, ROLE_LABEL } from '#/processing/images-review'
 import { color, radius, space } from '#/theme/generated/tokens'
 
-/** A redo draft as its lot keeps it, so closing the form or a newer read never drops it. */
-export type RedoDraft = { cropIndex: string; change: string }
+/**
+ * A redo draft as its lot keeps it, so closing the form or a newer read never drops it. It names
+ * the proposal it was started on, whose session and crop it asks about, until retargeted.
+ */
+export type RedoDraft = { target: ProcessingImagesProposalDto; cropIndex: string; change: string }
 
 type Props = {
-  proposal: ProcessingImagesProposalDto
   draft: RedoDraft
+  /** Moves the draft to the lot's newer proposal; absent while the draft's proposal is newest. */
+  onRetarget?: () => void
   onDraftChange: (draft: RedoDraft) => void
   /** A request awaiting its outcome: the form is locked to it until Retry or Discard. */
   pending: boolean
@@ -40,8 +44,8 @@ function failureText(failure: CommandFailure) {
 
 /** Asks the lot's Images session to redo one crop, naming it and, optionally, what to change. */
 export function ImagesRedoForm({
-  proposal,
   draft,
+  onRetarget,
   onDraftChange,
   pending,
   busy,
@@ -63,6 +67,18 @@ export function ImagesRedoForm({
 
   return (
     <RedoForm aria-label="Ask Images to redo a crop" onSubmit={handleSubmit}>
+      {onRetarget && (
+        <Notice>
+          <Small>
+            This request is written for the earlier proposal, so it goes to that proposal’s session.
+          </Small>
+          {!locked && (
+            <Button size="sm" onClick={onRetarget}>
+              Use the newer proposal
+            </Button>
+          )}
+        </Notice>
+      )}
       <Pair>
         <Label htmlFor={`${fieldId}-crop`}>Crop</Label>
         <Select
@@ -71,7 +87,7 @@ export function ImagesRedoForm({
           disabled={locked}
           onChange={(event) => onDraftChange({ ...draft, cropIndex: event.target.value })}
         >
-          {proposal.crops.map((item) => (
+          {draft.target.crops.map((item) => (
             <option key={item.index} value={String(item.index)}>
               Crop {item.index} · {ROLE_LABEL[item.role]} · {cropSourceLine(item)}
             </option>
@@ -117,6 +133,13 @@ const RedoForm = styled(Form)`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+`
+
+const Notice = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
 `
 
 const Pair = styled.div`

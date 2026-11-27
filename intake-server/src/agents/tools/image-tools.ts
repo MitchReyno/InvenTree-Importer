@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import type { MediaLitViewRecipeDto, ValidationIssue } from '@invimport/contracts'
-import { viewLayout } from '@invimport/contracts/media'
+import { DECODER_LABEL_MAX_CHARACTERS, viewLayout } from '@invimport/contracts/media'
 import type {
   GridInput,
   GridResult,
@@ -117,9 +117,9 @@ function pageFrom(row: DecodedPageRow, versionId: string, page: number): ToolPag
 }
 
 /**
- * The page an `inspect_region` or `match_logo` call names: a present version of the evidence
- * that was delivered to this session, and a decoded page of it. Without a version, the first
- * deliverable version of the evidence is used, as `fetch_evidence` does.
+ * The page an `inspect_region` or `match_logo` call names: a present original of the evidence
+ * that was delivered to this session, and a decoded page of it. Without a version, the evidence's
+ * delivered original is used; a named derived crop is refused, since these tools read originals.
  */
 export async function namedToolPage(
   client: PoolClient,
@@ -127,29 +127,49 @@ export async function namedToolPage(
   deliverable: readonly DeliverableVersion[],
   request: { evidence_id: string; version_id?: string; page?: number },
 ): Promise<ToolPage> {
-  const version = deliverable.find(
+  const candidates = deliverable.filter(
     (item) =>
       item.evidence_id === request.evidence_id &&
       (request.version_id === undefined || item.version_id === request.version_id),
   )
-  if (!version) {
+  const page = request.page ?? 1
+  for (const candidate of candidates) {
+    const row = await pageRow(client, batchId, candidate.version_id, page)
+    if (!row || row.evidence_id !== request.evidence_id) {
+      continue
+    }
+    if (row.kind !== 'original') {
+      if (request.version_id !== undefined) {
+        throw new ToolRefusal(
+          'validation_failed',
+          'Name the photo’s original version; these tools read originals, not derived crops.',
+        )
+      }
+      continue
+    }
+    if (row.removed) {
+      throw new ToolRefusal('media_evidence_removed', 'That evidence was deleted by the operator.')
+    }
+    if (!decodedPage(row)) {
+      throw new ToolRefusal('validation_failed', 'That page has no preview yet.')
+    }
+    return pageFrom(row, candidate.version_id, page)
+  }
+  throw new ToolRefusal('source_not_delivered', 'That evidence was not delivered to this session.')
+}
+
+/**
+ * The decoder measures a label in UTF-16 units, where a character outside the basic plane takes
+ * two, so a label is refused here rather than failing inside the decoder.
+ */
+export function requireDecoderLabel(label: string, path: string) {
+  if (label.length > DECODER_LABEL_MAX_CHARACTERS) {
     throw new ToolRefusal(
-      'source_not_delivered',
-      'That evidence was not delivered to this session.',
+      'validation_failed',
+      `A label may be at most ${DECODER_LABEL_MAX_CHARACTERS} characters, counting an emoji as two.`,
+      [{ path, rule: 'maxLength', reason: 'The label is too long for the decoder.' }],
     )
   }
-  const page = request.page ?? 1
-  const row = await pageRow(client, batchId, version.version_id, page)
-  if (!row || row.evidence_id !== request.evidence_id) {
-    throw new ToolRefusal('source_not_delivered', 'That evidence version is outside this session.')
-  }
-  if (row.removed) {
-    throw new ToolRefusal('media_evidence_removed', 'That evidence was deleted by the operator.')
-  }
-  if (!decodedPage(row)) {
-    throw new ToolRefusal('validation_failed', 'That page has no preview yet.')
-  }
-  return pageFrom(row, version.version_id, page)
 }
 
 /** A region in page-preview pixels must lie within its page. */

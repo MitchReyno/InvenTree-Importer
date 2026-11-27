@@ -1,7 +1,8 @@
-import { act, screen, within } from '@testing-library/react'
+import { act, fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi, type Mock } from 'vitest'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { serverQueryKey } from '#/queries/scope'
 import { deferred } from '#/test/deferred'
 import { createServerQueryClient } from '#/queries/client'
 import { ProcessingImages } from './ProcessingImages'
@@ -261,7 +262,14 @@ function mountReview(
     })
   }
 
-  return { media, processing, onDirtyChange, reread }
+  return { media, processing, onDirtyChange, reread, cache }
+}
+
+/** The browser finishes loading every crop picture on the page. */
+function loadPictures() {
+  for (const image of document.querySelectorAll('img[src*="/processing/images/"]')) {
+    fireEvent.load(image)
+  }
 }
 
 async function findCard(name: string) {
@@ -269,9 +277,17 @@ async function findCard(name: string) {
 }
 
 async function confirmWhenReady(user: ReturnType<typeof userEvent.setup>) {
-  const confirm = await screen.findByRole('button', { name: 'Confirm images' })
-  await vi.waitFor(() => expect(confirm).not.toHaveAttribute('aria-disabled', 'true'))
-  await user.click(confirm)
+  await screen.findByRole('button', { name: 'Confirm images' })
+  loadPictures()
+
+  // The button's element changes when its reason moves between beside and quiet.
+  const confirm = () => screen.getByRole('button', { name: 'Confirm images' })
+
+  await vi.waitFor(() => {
+    expect(confirm()).toBeEnabled()
+    expect(confirm()).not.toHaveAttribute('aria-disabled', 'true')
+  })
+  await user.click(confirm())
 }
 
 test('the Images review shows each proposed crop with its role, source, region, adjustments and flags', async () => {
@@ -632,13 +648,18 @@ test('confirm names the media revision the choices were made on, so a later chan
 test('Confirm sends nothing while the proposed crops read has failed', async () => {
   const user = userEvent.setup()
   const { media, reread } = mountReview(proposalReview())
-  const confirm = await screen.findByRole('button', { name: 'Confirm images' })
-  await vi.waitFor(() => expect(confirm).not.toHaveAttribute('aria-disabled', 'true'))
+  await screen.findByRole('button', { name: 'Confirm images' })
+  loadPictures()
+
+  const confirm = () => screen.getByRole('button', { name: 'Confirm images' })
+
+  await vi.waitFor(() => expect(confirm()).not.toHaveAttribute('aria-disabled', 'true'))
+  expect(confirm()).toBeEnabled()
 
   await reread(new Error('offline'))
   expect(await screen.findByText('Proposed crops are unavailable right now.')).toBeVisible()
-  expect(confirm).toHaveAttribute('aria-disabled', 'true')
-  await user.click(confirm)
+  expect(confirm()).toHaveAttribute('aria-disabled', 'true')
+  await user.click(confirm())
 
   expect(media.edit).not.toHaveBeenCalled()
 })
@@ -747,4 +768,141 @@ test('a chosen crop that stops rendering blocks Confirm until it is unticked', a
   await confirmWhenReady(user)
   await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
   expect(media.edit.mock.calls[0][1].change).toMatchObject({ part_image: null, stock_images: [] })
+})
+
+test('a chosen crop can’t be confirmed until its picture has loaded', async () => {
+  const user = userEvent.setup()
+  const { media } = mountReview(proposalReview())
+  const part = await findCard('Crop 1: Part image')
+  const confirm = screen.getByRole('button', { name: 'Confirm images' })
+
+  expect(confirm).toBeDisabled()
+  expect(screen.getByText(/crop 1 and crop 2.*loaded/)).toBeVisible()
+  // A picture that fails to load can still be unticked.
+  fireEvent.error(within(part).getByRole('img'))
+  await user.click(screen.getByRole('radio', { name: 'No Part image' }))
+  const stock = await findCard('Crop 2: Stock image')
+  fireEvent.load(within(stock).getByRole('img'))
+
+  const ready = () => screen.getByRole('button', { name: 'Confirm images' })
+
+  await vi.waitFor(() => expect(ready()).toBeEnabled())
+  await vi.waitFor(() => expect(ready()).not.toHaveAttribute('aria-disabled', 'true'))
+  await user.click(ready())
+  await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
+  expect(media.edit.mock.calls[0][1].change).toMatchObject({
+    part_image: null,
+    stock_images: [stockRecipe],
+  })
+})
+
+test('a confirmed Part image matches only a Part image crop, and confirming says it removes it', async () => {
+  const user = userEvent.setup()
+  const { media } = mountReview(
+    proposalReview(undefined, undefined, [
+      {
+        lot_id: 'lot',
+        revision: '6',
+        part_image: { version_id: 'derived-part', recipe: extraRecipe, state: 'ready' },
+        stock_images: [{ version_id: 'derived-stock', recipe: stockRecipe, state: 'ready' }],
+      },
+    ]),
+  )
+
+  const extra = await findCard('Crop 3: Extra')
+  expect(extra).not.toHaveTextContent('Confirmed as')
+  expect(screen.getByRole('radio', { name: 'No Part image' })).toBeChecked()
+  expect(screen.getByText('Confirming removes the confirmed Part image.')).toBeVisible()
+
+  await user.click(
+    within(await findCard('Crop 2: Stock image')).getByRole('checkbox', {
+      name: 'Attach crop 2 to the stock',
+    }),
+  )
+  expect(
+    screen.getByText('Confirming removes the confirmed Part image and stock image 1.'),
+  ).toBeVisible()
+  await confirmWhenReady(user)
+  await vi.waitFor(() => expect(media.edit).toHaveBeenCalledTimes(1))
+  expect(media.edit.mock.calls[0][1].change).toMatchObject({ part_image: null, stock_images: [] })
+})
+
+test('a redo draft stays on the proposal it started on until the operator retargets it', async () => {
+  const user = userEvent.setup()
+  const { processing, reread } = mountReview(proposalReview())
+
+  await user.click(await screen.findByRole('button', { name: 'Ask Images to redo one' }))
+  const form = screen.getByRole('form', { name: 'Ask Images to redo a crop' })
+  await user.selectOptions(within(form).getByRole('combobox', { name: 'Crop' }), '2')
+  await user.type(
+    within(form).getByRole('textbox', { name: 'What to change (optional)' }),
+    'tighter',
+  )
+  const newer = newerReview()
+  newer.proposals[0].crops = [crop(1, 'stock_image', stockRecipe, 'IMG_4000')]
+  await reread(newer)
+
+  expect(await within(form).findByText(/written for the earlier proposal/)).toBeVisible()
+  const send = within(form).getByRole('button', { name: 'Send to Images' })
+  await vi.waitFor(() => expect(send).not.toHaveAttribute('aria-disabled', 'true'))
+  await user.click(send)
+  await vi.waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(1))
+  expect(processing.chat.mock.calls[0][1]).toBe('images-job')
+  expect(processing.chat.mock.calls[0][2].text).toBe(
+    'Please redo crop 2 (Stock image, from IMG_3009): tighter',
+  )
+
+  await user.type(within(form).getByRole('textbox', { name: 'What to change (optional)' }), 'again')
+  await user.click(within(form).getByRole('button', { name: 'Use the newer proposal' }))
+  expect(within(form).getByRole('textbox', { name: 'What to change (optional)' })).toHaveValue(
+    'again',
+  )
+  await user.click(within(form).getByRole('button', { name: 'Send to Images' }))
+  await vi.waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(2))
+  expect(processing.chat.mock.calls[1][1]).toBe('images-job-2')
+  expect(processing.chat.mock.calls[1][2].text).toBe(
+    'Please redo crop 1 (Stock image, from IMG_4000): again',
+  )
+})
+
+test('an uncertain confirmation retries exactly even after a chosen crop stops rendering', async () => {
+  const user = userEvent.setup()
+  const edit: EditMock = vi.fn()
+  edit.mockRejectedValueOnce(new TypeError('connection reset'))
+  edit.mockResolvedValue({ ...mediaAtRevision, revision: '10' })
+  const { media, reread, cache } = mountReview(proposalReview(), { edit })
+
+  await confirmWhenReady(user)
+  expect(await screen.findByRole('alert')).toHaveTextContent('isn’t certain')
+  await reread(
+    proposalReview([
+      crop(1, 'part_image', partRecipe, 'IMG_3011', { state: 'removed' }),
+      crop(2, 'stock_image', stockRecipe, 'IMG_3009'),
+    ]),
+  )
+  // The media has moved on since; the replayed receipt mustn't replace the newer read.
+  const mediaKey = serverQueryKey(fixtureScope, 'media', 'batch')
+  cache.setQueryData(mediaKey, { ...mediaAtRevision, revision: '12' })
+  const nextRead = deferred<MediaSnapshotDto>()
+  media.snapshot.mockImplementation(() => nextRead.promise)
+  const readsBefore = media.snapshot.mock.calls.length
+
+  const retry = screen.getByRole('button', { name: 'Retry confirm' })
+  expect(retry).toBeEnabled()
+  await user.click(retry)
+
+  await vi.waitFor(() => expect(edit).toHaveBeenCalledTimes(2))
+  expect(edit.mock.calls[1]).toEqual(edit.mock.calls[0])
+  // The reads after it are still landing; the cache keeps the newer read, not the receipt.
+  await vi.waitFor(() => expect(media.snapshot.mock.calls.length).toBeGreaterThan(readsBefore))
+  expect(cache.getQueryData<MediaSnapshotDto>(mediaKey)?.revision).toBe('12')
+  await act(async () => {
+    nextRead.resolve({ ...mediaAtRevision, revision: '12' })
+    await nextRead.promise
+  })
+  await vi.waitFor(() =>
+    expect(screen.getByRole('status', { name: 'Images confirmation' })).toHaveTextContent(
+      'Confirmed.',
+    ),
+  )
 })

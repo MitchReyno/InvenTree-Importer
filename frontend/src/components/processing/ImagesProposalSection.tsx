@@ -20,20 +20,21 @@ import {
   media as breakpoints,
 } from '#/components/ui'
 import { CheckboxLabel, Fieldset } from '#/forms'
-import type { MediaClient } from '#/media/types'
+import { imagesCropImage, type MediaClient } from '#/media/types'
 import { batchHref, sessionPageHref } from '#/navigation/batch-route'
 import { reportDirty, type DirtyReport, type UnsavedChange } from '#/navigation/unsaved-changes'
 import { useReportDirty } from '#/navigation/useReportDirty'
 import { failureMessage, type CommandFailure } from '#/operator/command-failure'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import {
-  confirmedElsewhere,
+  confirmRemovals,
   confirmedPlacement,
   defaultChoices,
   redoMessage,
   selectImagesChange,
   tooManyStockImages,
   unseenChosen,
+  removalLine,
   type ImageChoices,
 } from '#/processing/images-review'
 import { color, space } from '#/theme/generated/tokens'
@@ -145,10 +146,10 @@ export function ImagesProposalSection({
   const [choices, setChoices] = useState<ImageChoices | null>(null)
   const [confirmedNow, setConfirmedNow] = useState(false)
   const [redoOpen, setRedoOpen] = useState(false)
-  const [redoDraft, setRedoDraft] = useState<RedoDraft>({
-    cropIndex: String(current.crops[0].index),
-    change: '',
-  })
+  // Started when the form first opens, on the proposal shown then.
+  const [redoDraft, setRedoDraft] = useState<RedoDraft | null>(null)
+  // Crop pictures the browser has loaded, by address, so a confirmation never attaches one unseen.
+  const [loadedPictures, setLoadedPictures] = useState<ReadonlySet<string>>(() => new Set())
   const [redoSent, setRedoSent] = useState(false)
   const command = useRetainedCommand((input: MediaEditDto, key: string) => {
     if (!media) {
@@ -171,10 +172,24 @@ export function ImagesProposalSection({
   const shown = choices ?? defaultChoices(proposal, selection)
   const locked = command.busy || command.pending
   const hasPartCrops = proposal.crops.some((crop) => crop.role === 'part_image')
-  const elsewhere = confirmedElsewhere(proposal, selection)
+  const removal = removalLine(confirmRemovals(selection, selectImagesChange(proposal, shown)))
   const unseen = unseenChosen(proposal, shown)
+  const notLoaded = proposal.crops.filter(
+    (crop) =>
+      chosen(crop) &&
+      crop.state === 'ready' &&
+      !loadedPictures.has(imagesCropImage(batchId, proposal.proposal_id, crop.index, 'view')),
+  )
+  const redoChange = redoDraft?.change ?? ''
   const choicesLabel = `Images: ${lotLabel} · image choices`
   const caughtUp = basis !== null && basis.mediaRevision !== mediaRevision && !newerProposal
+
+  function chosen(crop: ProcessingImageCropDto) {
+    const part = crop.role === 'part_image' && crop.index === shown.partIndex
+    const stock = crop.role === 'stock_image' && shown.stockIndexes.includes(crop.index)
+
+    return part || stock
+  }
 
   /** Unconfirmed choices can be named and dropped; a request awaiting its outcome can't. */
   function namedChanges(next: ImageChoices | null, pending: boolean): UnsavedChange[] {
@@ -186,7 +201,7 @@ export function ImagesProposalSection({
     onChoicesDirty,
     namedChanges(choices, command.pending),
   )
-  useReportDirty(redoDraft.change.trim() !== '' || redo.pending, onRedoDirty)
+  useReportDirty(redoChange.trim() !== '' || redo.pending, onRedoDirty)
 
   let confirmClosedReason = closedReason
   if (!confirmClosedReason && !media) {
@@ -199,6 +214,15 @@ export function ImagesProposalSection({
     const named = unseen.map((crop) => `crop ${crop.index}`).join(' and ')
     confirmClosedReason = `Untick ${named}: it isn’t rendered, so it can’t be confirmed.`
   }
+  if (!confirmClosedReason && notLoaded.length > 0) {
+    const named = notLoaded.map((crop) => `crop ${crop.index}`).join(' and ')
+    confirmClosedReason =
+      notLoaded.length === 1
+        ? `The picture of ${named} hasn’t loaded yet; confirm once it shows.`
+        : `The pictures of ${named} haven’t loaded yet; confirm once they show.`
+  }
+  // An exact retry repeats a request already sent, so the checks on a new selection don't apply.
+  const retryClosedReason = closedReason ?? (media ? undefined : confirmClosedReason)
 
   function reportChoices(next: ImageChoices | null, pending: boolean) {
     reportDirty(onChoicesDirty, next !== null || pending, namedChanges(next, pending))
@@ -243,17 +267,36 @@ export function ImagesProposalSection({
       expected_revision: confirmedOn.mediaRevision,
       change: selectImagesChange(confirmedOn.proposal, shown),
     }
-    const next = await command.submit(input)
+    await finishConfirm(media, await command.submit(input), shown)
+  }
+
+  /** Sends the pending request again, exactly: same payload, same key. */
+  async function handleRetry() {
+    if (retryClosedReason || !media) {
+      return
+    }
+    await finishConfirm(media, await command.retry(), choices)
+  }
+
+  async function finishConfirm(
+    target: ImagesMedia,
+    next: MediaSnapshotDto | null,
+    sent: ImageChoices | null,
+  ) {
     if (next === null) {
-      reportChoices(shown, command.hasPendingIntent())
+      reportChoices(sent, command.hasPendingIntent())
       return
     }
     // The defaults follow the confirmed images once both reads have them.
-    await media.accept(next)
+    await target.accept(next)
     setBasis(null)
     setChoices(null)
     setConfirmedNow(true)
     reportChoices(null, false)
+  }
+
+  function handlePictureLoaded(src: string) {
+    setLoadedPictures((loaded) => (loaded.has(src) ? loaded : new Set([...loaded, src])))
   }
 
   function handleDiscardRequest() {
@@ -267,36 +310,52 @@ export function ImagesProposalSection({
     setBasis({ proposal, mediaRevision })
   }
 
+  function handleToggleRedo() {
+    if (!redoOpen && redoDraft === null) {
+      setRedoDraft({ target: proposal, cropIndex: String(proposal.crops[0].index), change: '' })
+    }
+    setRedoOpen(!redoOpen)
+  }
+
   function handleRedoDraft(next: RedoDraft) {
     setRedoDraft(next)
     setRedoSent(false)
     reportDirty(onRedoDirty, next.change.trim() !== '' || redo.hasPendingIntent(), [])
   }
 
-  async function handleRedoSend() {
+  /** Moves the draft to the newest proposal, keeping its crop when that proposal has one. */
+  function handleRetarget(draft: RedoDraft) {
+    const sameCrop = current.crops.some((crop) => String(crop.index) === draft.cropIndex)
+    const cropIndex = sameCrop ? draft.cropIndex : String(current.crops[0].index)
+    setRedoDraft({ ...draft, target: current, cropIndex })
+    setRedoSent(false)
+  }
+
+  async function handleRedoSend(draft: RedoDraft) {
     if (closedReason || !chat || !chat.readyNow()) {
       return
     }
+    const target = draft.target
     const crop =
-      proposal.crops.find((item) => String(item.index) === redoDraft.cropIndex) ?? proposal.crops[0]
+      target.crops.find((item) => String(item.index) === draft.cropIndex) ?? target.crops[0]
     setRedoSent(false)
-    // A pending request is retried exactly; a new one names this proposal's session.
+    // A pending request is retried exactly; a new one names the draft's own proposal's session.
     const receipt = await redo.submit({
-      jobId: proposal.job_id,
-      text: redoMessage(crop, redoDraft.change),
+      jobId: target.job_id,
+      text: redoMessage(crop, draft.change),
     })
     if (receipt === null) {
-      reportDirty(onRedoDirty, redoDraft.change.trim() !== '' || redo.hasPendingIntent(), [])
+      reportDirty(onRedoDirty, draft.change.trim() !== '' || redo.hasPendingIntent(), [])
       return
     }
-    setRedoDraft({ ...redoDraft, change: '' })
+    setRedoDraft({ ...draft, change: '' })
     setRedoSent(true)
     reportDirty(onRedoDirty, false, [])
   }
 
   function handleRedoDiscard() {
     redo.discard()
-    reportDirty(onRedoDirty, redoDraft.change.trim() !== '', [])
+    reportDirty(onRedoDirty, redoChange.trim() !== '', [])
   }
 
   return (
@@ -351,29 +410,35 @@ export function ImagesProposalSection({
               crop={crop}
               placement={confirmedPlacement(crop, selection)}
               control={controlFor(crop, shown, partName, handleChoosePart, handleToggleStock)}
+              onPictureLoaded={handlePictureLoaded}
               disabled={locked || closedReason !== undefined}
             />
           ))}
         </Grid>
       </Fieldset>
-      {elsewhere > 0 && (
-        <Muted>
-          {elsewhere === 1
-            ? 'One confirmed image isn’t among these crops; confirming replaces it.'
-            : `${elsewhere} confirmed images aren’t among these crops; confirming replaces them.`}
-        </Muted>
-      )}
+      {removal && <Muted>{removal}</Muted>}
       {command.failure && <Failure role="alert">{confirmFailureText(command.failure)}</Failure>}
       <Actions>
-        <Button
-          variant="primary"
-          busy={command.busy}
-          disabledReason={confirmClosedReason ?? review.waitReason}
-          reasonDisplay={confirmClosedReason ? 'beside' : 'quiet'}
-          onClick={() => void handleConfirm()}
-        >
-          {command.pending ? 'Retry confirm' : 'Confirm images'}
-        </Button>
+        {command.pending ? (
+          <Button
+            variant="primary"
+            busy={command.busy}
+            disabledReason={retryClosedReason}
+            onClick={() => void handleRetry()}
+          >
+            Retry confirm
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            busy={command.busy}
+            disabledReason={confirmClosedReason ?? review.waitReason}
+            reasonDisplay={confirmClosedReason ? 'beside' : 'quiet'}
+            onClick={() => void handleConfirm()}
+          >
+            Confirm images
+          </Button>
+        )}
         {command.pending && !command.busy && (
           <Button onClick={handleDiscardRequest}>Discard request</Button>
         )}
@@ -386,7 +451,7 @@ export function ImagesProposalSection({
           </Button>
         )}
         {chat && (
-          <Button aria-expanded={redoOpen} onClick={() => setRedoOpen((open) => !open)}>
+          <Button aria-expanded={redoOpen} onClick={handleToggleRedo}>
             Ask Images to redo one
           </Button>
         )}
@@ -398,10 +463,14 @@ export function ImagesProposalSection({
       {chat && !redoOpen && redo.pending && (
         <Muted>A redo request isn’t confirmed yet. Open it to retry or discard it.</Muted>
       )}
-      {chat && redoOpen && (
+      {chat && redoOpen && redoDraft && (
         <ImagesRedoForm
-          proposal={proposal}
           draft={redoDraft}
+          onRetarget={
+            redoDraft.target.proposal_id === current.proposal_id
+              ? undefined
+              : () => handleRetarget(redoDraft)
+          }
           onDraftChange={handleRedoDraft}
           pending={redo.pending}
           busy={redo.busy}
@@ -409,7 +478,7 @@ export function ImagesProposalSection({
           sent={redoSent}
           waitReason={chat.waitReason}
           closedReason={closedReason}
-          onSend={() => void handleRedoSend()}
+          onSend={() => void handleRedoSend(redoDraft)}
           onDiscard={handleRedoDiscard}
           onClose={() => setRedoOpen(false)}
         />

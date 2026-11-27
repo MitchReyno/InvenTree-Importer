@@ -13,7 +13,7 @@ const SLOW_RETRY_DELAY_MS = 30_000
  * load can fail on the way, so a failed load is tried again a few times before it counts as
  * failed, and then slowly for as long as it is shown, so it appears once the route serves it.
  */
-export function useRetriedImage(src: string) {
+export function useRetriedImage(src: string, onLoaded?: () => void) {
   const [loading, setLoading] = useState<LoadAttempt>({ src, retries: 0, failed: false })
   const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const attempt = loading.src === src ? loading : { src, retries: 0, failed: false }
@@ -34,6 +34,7 @@ export function useRetriedImage(src: string) {
   }
 
   function handleLoad() {
+    onLoaded?.()
     if (attempt.failed) {
       setLoading({ ...attempt, failed: false })
     }

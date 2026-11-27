@@ -59,7 +59,11 @@ export function ImagesReview({
   const unavailable = fresh.phase === 'failed'
 
   async function acceptReceipt(next: MediaSnapshotDto) {
-    queryClient.setQueryData(mediaKey, next)
+    const cached = queryClient.getQueryData<MediaSnapshotDto>(mediaKey)
+    // A replayed receipt can be older than a read that has landed since; it never replaces one.
+    if (!cached || BigInt(next.revision) >= BigInt(cached.revision)) {
+      queryClient.setQueryData(mediaKey, next)
+    }
     // Writing the receipt clears the media read's proof, so both are read again.
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: mediaKey }),

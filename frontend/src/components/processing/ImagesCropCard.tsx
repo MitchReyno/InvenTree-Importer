@@ -27,6 +27,8 @@ type Props = {
   /** Where the crop already sits among the lot's confirmed images. */
   placement: ConfirmedPlacement | null
   control: CropControl
+  /** Called with the picture's address once it has loaded. */
+  onPictureLoaded: (src: string) => void
   /** Every control is locked, such as while a confirmation awaits its outcome. */
   disabled: boolean
 }
@@ -38,8 +40,17 @@ function placementText(placement: ConfirmedPlacement) {
 }
 
 /** One proposed crop: the app's rendering, what it was cut from, how it was adjusted, its flags. */
-export function ImagesCropCard({ batchId, proposalId, crop, placement, control, disabled }: Props) {
+export function ImagesCropCard({
+  batchId,
+  proposalId,
+  crop,
+  placement,
+  control,
+  onPictureLoaded,
+  disabled,
+}: Props) {
   const role = ROLE_LABEL[crop.role]
+  const src = imagesCropImage(batchId, proposalId, crop.index, 'view')
   const reasonId = useId()
   const reason = unchoosableReason(crop.state)
   const checked = control.kind !== 'none' && control.checked
@@ -51,7 +62,8 @@ export function ImagesCropCard({ batchId, proposalId, crop, placement, control, 
     <Card aria-label={`Crop ${crop.index}: ${role}`}>
       <CropPicture
         crop={crop}
-        src={imagesCropImage(batchId, proposalId, crop.index, 'view')}
+        src={src}
+        onLoaded={() => onPictureLoaded(src)}
         alt={`Crop ${crop.index}, ${role.toLowerCase()}, from ${crop.evidence_label}`}
       />
       <Body>

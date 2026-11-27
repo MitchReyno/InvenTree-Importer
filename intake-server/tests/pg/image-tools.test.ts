@@ -542,3 +542,74 @@ test('a spent image budget refuses before the decoder runs', async (t) => {
   assert.equal(over.error, 'capacity_reached')
   assert.deepEqual(calls, [])
 })
+
+test('a crop’s photo must be cited, and removing it stales the proposal', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true, images: true })
+  const { fixture } = batch
+  const session = tools(batch, childImageOperations())
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  const cited = await fetched(batch, session, images.attemptId)
+  const source = await photo(batch)
+  const imager = await running(fixture, images.attemptId)
+  const note = (
+    await fixture.db.pool.query<{ id: string; text: string }>(
+      'SELECT id, text FROM media_evidence_note WHERE batch_id=$1',
+      [batch.batchId],
+    )
+  ).rows[0]
+  const noteSource = {
+    kind: 'note',
+    note_id: note.id,
+    text_sha256: createHash('sha256').update(note.text).digest('hex'),
+  }
+  const proposal = (sources: unknown[]) => ({
+    schema_version: 'images/1',
+    subject_id: images.lot.id,
+    summary: 'The crystal.',
+    sources,
+    relies_on: { fields: ['identity'], sources },
+    images: [{ role: 'stock_image', recipe: recipe(source) }],
+  })
+  const uncited = await result(session.propose_images(imager, { proposal: proposal([noteSource]) }))
+  assert.equal(uncited.error, 'validation_failed')
+  assert.equal(uncited.issues?.[0].path, '/proposal/images/0/recipe/source_version_id')
+
+  const published = await result(session.propose_images(imager, { proposal: proposal([cited]) }))
+  assert.equal(published.ok, true, JSON.stringify(published))
+  await removePhoto(batch)
+  const stale = await fixture.db.pool.query<{ reason: string }>(
+    'SELECT reason FROM processing_proposal_stale WHERE proposal_id=$1',
+    [published.id],
+  )
+  assert.equal(stale.rows[0]?.reason, 'evidence_removed')
+  const review = await readImagesReview(fixture.api.pool, fixture.config, batch.batchId)
+  const shown = review.proposals.find((item) => item.proposal_id === published.id)!
+  assert.equal(shown.stale, true)
+  assert.deepEqual(
+    shown.crops.map((crop) => crop.state),
+    ['removed'],
+  )
+})
+
+test('a label the decoder would count as too long is refused before rendering', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true, images: true })
+  const calls: string[] = []
+  const session = tools(batch, childImageOperations(calls))
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  const imager = await running(batch.fixture, images.attemptId)
+  const source = await photo(batch)
+  const label = '🔧'.repeat(21)
+  const grid = await result(
+    session.inspect_region(imager, {
+      evidence_id: source.evidence_id,
+      boxes: [{ name: label, box: { x: 0, y: 0, width: 10, height: 10 } }],
+    }),
+  )
+  assert.equal(grid.error, 'validation_failed')
+  assert.equal(grid.issues?.[0].path, '/boxes/0/name')
+  const preview = await result(
+    session.preview_images(imager, { crops: [{ label, recipe: recipe(source) }] }),
+  )
+  assert.equal(preview.error, 'validation_failed')
+  assert.deepEqual(calls, [])
+})
