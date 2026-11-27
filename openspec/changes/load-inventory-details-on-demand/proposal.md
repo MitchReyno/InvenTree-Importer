@@ -33,7 +33,7 @@ Priority applies within the server work. It reflects how often a path runs, how 
 | 3 | Batch database reads for full Processing snapshots | Proposal, question and figure queries run per retained job. At the 100-job cap those three families alone can issue 300 queries. Bound their round trips by query family and chunk count, preserving per-job limits, ordering and integrity checks. |
 | 4 | Reduce repeated work on conditional media previews | A matching ETag currently saves transfer after the preview bytes have been read and hashed. Resolve scope, removal state and rendition identity first. Avoid repeated blob work only where present-file integrity is established; measure cold, warm and changed-file paths separately. |
 
-These are internal optimizations to existing reads. Their response, failure and authority contracts remain the acceptance baseline.
+These are internal optimizations to existing reads. Preserve response meanings, scope checks and failures relevant to the requested data. A valid bounded inbox or header summary remains available when full Processing detail exceeds its separate byte budget.
 
 ## Reuse and dependency assessment
 

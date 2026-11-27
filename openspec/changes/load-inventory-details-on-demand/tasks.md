@@ -71,7 +71,7 @@ A second cohesive PR covers tasks 8–11 on `perf/load-inventory-details-on-dema
 ## 9. Derive inbox and masthead counts with bounded summary reads
 
 - [ ] 9.1 Compare the current and proposed summaries on a ten-batch inbox and five counted header batches, including paused, superseded, retired and held-slot jobs, stale questions and truncated work lists.
-- [ ] 9.2 Implement the summary reader inside the existing transaction. Assert identical counts, work rows and truncation, zero full-snapshot builds on the replaced paths, and zero proposal-body or answer-history reads for those counts. Record database work and response timing.
+- [ ] 9.2 Implement the summary reader inside the existing transaction. Assert identical counts, work rows and truncation, zero full-snapshot builds on the replaced paths, and zero proposal-body or answer-history reads for those counts. On the same oversized-detail fixture verify detail refuses and valid summary succeeds. Exercise scope and summary-specific refusals. Record database work and response timing.
 
 ## 10. Batch the full snapshot’s per-job queries
 
