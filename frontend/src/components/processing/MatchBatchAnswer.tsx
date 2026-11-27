@@ -6,9 +6,6 @@ import { batchHref } from '#/navigation/batch-route'
 import { batchTarget } from '#/processing/match-question'
 import { space, typeVar } from '#/theme/generated/tokens'
 
-/** How many lots the card names before "…N more". */
-const NAMED_LOTS = 3
-
 type Props = {
   batchId: string
   /** Open questions whose first option adds stock to an exact Part, at least two. */
@@ -33,8 +30,6 @@ export function MatchBatchAnswer({
   addStockToEach,
 }: Props) {
   const [each, setEach] = useState(false)
-  const named = questions.slice(0, NAMED_LOTS)
-  const more = questions.length - named.length
 
   return (
     <section aria-label="Several exact matches">
@@ -43,13 +38,13 @@ export function MatchBatchAnswer({
         why="Each has one exact Part candidate. Adding stock to each runs no research and takes stock photos only."
         answer={
           <>
+            {/* Every lot the answer rebinds is named with its Part, however many there are. */}
             <Lots>
-              {named.map((question) => (
+              {questions.map((question) => (
                 <li key={question.id}>
                   {lotLabel(question.lot_id)} → {batchTarget(question)}
                 </li>
               ))}
-              {more > 0 && <li>…{more} more</li>}
             </Lots>
             <Actions>
               <Button

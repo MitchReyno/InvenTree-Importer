@@ -1,3 +1,4 @@
+import type { MatchStage } from './match-outcome.ts'
 import type { PoolClient } from 'pg'
 import type {
   AgentSettingsDto,
@@ -254,11 +255,13 @@ async function jobEligibility(
     return refused('identity_waiting')
   }
   const match = sealedMatch(job)
+  const lotStage = job.subject_id !== null && (job.stage === 'research' || job.stage === 'images')
+  // Work sealed without Match (an earlier input's) goes through Match before a `/7` restart.
   if (
-    match &&
-    job.subject_id !== null &&
-    (job.stage === 'research' || job.stage === 'images') &&
-    !(await matchGate(client, job.subject_id, job.stage, match)).allowed
+    lotStage &&
+    (match
+      ? !(await matchGate(client, job.subject_id!, job.stage as MatchStage, match)).allowed
+      : inputVersion === 'bench-intake-input/7')
   ) {
     return refused('match_waiting')
   }

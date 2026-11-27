@@ -259,6 +259,7 @@ export async function requestDriftedSearches(
   for (const [batchId, lotIds] of [...byBatch].sort(([a], [b]) => a.localeCompare(b))) {
     await transaction(pool, async (client) => {
       const capture = await lockCaptureForInputs(client, config, batchId)
+      let requested = 0
       for (const lotId of [...lotIds].sort()) {
         const row = await lockMatch(client, lotId)
         if (
@@ -285,8 +286,9 @@ export async function requestDriftedSearches(
           reason: 'operator',
         })
         searched.push(lotId)
+        requested += 1
       }
-      if (searched.length) {
+      if (requested) {
         await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
       }
     })

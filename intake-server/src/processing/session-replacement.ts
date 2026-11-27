@@ -1,3 +1,4 @@
+import type { MatchStage } from './match-outcome.ts'
 import type { Pool } from 'pg'
 import { validate, type SessionReplacementDto } from '@invimport/contracts'
 import { transaction } from '#/db/database.ts'
@@ -112,17 +113,20 @@ export async function replaceSession(
         if (!(await pinnedIdentityCurrent(client, pinned))) {
           fail('identity_waiting', 409)
         }
-        // A `/7` lot stage restarts only while Match allows it under the outcome it was sealed with.
+        // The replacement follows the batch's lead's sealed version, not the configuration.
+        const inputVersion = await batchInputVersion(client, config, batchId)
+        // A `/7` lot stage restarts only while Match allows it under the outcome it was sealed
+        // with; one sealed without Match (an earlier input's) goes through Match first.
+        const lotStage =
+          job.subject_id !== null && (job.stage === 'research' || job.stage === 'images')
         if (
-          match &&
-          job.subject_id !== null &&
-          (job.stage === 'research' || job.stage === 'images') &&
-          !(await matchGate(client, job.subject_id, job.stage, match)).allowed
+          lotStage &&
+          (match
+            ? !(await matchGate(client, job.subject_id!, job.stage as MatchStage, match)).allowed
+            : inputVersion === 'bench-intake-input/7')
         ) {
           fail('match_waiting', 409)
         }
-        // The replacement follows the batch's lead's sealed version, not the configuration.
-        const inputVersion = await batchInputVersion(client, config, batchId)
         // Every refusal comes before the first write, so a refused replacement supersedes nothing.
         const prepared = await prepareSessionAttempt(
           client,

@@ -130,15 +130,17 @@ function candidateKeys(
   maker: string | undefined,
 ): MatchKeyDto[] {
   const manufacturer = keyText(candidate.manufacturer) ?? maker
+  const keys: MatchKeyDto[] = []
   const mpn = keyText(candidate.mpn)
   if (mpn) {
-    return [{ kind: 'mpn', mpn, ...(manufacturer ? { manufacturer } : {}) }]
+    keys.push({ kind: 'mpn', mpn, ...(manufacturer ? { manufacturer } : {}) })
   }
+  // A type with its maker is a strong key of its own, searched alongside the MPN.
   const type = keyText(candidate.type)
   if (type && manufacturer) {
-    return [{ kind: 'type', type, manufacturer }]
+    keys.push({ kind: 'type', type, manufacturer })
   }
-  return []
+  return keys
 }
 
 /** A match note's key, for the kinds Match searches by. */

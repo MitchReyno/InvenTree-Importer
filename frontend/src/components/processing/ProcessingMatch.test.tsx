@@ -513,6 +513,40 @@ describe('Processing › Match', () => {
     )
   })
 
+  test('adding stock to each names every lot it rebinds, however many', async () => {
+    const read = midway()
+    const lots = [capacitor, crystal, reel, tube]
+    read.lots = read.lots.map((item, index) =>
+      index === 0
+        ? item
+        : matchLot(item.lot_id, {
+            state: 'question',
+            keys: [capacitorKey],
+            verdict: 'exact',
+            candidates: [cap0210],
+            waits: ['research', 'images'],
+            question_id: id(300 + index),
+          }),
+    )
+    lots.forEach((lotId, index) =>
+      read.questions.push(
+        question(id(301 + index), lotId, {
+          revision: '5',
+          title: 'This looks like existing Part CAP-0210',
+          keys: [capacitorKey],
+          candidates: [cap0210],
+          notes: [],
+        }),
+      ),
+    )
+    validate('BatchMatch', read)
+    mount(clientFor(read))
+
+    const card = within(await screen.findByRole('region', { name: 'Several exact matches' }))
+    expect(card.getAllByText(/→ (RES-0144|CAP-0210)$/)).toHaveLength(5)
+    expect(card.queryByText(/more$/)).toBeNull()
+  })
+
   test('a lot with two exact candidates is left out of adding stock to each', async () => {
     const read = midway()
     const second = id(202)

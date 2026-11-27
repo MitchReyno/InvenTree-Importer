@@ -1467,3 +1467,79 @@ test('a lot moved to a draft with the same identifiers keeps its outcome but not
   )
   assert.deepEqual(stale, { allowed: false, reason: 'binding_changed' })
 })
+
+test('a Start that would take the batch past its job limit queues nothing, counted across lots', async (t) => {
+  const { fixture, reader } = await matchFixture(t)
+  const { capture, a, b } = await operatorLots(fixture, MPN)
+  const jobs = async () =>
+    Number(
+      (
+        await fixture.db.pool.query<{ count: string }>(
+          'SELECT count(*)::text AS count FROM processing_job WHERE batch_id=$1',
+          [capture.batch.id],
+        )
+      ).rows[0].count,
+    )
+  // Placeholder jobs fill the batch to 99, so neither lot's two stages can be queued for it.
+  const filler = await fixture.db.pool.connect()
+  try {
+    await filler.query('BEGIN')
+    await filler.query('SET LOCAL session_replication_role = replica')
+    await filler.query(
+      `INSERT INTO processing_job(id,batch_id,subject_id,stage,current_attempt_id,state)
+       SELECT gen_random_uuid(),$1,gen_random_uuid(),'research',gen_random_uuid(),'ready'
+       FROM generate_series(1, 99 - $2::int)`,
+      [capture.batch.id, await jobs()],
+    )
+    await filler.query('COMMIT')
+  } finally {
+    filler.release()
+  }
+  assert.equal(await jobs(), 99)
+  await settleMatch(fixture, reader)
+  assert.equal(await jobs(), 99)
+  // Images for each lot fits alone; both together pass the limit, so neither is queued.
+  const snapshot = (await fixture.http(`/batches/${capture.batch.id}`)).value as CaptureSnapshotDto
+  const start = await fixture.http(`/batches/${capture.batch.id}/processing`, {
+    schema_version: 'bench-intake-processing/1',
+    expected_capture_revision: snapshot.revision,
+    subject_ids: [a.id, b.id],
+    stages: ['images'],
+  })
+  assert.equal((start.value as { code: string }).code, 'processing_capacity')
+  assert.equal(await jobs(), 99)
+})
+
+test('Parts gone since they were listed make room for the next, so a live match still asks', async (t) => {
+  const pks = [401, 402, 403, 404, 405, 406]
+  const { fixture, reader } = await matchFixture(t, {
+    parts: pks.map((pk) => ({ pk, name: `ZX-7 batch ${pk}` })),
+    manufacturerParts: pks.map((pk) => ({
+      pk: 600 + pk,
+      part: pk,
+      mpn: 'ZX-7',
+      manufacturer: 61,
+      manufacturer_name: 'Yageo Corporation',
+    })),
+  })
+  const { capture, a } = await operatorLots(fixture, 'ZX-7')
+  const gone: MatchReader = {
+    ...reader,
+    targetContextId: reader.targetContextId,
+    list: reader.list.bind(reader) as MatchReader['list'],
+    part: async (pk) => (pk === '406' ? reader.part(pk) : { kind: 'not_found' }),
+  }
+  await settlePendingSearches(
+    fixture.api.pool,
+    fixture.config,
+    matchSearch(fixture.api.pool, fixture.config, gone),
+  )
+  const lot = (await readMatch(fixture, capture.batch.id)).lots.find(
+    (item) => item.lot_id === a.id,
+  )!
+  assert.deepEqual(
+    lot.candidates.map((candidate) => (candidate.kind === 'part' ? candidate.part.pk : null)),
+    ['406'],
+  )
+  assert.equal(openQuestion(await readMatch(fixture, capture.batch.id), a.id)?.kind, 'candidates')
+})

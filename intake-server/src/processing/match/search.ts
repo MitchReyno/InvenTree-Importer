@@ -527,11 +527,14 @@ export function matchSearch(
         async (client) => (await captureInTransaction(client, config, request.batch_id)).snapshot,
       )
       const supplierPk = batchSupplierPk(snapshot)
-      const ranked = [...hits.values()]
-        .sort((a, b) => Number(b.exact) - Number(a.exact))
-        .slice(0, MAX_MATCH_CANDIDATES)
+      const ranked = [...hits.values()].sort((a, b) => Number(b.exact) - Number(a.exact))
+      // The cap applies to Parts that still exist: one gone since it was listed makes room for
+      // the next, so a live match is never dropped behind gone ones.
       const candidates: MatchCandidateDto[] = []
       for (const hit of ranked) {
+        if (candidates.length >= MAX_MATCH_CANDIDATES) {
+          break
+        }
         const found = await candidate(reader, hit, request.keys, supplierPk, deadline)
         if (found) {
           candidates.push(found)

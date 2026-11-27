@@ -186,6 +186,9 @@ A sealed brief keeps its bytes, but nothing of evidence removed since reaches th
 - **An answer waits for a changed binding:** a question asked before Capture rebound the lot refuses answers (`match_waiting`) until the sweep's search settles; the answer's own rebinding is adopted as Match's binding.
 - **New Part on a lot with no Part** gives it a draft of its own, as from an existing Part.
 - **Start counts the whole request against the job limit** before queueing anything.
+- **Restarting work sealed without Match:** on a `/7` batch, Start fresh and replacement refuse a Research or Images attempt whose input has no Match seal (an earlier input's), so it goes through Match first.
+- **Every strong key of an Examine candidate is searched:** an MPN and a type with its maker both.
+- **The candidate cap counts live Parts:** Parts gone since they were listed don't use up the five places.
 - **A Part its detail read can't find** is dropped from the candidates, never offered from the list record.
 - **A decision is recorded under the latest settled search,** whose identity its queued work is sealed with, so an equivalent recheck afterwards keeps it.
 - **Batch answers** are checked on the server too: only `add_stock_1`, on questions about one exact Part candidate.
@@ -212,8 +215,9 @@ A sealed brief keeps its bytes, but nothing of evidence removed since reaches th
 - **Earlier-run links** name the run's batch (`batch_id` on a readable hit) so the link opens that batch's Changes › Added.
 - **No identify mode yet:** the canvas row "Research identifying · Images waits" isn't shown until PR-D seals identify mode.
 - **Batch Check again** sends every lot with a Match row, so one whose Examine identity is stale refuses the whole command; its row action and the other lots' still work (should-fix from review round 6).
+- **Competing lots' bindings:** another batch's lot is quoted from its latest request, so one moved to another draft is quoted under its old identifiers until its own drift search runs (should-fix from review round 8; it can ask a needless question, never start stale work).
 - **Competing lots' identities** are skipped when stale-marked, but not by the identity-basis backstop (should-fix from review round 4).
-- **Not covered by tests here:** the wake sweep passing over a Match-held session (the slot claim is tested, for a pending search, a changed binding and a stale outcome); New Part rolled back at the job limit is tested by sealing an attempt under an outcome no longer in force rather than by filling a batch to 100 jobs, and the Start limit by its count; and more than 200 questions; the pinned API's over-bound category (only the fake's), a stock read status for an effects-plan (`executor_supported_effect`) hit, cross-actor and rotated-context hits beyond the generic line, and the Review view of two lots sharing an existing Part (the PG test checks the shared subject only).
+- **Not covered by tests here:** the wake sweep passing over a Match-held session (the slot claim is tested, for a pending search, a changed binding and a stale outcome); New Part rolled back at the job limit is tested by sealing an attempt under an outcome no longer in force rather than by filling a batch to 100 jobs, and the Start limit by filling a batch with placeholder jobs; and more than 200 questions; the pinned API's over-bound category (only the fake's), a stock read status for an effects-plan (`executor_supported_effect`) hit, cross-actor and rotated-context hits beyond the generic line, and the Review view of two lots sharing an existing Part (the PG test checks the shared subject only).
 
 ## Task 8 (PR-H): the brief on the session page
 

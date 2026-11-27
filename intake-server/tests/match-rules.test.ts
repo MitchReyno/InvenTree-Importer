@@ -123,6 +123,24 @@ test("Examine's keys come from its candidates with the maker, its NSN and its ma
   ])
 })
 
+test('a candidate with both an MPN and a type with its maker is searched by both', () => {
+  const identity = {
+    schema_version: 'examine-identity/1',
+    subject_id: LOT,
+    summary: 'A chip.',
+    sources: [],
+    relies_on: { fields: ['identity'], sources: [] },
+    markings: [],
+    candidates: [
+      { mpn: 'ORDER-CODE', type: 'DEVICE-TYPE', manufacturer: 'Maker', confidence: 'high' },
+    ],
+  } as unknown as ExamineIdentityV1Dto
+  assert.deepEqual(examineKeys(identity), [
+    { kind: 'mpn', mpn: 'ORDER-CODE', manufacturer: 'Maker' },
+    { kind: 'type', type: 'DEVICE-TYPE', manufacturer: 'Maker' },
+  ])
+})
+
 test('decisions set the modes: add stock, fill what is missing, new Part and already imported', () => {
   assert.deepEqual(decisionModes('add_stock', part()), {
     research: { stage: 'research', mode: 'skipped' },
