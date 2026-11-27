@@ -224,7 +224,8 @@ export interface PublishedRead extends CatalogRead {
  * Stores a read's list in one transaction, but only while no invalidation came during the read
  * and, for a fenced reader, the reply's generation equals `current` (taken from the source just
  * before) and the row's latest observed one. Otherwise it records what it saw and discards the
- * reply, so an old sign-in's list never becomes current.
+ * reply, so an old sign-in's list never becomes current. A read that lists no models records
+ * `not_listed` under the same fence and keeps the stored list.
  */
 export async function publishCatalogRead(
   pool: Pool,
@@ -253,6 +254,24 @@ export async function publishCatalogRead(
       if (read.generation !== current) {
         return 'discarded'
       }
+    }
+    if (read.notListed) {
+      const recorded = await client.query(
+        `UPDATE agent_model_catalog SET attempted_at=$7, failure='not_listed', attempt_in=$8,
+            reading_in=NULL, reading_since=NULL, latest_generation=coalesce($9, latest_generation),
+            ${CLEAR_ANSWERED_REQUEST}
+          WHERE ${KEY_SQL} AND invalidation_seq=$10
+            AND latest_generation IS NOT DISTINCT FROM coalesce($9, latest_generation)`,
+        [
+          ...keyParams(scope, key),
+          started.refreshSeq,
+          now,
+          read.readIn,
+          read.generation,
+          started.invalidationSeq,
+        ],
+      )
+      return recorded.rowCount === 1 ? 'published' : 'discarded'
     }
     const stored = await client.query(
       `UPDATE agent_model_catalog SET

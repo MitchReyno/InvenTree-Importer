@@ -326,12 +326,60 @@ test('an alias-only guest reply after a stored list shows the built-in list and 
   assert.equal(row?.models?.length, 13)
   assert.equal(row?.failure, 'not_listed')
 
-  // While a reread runs, it reads as from an earlier sign-in, as any marked list does.
+  // Check again shows the built-in list as reading, never the superseded list as current.
   await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  const reading = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(reading.claude.state, 'reading')
+  assert.equal(reading.claude.builtin, true)
+  assert.deepEqual(reading.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
+})
+
+test('Check again after a not-listed answer, with no sign-in change, shows the built-in list reading', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-a')
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  state.answers.push({ generation: 'rev-a', cliVersion: '2.1.319', models: [], notListed: true })
+  await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  await round(catalog)
   assert.equal(
     (await readModelCatalog(fixture.api.pool, fixture.config)).claude.state,
-    'stale_sign_in',
+    'not_listed',
   )
+
+  await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  const reading = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(reading.claude.state, 'reading')
+  assert.equal(reading.claude.builtin, true)
+  assert.equal(reading.claude.failure, 'not_listed')
+  assert.deepEqual(reading.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
+})
+
+test('a not-listed answer passes the sign-in fence: one from an old token is read again', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-b')
+  // Read under rev-a, but the token is rev-b by the time it would be recorded.
+  state.answers.push({ generation: 'rev-a', cliVersion: '2.1.319', models: [], notListed: true })
+  state.answers.push({ generation: 'rev-b', cliVersion: '2.1.319', models: [], notListed: true })
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  assert.equal(state.reads, 2)
+  const row = await claudeRow(fixture)
+  assert.equal(row?.failure, 'not_listed')
+  // It sets the baseline, so a later token is a sign-in change that asks for a read at once.
+  assert.equal(row?.latestGeneration, 'rev-b')
+  state.generation = 'rev-c'
+  time.advance(60_000)
+  await round(catalog)
+  assert.equal(state.reads, 3)
 })
 
 test("another route's setup-token answer doesn't defer this route's retry", async (t) => {

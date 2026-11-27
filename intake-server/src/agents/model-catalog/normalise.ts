@@ -151,9 +151,6 @@ export function claudeCliModels(
     group.push(entry)
     groups.set(entry.id, group)
   }
-  if (exactEntries === 0) {
-    throw new CatalogReadError(groups.size > 0 ? aliasesOnly : 'unavailable')
-  }
   const folded = [...groups.entries()].map(([id, entries]) => {
     const chosen = representative(entries)
     const name = chosen.value === 'default' && entries.length === 1 ? id : chosen.displayName
@@ -167,7 +164,12 @@ export function claudeCliModels(
       usable: null,
     }
   })
-  return checkedCatalog(markOlderClaude(folded))
+  // Checked first, so an invalid alias list stays malformed rather than reading as the CLI's own.
+  const checked = checkedCatalog(markOlderClaude(folded))
+  if (exactEntries === 0) {
+    throw new CatalogReadError(checked.length > 0 ? aliasesOnly : 'unavailable')
+  }
+  return checked
 }
 
 function claudeApiEfforts(capabilities: unknown) {

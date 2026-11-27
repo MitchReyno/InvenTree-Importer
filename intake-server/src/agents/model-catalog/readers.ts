@@ -25,6 +25,11 @@ export interface CatalogRead {
   generation: string | null
   cliVersion: string | null
   models: AgentCatalogModelDto[]
+  /**
+   * The provider answered but lists no models for this sign-in; `models` is empty. It is recorded
+   * through the same sign-in fence as a list, and stores none.
+   */
+  notListed?: true
 }
 
 export interface CatalogReader {
@@ -66,10 +71,19 @@ export function guestReader(catalog: GuestCatalog, provider: CatalogProvider): C
       if (provider === 'codex' && !Array.isArray(raw)) {
         throw new CatalogReadError('malformed')
       }
-      // The guest signs Claude in with a setup token, which the pinned CLI lists only aliases for.
-      const models =
-        provider === 'claude' ? claudeCliModels(raw, 'not_listed') : codexModels(raw as unknown[])
-      return { generation: answer.read.generation, cliVersion: answer.read.cliVersion, models }
+      const read = { generation: answer.read.generation, cliVersion: answer.read.cliVersion }
+      if (provider === 'codex') {
+        return { ...read, models: codexModels(raw as unknown[]) }
+      }
+      try {
+        return { ...read, models: claudeCliModels(raw, 'not_listed') }
+      } catch (error) {
+        // The guest signs Claude in with a setup token, which the pinned CLI lists only aliases for.
+        if (error instanceof CatalogReadError && error.code === 'not_listed') {
+          return { ...read, models: [], notListed: true }
+        }
+        throw error
+      }
     },
     async generation(signal) {
       const answer = await catalog(provider, 'generation', signal)

@@ -52,9 +52,10 @@ function notListed(row: CatalogRow | undefined) {
 
 function catalogState(row: CatalogRow | undefined): AgentProviderCatalogDto['state'] {
   const reading = row?.refreshRequestedAt != null || row?.readingSince != null
-  // The provider's own answer under the current sign-in, so it stands over any stored list.
-  if (notListed(row) && !reading) {
-    return 'not_listed'
+  // The provider's own answer under the current sign-in, so it stands over any stored list, and a
+  // reread shows the built-in list until it lands.
+  if (notListed(row)) {
+    return reading ? 'reading' : 'not_listed'
   }
   if (!row?.models) {
     return reading ? 'reading' : 'never_read'
@@ -79,10 +80,9 @@ export function providerCatalog(
   authentication: CatalogAuthentication,
   row: CatalogRow | undefined,
 ): AgentProviderCatalogDto {
-  const state = catalogState(row)
-  const stored = state === 'not_listed' ? null : (row?.models ?? null)
+  const stored = notListed(row) ? null : (row?.models ?? null)
   return {
-    state,
+    state: catalogState(row),
     authentication,
     source: stored ? row!.source : null,
     read_in: stored ? row!.readIn : null,

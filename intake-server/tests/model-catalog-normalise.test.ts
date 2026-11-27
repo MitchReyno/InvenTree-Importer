@@ -74,6 +74,17 @@ function guestClaude(raw: unknown) {
   }, 'claude')
 }
 
+test('an invalid alias-only reply is malformed, not the setup-token state', async () => {
+  const long = (claudeOffline.models as Record<string, unknown>[]).map((entry) => ({
+    ...entry,
+    displayName: 'x'.repeat(81),
+  }))
+  await assert.rejects(
+    guestClaude(long).read(AbortSignal.timeout(5_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'malformed',
+  )
+})
+
 test('a guest Claude reply with no usable entry stays unavailable, not the setup-token state', async () => {
   const discarded = [{ value: 'opus[1m]', displayName: 'Opus (1M context)' }]
   for (const raw of [[], discarded]) {
@@ -95,10 +106,13 @@ test('a guest Claude read answering only aliases lists no models for its setup t
       read: { generation: 'rev-a', cliVersion: '2.1.319', raw: claudeOffline.models },
     }
   }, 'claude')
-  await assert.rejects(
-    reader.read(AbortSignal.timeout(5_000)),
-    (error) => error instanceof CatalogReadError && error.code === 'not_listed',
-  )
+  const read = await reader.read(AbortSignal.timeout(5_000))
+  assert.deepEqual(read, {
+    generation: 'rev-a',
+    cliVersion: '2.1.319',
+    models: [],
+    notListed: true,
+  })
 })
 
 test('IDs the model ID check refuses fold into their resolved model or are left out', () => {
