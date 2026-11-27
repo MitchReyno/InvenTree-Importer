@@ -32,11 +32,14 @@ CREATE TABLE processing_match_search (
   result_bytes bytea,
   result_digest bytea CHECK (result_digest IS NULL OR octet_length(result_digest) = 32),
   settled_at timestamptz,
+  -- A request whose search failed waits before it is tried again, so it can't hold up the rest.
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  retry_after timestamptz,
   PRIMARY KEY (lot_id, generation),
   CHECK ((settlement IS NULL) = (settled_at IS NULL)),
   CHECK ((result_bytes IS NULL) = (result_digest IS NULL))
 );
-CREATE INDEX processing_match_search_pending ON processing_match_search(requested_at)
+CREATE INDEX processing_match_search_pending ON processing_match_search(retry_after, requested_at)
   WHERE settlement IS NULL;
 
 -- Each outcome a lot had: a clear verdict or a decision, with the modes it set and, for a

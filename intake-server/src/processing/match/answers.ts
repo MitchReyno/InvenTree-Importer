@@ -39,6 +39,9 @@ import { decodeQuestionContent, type StoredQuestion } from './stored-question.ts
 
 type QuestionRow = typeof processingMatchQuestions.$inferSelect
 
+/** The one option a batch answer may choose: add stock to the question's only candidate. */
+const BATCH_OPTION = 'add_stock_1'
+
 /** One question's answer as the command reads it: the option chosen, or Something else. */
 interface Choice {
   questionId: string
@@ -132,11 +135,28 @@ async function requireAnswerable(
   }
 }
 
+/** A question a batch answer may take: about one candidate only, an exact InvenTree Part. */
+function batchEligible(planned: Planned) {
+  const [only, ...others] = planned.content.candidates
+  return (
+    planned.content.kind === 'candidates' &&
+    others.length === 0 &&
+    only?.kind === 'part' &&
+    only.verdict === 'exact'
+  )
+}
+
 function candidateFor(content: StoredQuestion, partPk: string | undefined) {
   return content.candidates.find(
     (candidate): candidate is MatchPartCandidateDto =>
       candidate.kind === 'part' && candidate.part.pk === partPk,
   )
+}
+
+/** Part subjects and observations a batch answer has made so far, by InvenTree Part. */
+interface Bound {
+  subjects: Map<string, string>
+  observations: Map<string, CaptureSnapshotDto['observations'][number]>
 }
 
 /**
@@ -146,12 +166,6 @@ function candidateFor(content: StoredQuestion, partPk: string | undefined) {
  * Part decision moves a lot off an existing Part onto a draft of its own. Its peers keep theirs.
  * Returns whether Capture changed.
  */
-/** Part subjects and observations a batch answer has made so far, by InvenTree Part. */
-interface Bound {
-  subjects: Map<string, string>
-  observations: Map<string, CaptureSnapshotDto['observations'][number]>
-}
-
 async function bindTarget(
   scope: OperatorCommandScope,
   config: ProcessingConfig,
@@ -277,6 +291,9 @@ async function applyAnswers(
       plan(await questionRow(client, batchId, choice.questionId), choice),
     ),
   )
+  if (choices.length > 1 && !planned.every(batchEligible)) {
+    fail('invalid_match_answer', 422)
+  }
   // Refused before any write when a question can't be answered now; checked again under lock.
   const retired = new Set(
     peek.snapshot.lots.filter((lot) => lot.retired === true).map((lot) => lot.id),
@@ -369,7 +386,8 @@ async function settleAnswer(
     basis: { kind: 'decision', decision: planned.effect.decision },
     modes: decisionModes(planned.effect.decision, candidate),
     covered: coveredOf(planned.content),
-    generation: planned.question.generation,
+    // The latest settled search: its identity is the one the queued work is sealed with.
+    generation: row.settledGeneration,
     targetPartPk: candidate?.part.pk,
     questionId: planned.question.id,
   })
@@ -452,6 +470,10 @@ export async function answerMatchBatch(
   validate('MatchBatchAnswer', body)
   const ids = body.answers.map((answer) => answer.question_id)
   if (new Set(ids).size !== ids.length) {
+    fail('invalid_match_answer', 422)
+  }
+  // Adding stock to each is offered only where nothing is chosen between candidates.
+  if (body.answers.some((answer) => answer.option_id !== BATCH_OPTION)) {
     fail('invalid_match_answer', 422)
   }
   const choices = body.answers.map((answer): Choice => ({

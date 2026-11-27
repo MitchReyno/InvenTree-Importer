@@ -79,7 +79,8 @@ export const MatchPartCandidate = object({
     minItems: 1,
     maxItems: 16,
   }),
-  missing: Type.Array(MatchMissing, { maxItems: 40 }),
+  /** At most the category's 100 mappings and the four other gaps. */
+  missing: Type.Array(MatchMissing, { maxItems: 104 }),
   /** Whether the category's key parameters could be read; when not, none is listed as missing. */
   parameters_known: Type.Boolean(),
   /** The Part's stock with the lot's batch code. */

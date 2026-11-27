@@ -372,15 +372,10 @@ async function candidate(
     if (key.kind !== 'batch_code' || stock.length >= MAX_MATCH_CANDIDATE_STOCK) {
       continue
     }
-    const found = await rows(
+    // Read in full, so a short page can't hide stock with the batch code.
+    const found = await everyRow((page) =>
       reader.list(
-        {
-          kind: 'list_stock',
-          part: part.pk,
-          batch: key.batch_code,
-          limit: MAX_MATCH_CANDIDATE_STOCK,
-          offset: 0,
-        },
+        { kind: 'list_stock', part: part.pk, batch: key.batch_code, ...page },
         budgeted(deadline),
       ),
     )
@@ -408,7 +403,7 @@ async function candidate(
     },
     verdict: stock.length ? 'duplicate' : hit.exact ? 'exact' : 'possible',
     matched_by: hit.matched,
-    missing: missing.slice(0, 40),
+    missing,
     parameters_known: parameters.known,
     stock,
   }
@@ -486,7 +481,12 @@ async function contributionHit(
  * approvals first, then, for a searchable identity, InvenTree by each strong key and the other
  * batches' lots. A failed InvenTree read makes the whole result unavailable.
  */
-export function matchSearch(pool: Pool, config: ProcessingConfig, reader: MatchReader | undefined) {
+export function matchSearch(
+  pool: Pool,
+  config: ProcessingConfig,
+  reader: MatchReader | undefined,
+  budgetMs = MATCH_SEARCH_BUDGET_MS,
+) {
   return async (request: MatchRequest): Promise<MatchResult> => {
     const base = {
       schema_version: 'bench-intake-match-result/1' as const,
@@ -506,7 +506,7 @@ export function matchSearch(pool: Pool, config: ProcessingConfig, reader: MatchR
     if (!reader) {
       return { ...base, searched: 'unavailable', candidates: [], verdict: 'none' }
     }
-    const deadline = Date.now() + MATCH_SEARCH_BUDGET_MS
+    const deadline = Date.now() + budgetMs
     try {
       const hits = new Map<string, Hit>()
       for (const key of request.keys.filter(strongKey)) {

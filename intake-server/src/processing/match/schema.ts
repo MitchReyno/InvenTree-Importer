@@ -1,4 +1,13 @@
-import { bigint, customType, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import {
+  bigint,
+  customType,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core'
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 
@@ -33,6 +42,8 @@ export const processingMatchSearches = pgTable(
     resultBytes: bytea('result_bytes'),
     resultDigest: bytea('result_digest'),
     settledAt: timestamp('settled_at', { withTimezone: true, precision: 3 }),
+    attempts: integer().notNull().default(0),
+    retryAfter: timestamp('retry_after', { withTimezone: true, precision: 3 }),
   },
   (table) => [primaryKey({ columns: [table.lotId, table.generation] })],
 )

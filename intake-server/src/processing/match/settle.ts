@@ -66,7 +66,18 @@ async function openQuestion(client: PoolClient, row: MatchRow) {
 }
 
 /** What the lot had when its search settled: its outcome, any open question and its identity. */
-export async function standingOf(client: PoolClient, row: MatchRow): Promise<MatchStanding> {
+/** The InvenTree Part a lot is bound to in Capture, or null for a draft Part or none. */
+export function captureTargetOf(snapshot: CaptureSnapshotDto, lotId: string) {
+  const lot = snapshot.lots.find((candidate) => candidate.id === lotId)
+  const part = snapshot.parts.find((candidate) => candidate.id === lot?.part_subject_id)
+  return part?.choice.mode === 'set' ? part.choice.value.pk : null
+}
+
+export async function standingOf(
+  client: PoolClient,
+  row: MatchRow,
+  snapshot?: CaptureSnapshotDto,
+): Promise<MatchStanding> {
   const outcome = await currentOutcome(client, row)
   const recorded = await latestOutcome(client, row.lotId)
   const question = await openQuestion(client, row)
@@ -87,6 +98,7 @@ export async function standingOf(client: PoolClient, row: MatchRow): Promise<Mat
       : {}),
     ...(recorded ? { recorded: { outcome: recorded } } : {}),
     ...(outcomeIdentity ? { outcomeIdentity } : {}),
+    ...(snapshot ? { captureTarget: captureTargetOf(snapshot, row.lotId) } : {}),
     ...(question && content
       ? { openQuestion: { kind: question.kind, covered: questionCoveredOf(content) } }
       : {}),
@@ -389,7 +401,7 @@ export async function settleInTransaction(
     await recordSettlement(client, request, 'discarded', result)
     return 'discarded' as const
   }
-  const standing = await standingOf(client, row)
+  const standing = await standingOf(client, row, snapshot)
   const step = nextStep(result, standing)
   const lotLabel = snapshot.lots.find((lot) => lot.id === request.lot_id)?.label ?? 'this lot'
   const covered = coveredOf(result)
@@ -493,22 +505,41 @@ export async function settleInTransaction(
   return step.kind
 }
 
-/** The pending requests of this actor, target and context, oldest first. */
+/**
+ * The pending requests of this actor, target and context that are due: oldest first, a request
+ * whose search failed only once its backoff has passed.
+ */
 async function pendingRequests(pool: Pool, config: ProcessingConfig, limit: number) {
-  const rows = await pool.query<{ request_bytes: Buffer; request_digest: Buffer }>(
-    `SELECT s.request_bytes, s.request_digest FROM public.processing_match_search s
+  const rows = await pool.query<{
+    lot_id: string
+    generation: string
+    request_bytes: Buffer
+    request_digest: Buffer
+  }>(
+    `SELECT s.lot_id, s.generation::text AS generation, s.request_bytes, s.request_digest
+     FROM public.processing_match_search s
      JOIN public.capture_batch b ON b.id=s.batch_id
      WHERE s.settlement IS NULL AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
+       AND (s.retry_after IS NULL OR s.retry_after <= now())
      ORDER BY s.requested_at, s.lot_id, s.generation
      LIMIT $4`,
     [config.actorId, config.targetId, config.targetContextId, limit],
   )
-  return rows.rows.map((row) => {
-    if (!sha256(row.request_bytes).equals(row.request_digest)) {
-      throw new Error('match_request_corrupt')
-    }
-    return decodeRequest(row.request_bytes)
-  })
+  return rows.rows
+}
+
+/** The longest a failed request waits before it is tried again. */
+const MATCH_RETRY_MAX_SECONDS = 300
+
+/** Puts a request whose search or settlement failed back, after a backoff that doubles. */
+async function deferRequest(pool: Pool, lotId: string, generation: string) {
+  await pool.query(
+    `UPDATE public.processing_match_search
+     SET attempts=attempts+1,
+         retry_after=now() + make_interval(secs => least(power(2, attempts+1), $3))
+     WHERE lot_id=$1 AND generation=$2 AND settlement IS NULL`,
+    [lotId, generation, MATCH_RETRY_MAX_SECONDS],
+  )
 }
 
 /** Discards a request a newer one has replaced, without reading anything for it. */
@@ -539,9 +570,13 @@ export async function settlePendingSearches(
 ) {
   const outcomes: string[] = []
   let failure: unknown
-  for (const request of await pendingRequests(pool, config, limit)) {
-    // One request that fails to settle is retried by the next sweep; it never holds up the rest.
+  for (const pending of await pendingRequests(pool, config, limit)) {
+    // A request that fails to settle waits out a backoff, so it never holds up the rest.
     try {
+      if (!sha256(pending.request_bytes).equals(pending.request_digest)) {
+        throw new Error('match_request_corrupt')
+      }
+      const request = decodeRequest(pending.request_bytes)
       if (await discardIfReplaced(pool, request)) {
         outcomes.push('discarded')
         continue
@@ -552,6 +587,7 @@ export async function settlePendingSearches(
       )
     } catch (error) {
       failure ??= error
+      await deferRequest(pool, pending.lot_id, pending.generation)
     }
   }
   if (failure !== undefined) {

@@ -22,7 +22,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     // import reference lookup reads the retained execution journal.
     await pool.query(`GRANT INSERT, UPDATE(search_generation,settled_generation,outcome_revision,state,waits,
         identity_bytes,question_id,updated_at) ON processing_match TO ${role};
-      GRANT INSERT, UPDATE(settlement,result_bytes,result_digest,settled_at) ON processing_match_search TO ${role};
+      GRANT INSERT, UPDATE(settlement,result_bytes,result_digest,settled_at,attempts,retry_after) ON processing_match_search TO ${role};
       GRANT INSERT ON processing_match_outcome,processing_match_question,processing_match_answer TO ${role};
       GRANT UPDATE(state,closed_at) ON processing_match_question TO ${role};
       GRANT SELECT ON executor_operation,executor_run,executor_guard,executor_approval,executor_effect,executor_supported_effect,

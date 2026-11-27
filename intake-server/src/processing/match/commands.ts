@@ -19,8 +19,10 @@ import { stableIdentityOf } from '#/processing/stable-identity.ts'
 import { examineKeys, operatorKeys, operatorLot } from './keys.ts'
 import type { MatchResult } from './outcome.ts'
 import { matchQuestion } from './questions.ts'
-import { openMatchQuestion, standingOf } from './settle.ts'
+import { captureTargetOf, openMatchQuestion, standingOf } from './settle.ts'
+import { checksTarget, outcomeTarget } from './outcome.ts'
 import {
+  currentOutcome,
   decodeIdentity,
   decodeRequest,
   lockMatch,
@@ -224,9 +226,22 @@ export async function reopenMatch(
   )
 }
 
+/** Whether Capture binds the lot to another Part than its outcome in force set. */
+async function targetChanged(client: PoolClient, snapshot: CaptureSnapshotDto, row: MatchRow) {
+  if (searchPending(row)) {
+    return false
+  }
+  const outcome = await currentOutcome(client, row)
+  if (!outcome || !checksTarget(outcome.outcome)) {
+    return false
+  }
+  return captureTargetOf(snapshot, row.lotId) !== outcomeTarget(outcome)
+}
+
 /**
  * After an operator's Capture edit: a lot they added without evidence enters Match from the
- * identifiers they confirmed, as a revisioned operator identity, whenever those change. Runs in
+ * identifiers they confirmed, as a revisioned operator identity, whenever those change, and any
+ * lot bound to another Part than its outcome set is searched again, to be decided afresh. Runs in
  * the edit's transaction, before it publishes, for batches whose pipeline is `/7`'s.
  */
 export function matchCaptureHooks(config: ProcessingConfig) {
@@ -242,8 +257,22 @@ export function matchCaptureHooks(config: ProcessingConfig) {
       if ((await batchInputVersion(client, config, after.id)) !== 'bench-intake-input/7') {
         return
       }
-      for (const lot of after.lots.filter(operatorLot)) {
+      for (const lot of after.lots.filter((item) => item.retired !== true)) {
         const row = await lockMatch(client, lot.id)
+        // A lot bound to another Part than its outcome set is searched and decided afresh.
+        if (row && (await targetChanged(client, after, row))) {
+          await requestSearch(client, {
+            batchId: after.id,
+            lotId: lot.id,
+            identity: decodeIdentity(row),
+            keys: await requestedKeys(client, row),
+            reason: 'operator',
+          })
+          continue
+        }
+        if (!operatorLot(lot)) {
+          continue
+        }
         const keys = await operatorKeysNow(client, after, lot, row)
         if (!row && !keys.length) {
           continue

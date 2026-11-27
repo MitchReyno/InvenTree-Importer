@@ -763,4 +763,17 @@ describe('Batches without the /7 pipeline keep Inventory', () => {
     )
     expect(client.match).not.toHaveBeenCalled()
   })
+
+  test('the Inventory route of a /7 batch points to Match and shows no Inventory step', async () => {
+    mount(clientFor(midway()), 'inventory')
+
+    expect(
+      await screen.findByText(/This batch’s pipeline has Match in place of Inventory/),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Match' })).toHaveAttribute(
+      'href',
+      `#${batchId}/processing/match`,
+    )
+    expect(screen.queryByRole('heading', { name: /Inventory/ })).toBeNull()
+  })
 })

@@ -1316,74 +1316,77 @@ export function ProcessingWorkspace({
                   still={displayOnly || !fresh.settledAfterHint}
                 />
               )}
-              {view !== 'overview' && view !== 'match' && (
-                <StepPage
-                  batchId={batch.id}
-                  step={view}
-                  source={source}
-                  summary={stepSummary(
-                    view,
-                    lotRows,
-                    snapshot.jobs.filter((job) => onStep(job.stage, 'examine')),
-                    { paused: snapshot.paused === true },
-                  )}
-                  focus={
-                    focusRow && focusStep
-                      ? {
-                          label: focusRow.label,
-                          state: focusStep.state,
-                          hasOutput: focusStep.hasOutput,
-                        }
-                      : undefined
-                  }
-                  onOpenSession={setSessionJobId}
-                  sessionList={sessionList}
-                  sessionRecovery={sessionRecovery}
-                  help={STEP_HELP[view]}
-                  modelWarning={modelGone && <NotOfferedPill name={modelGone} />}
-                  answered={answeredGroup(jobs)}
-                >
-                  {view === 'images' || jobs.length > 0 ? (
-                    <>
-                      {view === 'images' && (
-                        <ProcessingImages
-                          batchId={batch.id}
-                          client={media}
-                          processing={client}
-                          lotLabel={(id) => (activeLotIds.has(id) ? subjects.get(id) : undefined)}
-                          closedReason={imagesClosedReason}
-                          onDirtyChange={drafts.forSource('images')}
-                        />
-                      )}
-                      {view === 'inventory' && (
-                        <ProcessingInventory
-                          batch={batch}
-                          jobs={jobs}
-                          onOpenSession={setSessionJobId}
-                        />
-                      )}
-                      {view === 'examine' && (
-                        <ExamineView
-                          batch={batch}
-                          lead={jobs.find(
-                            (job) => job.stage === 'examine' && job.subject_id === null,
-                          )}
-                          media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
-                          // A question on a shared Part questions every lot that uses it, as in Review.
-                          questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
-                          edit={fenced ? undefined : edit}
-                          locked={answerDirty || drafts.isDirty('instructions')}
-                          askSharper={askSharper}
-                          askSharperReason={revisionlessReason}
-                          requestStore={sharperRequests}
-                          onDirtyChange={drafts.forSource('correction')}
-                        />
-                      )}
-                      {jobCards}
-                    </>
-                  ) : undefined}
-                </StepPage>
-              )}
+              {/* A `/7` batch's Inventory route only points to Match, which replaced it. */}
+              {view !== 'overview' &&
+                view !== 'match' &&
+                !(view === 'inventory' && pipeline === 'match') && (
+                  <StepPage
+                    batchId={batch.id}
+                    step={view}
+                    source={source}
+                    summary={stepSummary(
+                      view,
+                      lotRows,
+                      snapshot.jobs.filter((job) => onStep(job.stage, 'examine')),
+                      { paused: snapshot.paused === true },
+                    )}
+                    focus={
+                      focusRow && focusStep
+                        ? {
+                            label: focusRow.label,
+                            state: focusStep.state,
+                            hasOutput: focusStep.hasOutput,
+                          }
+                        : undefined
+                    }
+                    onOpenSession={setSessionJobId}
+                    sessionList={sessionList}
+                    sessionRecovery={sessionRecovery}
+                    help={STEP_HELP[view]}
+                    modelWarning={modelGone && <NotOfferedPill name={modelGone} />}
+                    answered={answeredGroup(jobs)}
+                  >
+                    {view === 'images' || jobs.length > 0 ? (
+                      <>
+                        {view === 'images' && (
+                          <ProcessingImages
+                            batchId={batch.id}
+                            client={media}
+                            processing={client}
+                            lotLabel={(id) => (activeLotIds.has(id) ? subjects.get(id) : undefined)}
+                            closedReason={imagesClosedReason}
+                            onDirtyChange={drafts.forSource('images')}
+                          />
+                        )}
+                        {view === 'inventory' && (
+                          <ProcessingInventory
+                            batch={batch}
+                            jobs={jobs}
+                            onOpenSession={setSessionJobId}
+                          />
+                        )}
+                        {view === 'examine' && (
+                          <ExamineView
+                            batch={batch}
+                            lead={jobs.find(
+                              (job) => job.stage === 'examine' && job.subject_id === null,
+                            )}
+                            media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
+                            // A question on a shared Part questions every lot that uses it, as in Review.
+                            questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
+                            edit={fenced ? undefined : edit}
+                            locked={answerDirty || drafts.isDirty('instructions')}
+                            askSharper={askSharper}
+                            askSharperReason={revisionlessReason}
+                            requestStore={sharperRequests}
+                            onDirtyChange={drafts.forSource('correction')}
+                          />
+                        )}
+                        {jobCards}
+                      </>
+                    ) : undefined}
+                  </StepPage>
+                )}
               {sessionJob && client.history && client.chat && (
                 <Dialog
                   placement="side"

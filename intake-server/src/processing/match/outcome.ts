@@ -175,6 +175,29 @@ export interface MatchStanding {
   /** The open question, with what it shows (`questionCoveredOf`). */
   openQuestion?: { kind: MatchQuestionKindDto; covered: string }
   identity: MatchIdentityDto
+  /**
+   * The InvenTree Part the lot is bound to in Capture now, or null for a draft or none; omitted
+   * when not known. A binding the outcome didn't set means the operator changed the target.
+   */
+  captureTarget?: string | null
+}
+
+/**
+ * Whether the lot's Capture binding must agree with the outcome: an operator's decision binds it
+ * (to a Part, or to a draft for a new one); a lot left out, or a clear search, doesn't.
+ */
+export function checksTarget(outcome: MatchOutcomeDto) {
+  return outcome.basis.kind === 'decision' && outcome.basis.decision !== 'already_imported'
+}
+
+/** The InvenTree Part an outcome binds the lot to: add stock and fill what's missing name one. */
+export function outcomeTarget(
+  outcome: { outcome: MatchOutcomeDto; targetPartPk: string | null } | undefined,
+) {
+  const basis = outcome?.outcome.basis
+  const existing =
+    basis?.kind === 'decision' && (basis.decision === 'add_stock' || basis.decision === 'fill_gaps')
+  return existing ? outcome!.targetPartPk : null
 }
 
 /** What settling a search does to the lot. */
@@ -230,6 +253,15 @@ export function nextStep(result: MatchResult, standing: MatchStanding): MatchSte
       return { kind: 'keep' }
     }
     return asking('contribution')
+  }
+  // The operator bound the lot to another Part than the outcome did: it is decided afresh.
+  if (
+    standing.outcome &&
+    standing.captureTarget !== undefined &&
+    standing.captureTarget !== outcomeTarget(standing.outcome) &&
+    checksTarget(standing.outcome.outcome)
+  ) {
+    return asking(result.candidates.length ? 'candidates' : 'target_lost')
   }
   if (result.candidates.length) {
     if (

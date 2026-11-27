@@ -8,10 +8,14 @@ import type {
   MatchQuestionDto,
 } from '@invimport/contracts'
 import { inventoryTransport } from '#/inventory/transport.ts'
-import { matchReader } from '#/inventory/match-reads.ts'
+import { matchReader, type MatchReader } from '#/inventory/match-reads.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { matchSearch } from '#/processing/match/search.ts'
-import { settleInTransaction } from '#/processing/match/settle.ts'
+import {
+  settleInTransaction,
+  settlePendingSearches,
+  type MatchSearch,
+} from '#/processing/match/settle.ts'
 import { startMatchSweep } from '#/processing/match/sweep.ts'
 import { matchGate } from '#/processing/match/gate.ts'
 import { decodeRequest } from '#/processing/match/state.ts'
@@ -21,6 +25,9 @@ import { processingFixture } from '../support/processing.ts'
 import { formedBatch, settleMatch, type Fixture } from '../support/lot-pipeline.ts'
 import { call, running, withClients } from '../support/stage-sessions.ts'
 import { runSessionTurn } from '#/agents/session/session-runner.ts'
+import { claimSessionSlot } from '#/agents/session/slots.ts'
+import { saveAgentSettings } from '#/agents/settings.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 
 const MPN = 'RC0603FR-0710KL'
 const YAGEO = '61'
@@ -1020,4 +1027,141 @@ test('archiving a batch mid-search neither blocks its settlement nor the request
     )!.state,
     'clear',
   )
+})
+
+test('a short page or a search past its budget settles as couldn’t search', async (t) => {
+  const { fixture, reader } = await matchFixture(t, RES_0144)
+  const { capture, a } = await operatorLots(fixture, MPN)
+  const state = async () =>
+    (await readMatch(fixture, capture.batch.id)).lots.find((lot) => lot.lot_id === a.id)!.state
+  // InvenTree counts a match its page leaves out.
+  const short: MatchReader = {
+    ...reader,
+    targetContextId: reader.targetContextId,
+    list: (async (operation, timeoutMs) => {
+      const page = await reader.list(operation, timeoutMs)
+      return page.kind === 'found' ? { ...page, rows: [], count: page.count + 1 } : page
+    }) as MatchReader['list'],
+  }
+  await settlePendingSearches(
+    fixture.api.pool,
+    fixture.config,
+    matchSearch(fixture.api.pool, fixture.config, short),
+  )
+  assert.equal(await state(), 'unavailable')
+  // Reads slower than the whole search's budget.
+  const slow: MatchReader = {
+    ...reader,
+    targetContextId: reader.targetContextId,
+    list: (async (operation, timeoutMs) => {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      return reader.list(operation, timeoutMs)
+    }) as MatchReader['list'],
+  }
+  await fixture.http(`/batches/${capture.batch.id}/match/checks`, { lot_ids: [a.id] })
+  await settlePendingSearches(
+    fixture.api.pool,
+    fixture.config,
+    matchSearch(fixture.api.pool, fixture.config, slow, 100),
+  )
+  assert.equal(await state(), 'unavailable')
+  // Once InvenTree reads in full, the lot is asked about.
+  await fixture.http(`/batches/${capture.batch.id}/match/checks`, { lot_ids: [a.id] })
+  await settleMatch(fixture, reader)
+  assert.equal(await state(), 'question')
+})
+
+test('a request that keeps failing waits out a backoff, so the requests behind it settle', async (t) => {
+  const { fixture, reader } = await matchFixture(t)
+  const first = await operatorLots(fixture, MPN)
+  const second = await operatorLots(fixture, '1N4148W-7-F')
+  const failing: MatchSearch = async (request) => {
+    if (request.batch_id === first.capture.batch.id) {
+      throw new Error('search_failed')
+    }
+    return matchSearch(fixture.api.pool, fixture.config, reader)(request)
+  }
+  // The sweep takes one request at a time; the first batch's two fail and wait.
+  for (let sweep = 0; sweep < 4; sweep += 1) {
+    await settlePendingSearches(fixture.api.pool, fixture.config, failing, 1).catch(() => [])
+  }
+  const lots = (await readMatch(fixture, second.capture.batch.id)).lots
+  assert.deepEqual(
+    lots.map((lot) => lot.state),
+    ['clear', 'clear'],
+  )
+  const deferred = await fixture.db.pool.query<{ attempts: number }>(
+    'SELECT attempts FROM processing_match_search WHERE batch_id=$1 AND settlement IS NULL',
+    [first.capture.batch.id],
+  )
+  assert.deepEqual(
+    deferred.rows.map((row) => row.attempts),
+    [1, 1],
+  )
+})
+
+test('a lot relinked in Capture away from its decided Part is asked about again before work runs', async (t) => {
+  const { fixture, reader } = await matchFixture(t, RES_0144)
+  const { capture, part, a } = await operatorLots(fixture, MPN)
+  await settleMatch(fixture, reader)
+  const question = openQuestion(await readMatch(fixture, capture.batch.id), a.id)!
+  const answered = await fixture.http(
+    `/batches/${capture.batch.id}/match/questions/${question.id}/answers`,
+    answer(question, 'add_stock_1'),
+  )
+  assert.equal(answered.status, 200, JSON.stringify(answered.value))
+  const [images] = await stageJobs(fixture, a.id)
+  // The operator moves the lot back to the shared draft: the decision no longer binds it.
+  const current = (await fixture.http(`/batches/${capture.batch.id}`)).value as CaptureSnapshotDto
+  const moved = await fixture.http(`/batches/${capture.batch.id}/edits`, {
+    expected_revision: current.revision,
+    change: { kind: 'lot', id: a.id, part_subject_id: part.id },
+  })
+  assert.equal(moved.status, 200, JSON.stringify(moved.value))
+  const lot = async () =>
+    (await readMatch(fixture, capture.batch.id)).lots.find((item) => item.lot_id === a.id)!
+  assert.equal((await lot()).state, 'searching')
+  const gate = () =>
+    transaction(fixture.runner.pool, (client) => matchGate(client, a.id, 'images', images.match))
+  assert.equal((await gate()).allowed, false)
+  assert.deepEqual(await settleMatch(fixture, reader), ['question'])
+  assert.equal((await lot()).state, 'question')
+  assert.equal((await gate()).allowed, false)
+})
+
+test('a lot Match holds keeps no place in the slot queue ahead of runnable work', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const current = await fixture.http('/agent-settings')
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
+  const crystal = await batch.lot('16 mhz crystal')
+  const led = await batch.lot('led 0603 red')
+  const attempts = [...(await batch.successors(crystal.id)), ...(await batch.successors(led.id))]
+  const created = await fixture.db.pool.query<{ id: string; subject_id: string }>(
+    `SELECT a.id, j.subject_id FROM processing_attempt a JOIN processing_job j ON j.id=a.job_id
+     JOIN agent_session s ON s.attempt_id=a.id
+     WHERE a.id = ANY($1::uuid[]) ORDER BY s.queued_since, a.id`,
+    [attempts.map((row) => row.attempt_id)],
+  )
+  // Hold the lot with the oldest queued session; the other lot's first session, queued behind
+  // it, still claims the one slot.
+  const held = created.rows[0].subject_id
+  const runnable = created.rows.find((row) => row.subject_id !== held)!
+  assert.ok(created.rows.indexOf(runnable) > 0)
+  await transaction(fixture.runner.pool, async (client) => {
+    assert.equal(await claimSessionSlot(client, fixture.config, runnable.id), false)
+  })
+  const checked = await fixture.http(`/batches/${batchId}/match/checks`, { lot_ids: [held] })
+  assert.equal(checked.status, 202, JSON.stringify(checked.value))
+  await transaction(fixture.runner.pool, async (client) => {
+    assert.equal(await claimSessionSlot(client, fixture.config, runnable.id), true)
+  })
 })
