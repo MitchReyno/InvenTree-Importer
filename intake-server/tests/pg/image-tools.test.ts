@@ -260,7 +260,7 @@ test('image tools refuse what the session was not given, or a recipe that does n
   const without = await result(
     tools(batch).inspect_region(imager, { evidence_id: source.evidence_id }),
   )
-  assert.equal(without.error, 'tool_failed')
+  assert.equal(without.error, 'tool_unavailable')
 })
 
 test('propose_images publishes images/1 and queues the app’s rendering of each crop', async (t) => {

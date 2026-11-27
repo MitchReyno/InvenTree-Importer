@@ -227,6 +227,8 @@ export const SessionToolError = Type.Union(
       'outcome_uncertain',
       /** The brief revision asked for is no longer kept; read the current view again. */
       'brief_revision_unavailable',
+      /** This worker has no image tools, such as when no decoder image is configured. */
+      'tool_unavailable',
     ] as const
   ).map((code) => Type.Literal(code)),
 )

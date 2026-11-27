@@ -16,6 +16,8 @@ export interface SyntheticResult {
   brief?: { revision: string; entries: unknown[]; next_page_token: string | null }
   /** fetch_evidence: the exact source to cite once the image was delivered. */
   source?: Record<string, unknown>
+  /** A refused call's code. */
+  error?: string
   /** preview_images: each crop as it would be derived, or why it was refused. */
   crops?: { state: string }[]
 }
@@ -233,7 +235,7 @@ async function publishStageOutput(
 /**
  * A `/7` Images session's output: the lot's first photo fetched, its first page previewed as a
  * whole-page stock image with no adjustments, and proposed through `propose_images`. A lot with no
- * delivered photo, or a preview the decoder refuses, publishes nothing.
+ * delivered photo, or a worker without image tools, publishes nothing; a refused preview fails the turn.
  */
 async function publishImages(
   manifest: SessionDriverContext['manifest'],
@@ -276,8 +278,13 @@ async function publishImages(
     },
   }
   const previewed = await call('preview_images', { crops: [{ label: 'stock', recipe }] })
-  if (!previewed.ok || previewed.crops?.[0]?.state !== 'rendered') {
+  // A worker without image tools publishes nothing; any other refused preview fails the turn
+  // rather than ending it as if Images had nothing to propose.
+  if (previewed.error === 'tool_unavailable') {
     return
+  }
+  if (!previewed.ok || previewed.crops?.[0]?.state !== 'rendered') {
+    throw new Error('synthetic_images_preview_refused')
   }
   const published = await call('propose_images', {
     proposal: {

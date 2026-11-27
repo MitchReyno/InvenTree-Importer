@@ -207498,6 +207498,10 @@
           {
             "const": "brief_revision_unavailable",
             "type": "string"
+          },
+          {
+            "const": "tool_unavailable",
+            "type": "string"
           }
         ]
       },
@@ -220850,6 +220854,10 @@
                   },
                   {
                     "const": "brief_revision_unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "tool_unavailable",
                     "type": "string"
                   }
                 ]

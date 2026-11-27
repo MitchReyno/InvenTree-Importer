@@ -113,13 +113,23 @@ async function selectionFixture() {
   const lots = batch.lots.map((lot) => lot.id)
   const media = mediaEditor(db.pool, binding, batch.id)
 
-  function seed(label: string, seedNumber: number) {
-    return seedStoredPhoto(db.pool, store, {
+  /** A stored photo, linked to every lot unless `linked` is false. */
+  async function seed(label: string, seedNumber: number, linked = true) {
+    const photo = await seedStoredPhoto(db.pool, store, {
       batchId: batch.id,
       actorId: identity.actor,
       label,
       seed: seedNumber,
     })
+    for (const lot of linked ? lots : []) {
+      await media.applied({
+        kind: 'link',
+        evidence_id: photo.evidence,
+        subject_id: lot,
+        linked: true,
+      })
+    }
+    return photo
   }
 
   function selections() {
@@ -516,6 +526,12 @@ test(
       )
       const original = (await fixture.media.snapshot()).evidence[0].versions[0]
       assert.equal(original.state, 'ready')
+      await fixture.media.applied({
+        kind: 'link',
+        evidence_id: original.evidence_id,
+        subject_id: fixture.lots[0],
+        linked: true,
+      })
       const page = original.pages[0]
       const recipe: MediaLitViewRecipeDto = {
         version: 'bench-intake-view/2',
@@ -600,3 +616,19 @@ test(
     }
   },
 )
+
+test('a photo outside the lot is refused', async () => {
+  const fixture = await selectionFixture()
+  try {
+    const photo = await fixture.seed('Unlinked', 9, false)
+    const [lotA] = fixture.lots
+    const before = await fixture.counts()
+    const refused = await fixture.media.edit(
+      selectImages(lotA, lit(photo, { x: 0, y: 0, width: 8, height: 8 }), []),
+    )
+    assert.deepEqual(refused, { refused: 'image_source_outside_lot', status: 409 })
+    assert.deepEqual(await fixture.counts(), before)
+  } finally {
+    await fixture.dispose()
+  }
+})

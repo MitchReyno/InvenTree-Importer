@@ -40667,7 +40667,7 @@ export interface components {
             from: string | null;
             to: string | null;
         };
-        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable";
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable" | "tool_unavailable";
         SessionToolResult: {
             /** @constant */
             ok: true;
@@ -42950,7 +42950,7 @@ export interface components {
         } | {
             /** @constant */
             ok: false;
-            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable";
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable" | "tool_unavailable";
             issues?: {
                 path: string;
                 rule: string;

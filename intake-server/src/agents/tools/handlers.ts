@@ -2253,7 +2253,7 @@ async function runImageTool(
     { capture: false },
     async (client, principal) => {
       if (!operations || !store) {
-        refuse('tool_failed', 'The image tools are not available on this worker.')
+        refuse('tool_unavailable', 'The image tools are not available on this worker.')
       }
       const deliverable = await deliverableVersions(client, principal)
       checked = await plan(client, principal, deliverable, operations!)

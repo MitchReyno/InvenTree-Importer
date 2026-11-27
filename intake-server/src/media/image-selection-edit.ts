@@ -253,6 +253,12 @@ export async function selectImages(
     image,
     evidence: requireRecipeSource(snapshot, image.recipe),
   }))
+  // A lot's images come from its own photos now: linked to it, or holding one of its observations.
+  for (const { evidence } of sources) {
+    if (!evidence.linked_subject_ids.includes(change.subject_id)) {
+      fail('image_source_outside_lot', 409)
+    }
+  }
   const selected = await retainDerivations(client, binding, batchId, snapshot, sources)
   await writeImageSelection(client, binding, {
     batchId,
