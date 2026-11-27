@@ -40,12 +40,9 @@ function iso(time: Date | null) {
   return time === null ? null : time.toISOString()
 }
 
-/** Whether the last attempt failed after the stored list was read. */
+/** Whether the last attempt failed: a publish clears `failure`, so one that is set is the last's. */
 function lastAttemptFailed(row: CatalogRow) {
-  if (row.failure === null || row.attemptedAt === null) {
-    return false
-  }
-  return row.readAt === null || row.attemptedAt.getTime() > row.readAt.getTime()
+  return row.failure !== null && row.attemptedAt !== null
 }
 
 /** Whether the last attempt found the provider lists no models for this sign-in. */

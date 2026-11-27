@@ -314,7 +314,7 @@ test('an alias-only guest reply after a stored list shows the built-in list and 
     provider: 'claude',
     invalidate: true,
   })
-  time.advance(1)
+  // The same millisecond as the stored read: the recorded outcome, not the time, decides.
   await round(catalog)
   const answer = await readModelCatalog(fixture.api.pool, fixture.config)
   assert.equal(answer.claude.state, 'not_listed')
@@ -332,6 +332,28 @@ test('an alias-only guest reply after a stored list shows the built-in list and 
     (await readModelCatalog(fixture.api.pool, fixture.config)).claude.state,
     'stale_sign_in',
   )
+})
+
+test("another route's setup-token answer doesn't defer this route's retry", async (t) => {
+  const fixture = await processingFixture({ profileId: 'native-agent/2' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('host-a', 'host')
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+  assert.equal(state.reads, 1)
+
+  // The shared VM's last attempt on this key, from before a profile change.
+  await fixture.db.pool.query(
+    `UPDATE agent_model_catalog SET failure='not_listed', attempt_in='vm', attempted_at=$4
+      WHERE actor_id=$1 AND target_id=$2 AND target_context_id=$3 AND provider='claude'`,
+    [fixture.config.actorId, fixture.config.targetId, fixture.config.targetContextId, time.now()],
+  )
+  time.advance(CATALOG_RETRY_MS)
+  await round(catalog)
+  assert.equal(state.reads, 2)
 })
 
 test('the API may only read the table and request a refresh, which can invalidate at once', async (t) => {

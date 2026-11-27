@@ -127,6 +127,7 @@ function representative(entries: ClaudeCliEntry[]) {
  * A reply naming no model by its exact ID is the CLI's built-in alias list, which it answers when
  * it couldn't reach Anthropic or doesn't know the account, as with a setup token. It isn't the
  * account's list, so it is refused as `aliasesOnly`: `unavailable` unless the caller knows why.
+ * A reply with no usable entry at all isn't that list either, so it stays `unavailable`.
  */
 export function claudeCliModels(
   models: unknown,
@@ -151,7 +152,7 @@ export function claudeCliModels(
     groups.set(entry.id, group)
   }
   if (exactEntries === 0) {
-    throw new CatalogReadError(aliasesOnly)
+    throw new CatalogReadError(groups.size > 0 ? aliasesOnly : 'unavailable')
   }
   const folded = [...groups.entries()].map(([id, entries]) => {
     const chosen = representative(entries)

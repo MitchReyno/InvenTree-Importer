@@ -315,9 +315,14 @@ export async function clearStaleReads(pool: Pool, scope: CaptureBinding) {
 
 /**
  * Whether a key's row asks for a read now: requested, never read, stale with age, or failed. A
- * provider that lists no models for its sign-in would answer the same, so it waits the full age.
+ * provider that lists no models for its sign-in on `readIn`'s route would answer the same, so it
+ * waits the full age; another route's answer says nothing about this one.
  */
-export function catalogReadDue(row: CatalogRow | undefined, now: Date) {
+export function catalogReadDue(
+  row: CatalogRow | undefined,
+  now: Date,
+  readIn: CatalogRow['attemptIn'],
+) {
   if (!row) {
     return true
   }
@@ -327,11 +332,9 @@ export function catalogReadDue(row: CatalogRow | undefined, now: Date) {
   const time = now.getTime()
   const sinceAttempt = row.attemptedAt === null ? Infinity : time - row.attemptedAt.getTime()
   const retryPassed = sinceAttempt >= CATALOG_RETRY_MS
-  const lastFailed =
-    row.failure !== null &&
-    row.attemptedAt !== null &&
-    (row.readAt === null || row.attemptedAt.getTime() > row.readAt.getTime())
-  if (lastFailed && row.failure === 'not_listed') {
+  // A publish clears `failure`, so one that is set is the last attempt's.
+  const lastFailed = row.failure !== null && row.attemptedAt !== null
+  if (lastFailed && row.failure === 'not_listed' && row.attemptIn === readIn) {
     return sinceAttempt >= CATALOG_MAX_AGE_MS
   }
   if (row.readAt === null || lastFailed) {

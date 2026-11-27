@@ -65,7 +65,26 @@ test("the CLI's offline alias list is refused, so the last good list stays", () 
   refusedAs(() => claudeCliModels(claudeOffline.models), 'unavailable')
 })
 
-test("a guest Claude read answering only aliases lists no models for its setup token", async () => {
+function guestClaude(raw: unknown) {
+  return guestReader(async (_provider, kind) => {
+    if (kind === 'generation') {
+      return { kind: 'generation', generation: 'rev-a' }
+    }
+    return { kind: 'read', read: { generation: 'rev-a', cliVersion: '2.1.319', raw } }
+  }, 'claude')
+}
+
+test('a guest Claude reply with no usable entry stays unavailable, not the setup-token state', async () => {
+  const discarded = [{ value: 'opus[1m]', displayName: 'Opus (1M context)' }]
+  for (const raw of [[], discarded]) {
+    await assert.rejects(
+      guestClaude(raw).read(AbortSignal.timeout(5_000)),
+      (error) => error instanceof CatalogReadError && error.code === 'unavailable',
+    )
+  }
+})
+
+test('a guest Claude read answering only aliases lists no models for its setup token', async () => {
   // The guest signs Claude in with a setup token, which 2.1.319 answers with its aliases only.
   const reader = guestReader(async (_provider, kind) => {
     if (kind === 'generation') {

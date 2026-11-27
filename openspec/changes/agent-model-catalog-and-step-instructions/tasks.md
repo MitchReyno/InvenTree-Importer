@@ -170,11 +170,11 @@
 - **Risks and decisions:** the sessions are real provider turns with their cost; the read itself makes no paid call.
 
 - [x] 6.1 Ask Mitch for the go-ahead, naming the reads and the two short sessions. Given on 2026-11-26.
-- [ ] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Codex's list matched and no turn started; Claude's read stores no list, an open bug (see `notes.md`), so this stays open.
+- [ ] 6.2 Read each provider's list in the real guest and compare it with the provider's own list; confirm no turn started. Codex's list matched and no turn started. Claude's read stored no list, which PR-E recorded as an open bug; the cause is the setup token (see `notes.md`), and PR-G replaces Claude's half of this check with task 8.4, confirming the setup-token state live.
 - [x] 6.3 Run one short session per provider at a non-default effort; confirm its turn completed and its `sent_effort` matches, and record the effective effort as unverified. Claude's session finished; Codex's completed its turn and waits for an answer (see `notes.md`); both recorded `sent_effort: low`.
 - [x] 6.4 Record the outcome in `notes.md` and run `pnpm lint:markdown`.
 - [x] 6.5 Attach the evidence to PR-E.
-- [ ] 6.6 After the Claude fix, measure `bench-claude-catalog`'s memory and task use during a read that returns the full list.
+- [x] 6.6 After the Claude fix, measure `bench-claude-catalog`'s memory and task use during a read that returns the full list. Not applicable after PR-G: a setup token never gets the full list, so no such read runs in the guest. PR-E measured the use during an alias-only read (see `notes.md`).
 
 ## 7. Step instructions in multi-lot groups
 
