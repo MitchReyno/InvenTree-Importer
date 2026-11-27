@@ -38,13 +38,14 @@ CREATE TABLE media_image_selection_item (
   role text NOT NULL CHECK(role IN ('part_image','stock_image')),
   -- The Part image is position 0; stock images are 1 to 8, in the operator's order.
   position smallint NOT NULL CHECK(position BETWEEN 0 AND 8),
-  version_id uuid NOT NULL,
+  -- The derived crop's derivation; its version, once decoded, has the same id.
+  derivation_id uuid NOT NULL,
   PRIMARY KEY(selection_id,position),
   CHECK((role='part_image')=(position=0)),
   FOREIGN KEY(batch_id,selection_id) REFERENCES media_image_selection(batch_id,id),
-  FOREIGN KEY(batch_id,version_id) REFERENCES media_version(batch_id,id)
+  FOREIGN KEY(batch_id,derivation_id) REFERENCES media_derivation(batch_id,id)
 );
-CREATE INDEX media_image_selection_item_version ON media_image_selection_item(version_id);
+CREATE INDEX media_image_selection_item_derivation ON media_image_selection_item(derivation_id);
 CREATE TRIGGER media_image_selection_immutable BEFORE UPDATE OR DELETE ON media_image_selection
   FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
 CREATE TRIGGER media_image_selection_item_immutable BEFORE UPDATE OR DELETE ON media_image_selection_item

@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import {
+  assertMediaLitViewRecipe,
   assertMediaViewMarks,
   assertMediaViewRecipe,
+  type MediaLitViewRecipeDto,
   type MediaViewMarkDto,
   type MediaViewRecipeDto,
 } from '@invimport/contracts/media'
@@ -32,14 +34,19 @@ export const PREVIEW_RETENTION_MS = 24 * 60 * 60 * 1000
 /** The channel the ask transaction notifies so a waiting consumer claims at once. */
 export const FIGURE_RENDER_CHANNEL = 'processing_figure_render'
 
-export interface FigureRenderRequest {
-  recipe: MediaViewRecipeDto
-  /** Present for a marked agent preview, absent for the operator's view. */
-  marks?: MediaViewMarkDto[]
-}
+/** A question figure's view recipe, or an Images crop's recipe `/2`, which has no marks. */
+export type RenderRecipe = MediaViewRecipeDto | MediaLitViewRecipeDto
+
+export type FigureRenderRequest =
+  | {
+      recipe: MediaViewRecipeDto
+      /** Present for a marked agent preview, absent for the operator's view. */
+      marks?: MediaViewMarkDto[]
+    }
+  | { recipe: MediaLitViewRecipeDto; marks?: undefined }
 
 /** The recipe's digest keys a view; a preview is keyed by its marks' digest too. */
-export function figureRecipeDigest(recipe: MediaViewRecipeDto) {
+export function figureRecipeDigest(recipe: RenderRecipe) {
   return sealed(recipe).digest
 }
 
@@ -160,7 +167,7 @@ interface ClaimedRender {
   id: string
   batch_id: string
   purpose: 'view' | 'preview'
-  recipe: MediaViewRecipeDto
+  recipe: RenderRecipe
   marks: MediaViewMarkDto[] | null
   attempts: number
   owner: string
@@ -182,7 +189,8 @@ export interface ViewRenderInput {
   bytes: Buffer
   width: number
   height: number
-  recipe: MediaViewRecipeDto
+  recipe: RenderRecipe
+  /** Always null for a recipe `/2`. */
   marks: MediaViewMarkDto[] | null
 }
 
@@ -310,9 +318,13 @@ async function leaseCandidate(
   }
 }
 
-function retainedRecipe(bytes: Buffer, digest: Buffer): MediaViewRecipeDto {
+function retainedRecipe(bytes: Buffer, digest: Buffer): RenderRecipe {
   verifyBytes(bytes, digest)
   const recipe = strictJson(bytes.toString('utf8'))
+  if (typeof recipe === 'object' && recipe !== null && 'light' in recipe) {
+    assertMediaLitViewRecipe(recipe)
+    return recipe
+  }
   assertMediaViewRecipe(recipe)
   return recipe
 }
@@ -349,7 +361,7 @@ async function settleFailed(
 }
 
 /** The page preview a recipe renders from, or null when the page no longer exists. */
-async function pagePreview(pool: Pool, recipe: MediaViewRecipeDto) {
+async function pagePreview(pool: Pool, recipe: RenderRecipe) {
   const rows = await pool.query<{ digest: string; width: number; height: number }>(
     `SELECT encode(blob_digest,'hex') AS digest, width, height FROM public.media_preview
      WHERE version_id=$1 AND page=$2`,
@@ -548,9 +560,11 @@ export interface SweepOutcome {
   collected: number
 }
 
-/** SQL true when a stored question shows the view render aliased `r`. */
-const VIEW_REFERENCED = `EXISTS (
-  SELECT 1 FROM public.processing_question_figure f WHERE f.recipe_digest=r.recipe_digest)`
+/** SQL true when a stored question or an Images proposal shows the view render aliased `r`. */
+const VIEW_REFERENCED = `(EXISTS (
+  SELECT 1 FROM public.processing_question_figure f WHERE f.recipe_digest=r.recipe_digest)
+  OR EXISTS (
+  SELECT 1 FROM public.processing_proposal_image i WHERE i.recipe_digest=r.recipe_digest))`
 
 /** Views a question shows of a removed photo that still hold outputs, a lease or spent attempts. */
 const REQUEUE_CANDIDATES = `FROM public.processing_figure_render r

@@ -265,7 +265,11 @@ export const MediaLitViewRecipe = object({
 export type MediaViewLightDto = Static<typeof MediaViewLight>
 export type MediaLitViewRecipeDto = Static<typeof MediaLitViewRecipe>
 /** Every recipe a derived version may have: Capture's crops, and the lit crops Images proposes. */
-export const MediaDerivedRecipe = Type.Union([LegacyMediaRecipe, RotatedMediaRecipe, MediaLitViewRecipe])
+export const MediaDerivedRecipe = Type.Union([
+  LegacyMediaRecipe,
+  RotatedMediaRecipe,
+  MediaLitViewRecipe,
+])
 export type MediaDerivedRecipeDto = Static<typeof MediaDerivedRecipe>
 /** A lot keeps at most this many confirmed stock images, beside its one Part image. */
 export const MEDIA_STOCK_IMAGES_MAX = 8

@@ -261,6 +261,37 @@ export function registerMediaRoutes(
       },
     )
     scope.get(
+      '/api/v1/batches/:batchId/processing/images/:proposalId/crops/:index/:size',
+      async (request, reply) => {
+        const values = request.params as Record<string, unknown>
+        const batchId = identifier(values.batchId)
+        const index = typeof values.index === 'string' ? values.index : ''
+        const size = values.size
+        if (!/^([1-9]|10)$/.test(index) || (size !== 'view' && size !== 'thumb')) {
+          fail('not_found', 404)
+        }
+        const crop = { proposalId: identifier(values.proposalId), index: Number(index) }
+        // Authorized on every request, under the batch's capture scope.
+        const rendered = await content.proposalImage(batchId, crop, size as 'view' | 'thumb')
+        const etag = `"${createHash('sha256').update(rendered.bytes).digest('hex')}"`
+        reply
+          .header('content-security-policy', "default-src 'none'; sandbox")
+          .header('cross-origin-resource-policy', 'same-origin')
+          .header('cache-control', 'private, no-cache')
+          .header('etag', etag)
+        if (matchesEntityTag(request.headers['if-none-match'], etag)) {
+          return reply.code(304).send()
+        }
+        reply
+          .header('content-type', rendered.mediaType)
+          .header(
+            'content-disposition',
+            `inline; filename="${crop.proposalId}-${crop.index}-${size as string}.webp"`,
+          )
+        return reply.send(rendered.bytes)
+      },
+    )
+    scope.get(
       '/api/v1/batches/:batchId/media/observations/:resourceId/crop',
       async (request, reply) => {
         const { batchId, resourceId } = parameters(request)

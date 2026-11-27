@@ -4,13 +4,7 @@ import { requireMediaRecipeBounds, MediaEvidence, MediaSnapshot } from '@invimpo
 import { and, asc, count, desc, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import {
-  validate,
-  type CaptureSnapshotDto,
-  type MediaEditDto,
-  type MediaEvidenceDto,
-  type MediaSnapshotDto,
-} from '@invimport/contracts'
+import { validate, type CaptureSnapshotDto, type MediaEditDto } from '@invimport/contracts'
 import { canonicalMedia, idempotentMedia } from './encoding.ts'
 import { appendEvent, sha256 } from '#/db/authority.ts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
@@ -29,6 +23,8 @@ import { mediaSnapshot, operatorMediaSnapshot } from './read.ts'
 import { requirePresentEvidence, requirePresentVersion } from './removal.ts'
 import { removeEvidence, restoreEvidence } from './removal-edit.ts'
 import { DECODER_BUILD } from './repository.ts'
+import { reservedVersionCount, requireActiveLot } from './edit-checks.ts'
+import { selectImages } from './image-selection-edit.ts'
 
 type Change = MediaEditDto['change']
 
@@ -116,28 +112,6 @@ async function linkEvidence(
   )
 }
 
-/** Completed versions consume one slot; only explicit non-publishing outcomes release a reservation. */
-function reservedVersionCount(evidence: MediaEvidenceDto, snapshot: MediaSnapshotDto) {
-  const publishedVersions = new Set(evidence.versions.map((version) => version.id))
-  const nonPublishingOutcomes = new Set([
-    'unsupported',
-    'encrypted',
-    'malformed',
-    'limit_exceeded',
-    'interrupted',
-  ])
-  const pending = snapshot.derivations.filter((derivation) => {
-    if (derivation.evidence_id !== evidence.id) {
-      return false
-    }
-    if (derivation.version_id && publishedVersions.has(derivation.version_id)) {
-      return false
-    }
-    return !nonPublishingOutcomes.has(derivation.state)
-  })
-  return evidence.versions.length + pending.length
-}
-
 async function requestDerivation(
   client: PoolClient,
   binding: CaptureBinding,
@@ -204,14 +178,6 @@ async function requestDerivation(
       build: DECODER_BUILD,
     }),
   )
-}
-
-/** Retired lots are frozen history: evidence links and attachments no longer change. */
-function requireActiveLot(capture: CaptureSnapshotDto, subjectId: string) {
-  const lot = capture.lots.find((subject) => subject.id === subjectId)
-  if (lot?.retired === true) {
-    fail('lot_retired', 409)
-  }
 }
 
 async function selectAttachment(
@@ -400,6 +366,9 @@ export async function editMedia(
             break
           case 'select_attachment':
             await selectAttachment(client, binding, batchId, revision, change, capture.snapshot)
+            break
+          case 'select_images':
+            await selectImages(client, binding, { batchId, revision, change }, capture.snapshot)
             break
         }
         await advanceMediaRevision(client, batchId)
