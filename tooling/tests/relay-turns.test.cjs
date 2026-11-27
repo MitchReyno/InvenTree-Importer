@@ -239,3 +239,18 @@ test('the default capacity is the most slots a session limit can set', async () 
   const max = slots.match(/export const MAX_SESSION_SLOTS = (\d+)/)[1]
   assert.match(relaySource, new RegExp(`const DEFAULT_RELAY_TURNS = ${max}\\b`))
 })
+
+test("pnpm dev waits for the worker's startup check of every held VM turn", async () => {
+  const read = (path) => readFile(resolve(__dirname, '../..', path), 'utf8')
+  const slots = await read('intake-server/src/agents/session/slots.ts')
+  const held = await read('intake-server/src/agents/held-capacity.ts')
+  const dev = await read('tooling/dev.cjs')
+  const max = Number(slots.match(/export const MAX_SESSION_SLOTS = (\d+)/)[1])
+  const check = Number(
+    held.match(/export const STARTUP_REAP_CHECK_MS = ([\d_]+)/)[1].replace(/_/g, ''),
+  )
+  const [, base, count, each] = dev.match(/const AGENTS_READY_MS = ([\d_]+) \+ (\d+) \* ([\d_]+)/)
+  assert.equal(Number(count), max)
+  assert.equal(Number(each.replace(/_/g, '')), check)
+  assert.ok(Number(base.replace(/_/g, '')) > 0)
+})

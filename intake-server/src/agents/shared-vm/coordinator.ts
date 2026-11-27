@@ -118,8 +118,11 @@ const TURN_TIMING: TurnTiming = {
 const MAX_LANE_OFFERS = MAX_SESSION_SLOTS
 /** How long a relay has to write its whole offer line. */
 const OFFER_LINE_MS = 5_000
-/** How long a route waits to start another guest after one closed before it was admitted. */
-const LAUNCH_RETRY_MS = 1_000
+/**
+ * How long a route starts no other guest after one closed before it was admitted, covering the
+ * relay's removal of a guest still starting its containers.
+ */
+const STARTED_TEARDOWN_MS = 30_000
 /** How long a journal probe may take, its guest's start on demand included, as a turn's wait. */
 const JOURNAL_PROBE_MS = 45_000
 /** The first byte of a TLS handshake record: a guest, status or catalogue connection. */
@@ -196,7 +199,7 @@ export async function startSessionBridge(
   const catalogPeers = { claude: new Map<TLSSocket, Frames>(), codex: new Map<TLSSocket, Frames>() }
   // Whether each provider's latest turn guest greeted with the model catalogue capability.
   const catalogCapable = new Map<StatusProvider, boolean>()
-  const offers = new LaneOffers(MAX_LANE_OFFERS, LAUNCH_RETRY_MS)
+  const offers = new LaneOffers(MAX_LANE_OFFERS, STARTED_TEARDOWN_MS)
   const startupGate = new StartupGate(turnTiming.startupHoldMs)
   // The VM's memory as the latest turn greeting reported it; an older guest reports none.
   let vmMemory: number | undefined
@@ -679,6 +682,11 @@ export async function startSessionBridge(
     return routeKey({ subscription: subscriptions.get(socket), toolWorker: rich.has(socket) })
   }
 
+  /** Whether an admitted turn connection of the route is open, so its turns are busy. */
+  function busyConnection(route: GuestRoute) {
+    return [...admittedTurns].some((socket) => servesRoute(socket, route))
+  }
+
   /** Connections admitted and offers made for the route so far, which only ever grow. */
   function admissionsOf(route: GuestRoute) {
     return (routeAdmissions.get(routeKey(route)) ?? 0) + offers.offersMade(routeKey(route))
@@ -743,10 +751,12 @@ export async function startSessionBridge(
     deadline: number,
     signal: AbortSignal,
   ) {
-    const leave = offers.wait(routeKey(route))
+    const key = routeKey(route)
+    const leave = offers.wait(key)
     const waiting = AbortSignal.any([signal, lifetime.signal])
     try {
       const admittedBefore = admissionsOf(route)
+      const failedBefore = offers.failedStarts(key)
       // A busy connection or an offer of the route at any point shows its relay is running.
       let relaySeen = routeConnected(route)
       for (;;) {
@@ -758,7 +768,12 @@ export async function startSessionBridge(
         if (Date.now() >= deadline) {
           // So does one admitted or offered during the wait, even if it closed between samples.
           relaySeen ||= admissionsOf(route) !== admittedBefore
-          throw noConnection(route, relaySeen)
+          // But a relay whose every guest failed before admission can't run turns at all.
+          const unusable =
+            offers.failedStarts(key) !== failedBefore &&
+            !offers.hasStarting(key) &&
+            !busyConnection(route)
+          throw noConnection(route, relaySeen && !unusable)
         }
         demand(route)
         await delay(100, undefined, { signal: waiting }).catch((error: unknown) => {

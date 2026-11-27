@@ -263,3 +263,46 @@ test('a claim waiting for the slot lock reads the VM capacity once it has the lo
   holder.release()
   assert.equal(await waiting, false)
 })
+
+test('an established session whose retry lost its only wake item goes back to idle', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+  let opened = 0
+
+  assert.equal(
+    await runWith(fixture, session.attempt, async () => {
+      throw guestAdmissionTimeout()
+    }),
+    'queued',
+  )
+  // It already has a provider conversation, woken from finished for one item since withdrawn.
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET native_session_id='00000000-0000-4000-8000-0000000000aa' WHERE attempt_id=$1",
+    [session.attempt],
+  )
+  await fixture.db.pool.query(
+    "INSERT INTO agent_session_resume(attempt_id,from_state) VALUES($1,'finished')",
+    [session.attempt],
+  )
+  const item = randomUUID()
+  await fixture.db.pool.query(
+    "INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key) VALUES($1,$2,1,'evidence',$3,$4)",
+    [item, session.job, { evidence_id: randomUUID(), version_id: randomUUID() }, item],
+  )
+  await fixture.db.pool.query('INSERT INTO agent_session_inbox_withdrawal(item_id) VALUES($1)', [
+    item,
+  ])
+
+  const state = await runWith(fixture, session.attempt, async () => {
+    opened++
+  })
+  assert.equal(opened, 0)
+  assert.equal(state, 'finished')
+  const row = await fixture.db.pool.query<{ startup_timeouts: number }>(
+    'SELECT startup_timeouts FROM agent_session WHERE attempt_id=$1',
+    [session.attempt],
+  )
+  assert.equal(row.rows[0].startup_timeouts, 0)
+})

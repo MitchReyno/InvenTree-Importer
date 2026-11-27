@@ -2,7 +2,7 @@
 
 ### Requirement: A startup timeout goes back to the queue a bounded number of times
 
-A turn whose provider CLI's admission (limit 45 s) times out, directly or as the cause a VM guest reports, SHALL go back to the queue as a turn that ran: turn count kept, no diagnostic, slot and capability released. This SHALL happen at most twice in a row; the next such timeout SHALL fail the session with code `agent_admission_timeout` and a summary naming the CLI start. Any other settled turn SHALL reset the count.
+A turn whose provider CLI's admission times out (Claude's pre-input admission, limit 45 s), directly or as the cause a VM guest reports, SHALL go back to the queue as a turn that ran: turn count kept, no diagnostic, slot and capability released. This SHALL happen at most twice in a row; the next such timeout SHALL fail the session with code `agent_admission_timeout` and a summary naming the CLI start. Any other settled turn SHALL reset the count.
 
 #### Scenario: One startup timeout
 

@@ -1,6 +1,6 @@
 import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { processingFixture } from '../support/processing.ts'
@@ -117,7 +117,7 @@ async function twoSessions(t: TestContext, guest: GuestOptions) {
       new AbortController().signal,
     )
 
-  return { root, fixture, sessions, run }
+  return { root, fixture, sessions, run, port }
 }
 
 async function sessionRow(fixture: Fixture, attemptId: string) {
@@ -166,6 +166,22 @@ async function turnLog(root: string) {
     turns.set(attemptId, turn)
   }
   return turns
+}
+
+/** Resolves once a process other than this one has a connection open to the coordinator. */
+async function relayConnected(port: number) {
+  const deadline = Date.now() + 15_000
+  for (;;) {
+    const peers = spawnSync('lsof', ['-nP', `-iTCP@127.0.0.1:${port}`, '-sTCP:ESTABLISHED', '-t'], {
+      encoding: 'utf8',
+    })
+    const pids = peers.stdout.split('\n').filter((pid) => pid && pid !== String(process.pid))
+    if (pids.length) {
+      return
+    }
+    assert.ok(Date.now() < deadline, 'the relay never connected')
+    await new Promise((settle) => setTimeout(settle, 100))
+  }
 }
 
 /** When each fake guest the relay started began, in order. */
@@ -246,9 +262,11 @@ test(
 )
 
 test('an idle relay starts no guest', { timeout: 60_000 }, async (t) => {
-  const { root, sessions, run } = await twoSessions(t, { holdMs: 0 })
-  // Long enough for a relay to connect and start a ready guest.
-  await new Promise((settle) => setTimeout(settle, 5_000))
+  const { root, sessions, run, port } = await twoSessions(t, { holdMs: 0 })
+  // The relay's lane is connected to the coordinator...
+  await relayConnected(port)
+  // ...and long after, it has started no guest.
+  await new Promise((settle) => setTimeout(settle, 3_000))
   assert.equal(await launches(root), 0)
   // The relay was connected all along: a turn gets a guest started for it.
   assert.equal(await run(sessions[0]), 'finished')

@@ -50,6 +50,14 @@ const baseEnv = Object.fromEntries(
 )
 // The same environment `pnpm vm:setup` gives Lima and Docker, so both use the same engine.
 const vmEnv = hostToolEnv()
+
+/**
+ * The session worker reports ready once its startup check of held slots is done: up to 45 s for
+ * each of up to 8 held VM turns, asked one at a time (`STARTUP_REAP_CHECK_MS`, `MAX_SESSION_SLOTS`
+ * in intake-server/src/agents), on top of an ordinary start.
+ */
+const AGENTS_READY_MS = 30_000 + 8 * 45_000
+
 // Survive source reloads: the browser keeps its connection through these.
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
 // The VM tunnel does not use the app services, and the relays reconnect to the restarted worker.
@@ -512,7 +520,9 @@ async function main() {
           tailnet,
           targetEnv,
         })
-        await child('agents', worker.entry, agentEnv, (text) => text.includes(worker.ready)).ready()
+        await child('agents', worker.entry, agentEnv, (text) => text.includes(worker.ready)).ready(
+          AGENTS_READY_MS,
+        )
       } else {
         await child('processing', 'src/dev/processing-main.ts', {}, (text) =>
           text.includes('DEV_PROCESSING_READY'),

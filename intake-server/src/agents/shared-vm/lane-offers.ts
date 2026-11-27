@@ -38,11 +38,16 @@ export class LaneOffers {
   private readonly waiters = new Map<string, number>()
   private readonly offered = new Map<string, number>()
   private readonly retryAt = new Map<string, number>()
+  private readonly failed = new Map<string, number>()
 
-  /** `retryMs` spaces the starts of a route whose last guest closed before it was admitted. */
+  /**
+   * `teardownMs` is how long a route starts no other guest after one closed before it was
+   * admitted: its relay may still be starting or removing that guest's containers, and says
+   * nothing when they are gone, so this is a time bound rather than a confirmation.
+   */
   constructor(
     readonly limit: number,
-    private readonly retryMs: number,
+    private readonly teardownMs: number,
   ) {}
 
   /** Open offers across routes. */
@@ -114,12 +119,23 @@ export class LaneOffers {
     this.offers.get(route)!.delete(socket)
     starting.set(peer, socket)
     socket.once('close', () => {
-      // Closed before it was admitted: the next start of this route waits a little.
-      if (starting.delete(peer)) {
-        this.retryAt.set(route, Date.now() + this.retryMs)
+      // Closed before it was admitted: the next start of this route waits for its teardown.
+      if (starting!.delete(peer)) {
+        this.retryAt.set(route, Date.now() + this.teardownMs)
+        this.failed.set(route, (this.failed.get(route) ?? 0) + 1)
       }
     })
     return socket
+  }
+
+  /** Guests of the route that closed before they were admitted, so far; it only ever grows. */
+  failedStarts(route: string) {
+    return this.failed.get(route) ?? 0
+  }
+
+  /** Whether a guest of the route has been asked for and not yet admitted or closed. */
+  hasStarting(route: string) {
+    return (this.starting.get(route)?.size ?? 0) > 0
   }
 
   /** Whether the connection from `peer` was started from an offer and not yet admitted. */

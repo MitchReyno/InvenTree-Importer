@@ -949,12 +949,19 @@ export async function runSessionTurn(
       }
       // A resume whose only pending items were withdrawn since it was queued has nothing to do:
       // the session goes back to the state its last turn left it in, without a turn.
-      // A turn requeued after a startup timeout never reached the provider, so it still owes it
-      // its opening and isn't such a resume.
-      const resumeOnly = row.turnCount > 0n && row.startupTimeouts === 0
-      if (resumeOnly && (await withdrawnOnly(client, row.jobId))) {
+      // A first turn requeued after a startup timeout never reached the provider, so it still
+      // owes the session its opening and isn't such a resume.
+      const openingOwed = row.startupTimeouts > 0 && row.providerSessionId === null
+      if (row.turnCount > 0n && !openingOwed && (await withdrawnOnly(client, row.jobId))) {
         const idle = await stateBeforeWake(client, attemptId, row.jobId)
         const settled = await setSessionState(client, attemptId, row.jobId, idle, ['queued'])
+        // The retry it was queued for is abandoned, and with it any run of startup timeouts.
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .update(agentSessions)
+            .set({ startupTimeouts: 0 })
+            .where(eq(agentSessions.attemptId, attemptId)),
+        )
         await publish(client, row.batchId)
         if (settled === 'cancelled') {
           return 'cancelled' as const
